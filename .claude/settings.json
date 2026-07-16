@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm test)",
+      "Bash(npm run build)",
+      "Bash(npm run dev)",
+      "Bash(npm run lint)",
+      "PowerShell(npm test)",
+      "PowerShell(npm run build)",
+      "PowerShell(npm run lint)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git checkout *)",
+      "Bash(git fetch *)",
+      "PowerShell(git add *)",
+      "PowerShell(git commit *)",
+      "PowerShell(git checkout *)",
+      "PowerShell(git status)",
+      "PowerShell(git diff *)",
+      "PowerShell(git log *)",
+      "PowerShell(& \"C:\\Program Files\\GitHub CLI\\gh.exe\" pr view *)",
+      "PowerShell(& \"C:\\Program Files\\GitHub CLI\\gh.exe\" pr list *)",
+      "PowerShell(& \"C:\\Program Files\\GitHub CLI\\gh.exe\" run list *)",
+      "PowerShell(& \"C:\\Program Files\\GitHub CLI\\gh.exe\" run view *)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/lint-file.mjs\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
