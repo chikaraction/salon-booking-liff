@@ -44,17 +44,17 @@
 
 ### テーブル
 
-| テーブル | 役割 | 主な列 |
-|---|---|---|
-| `salon_settings` | 店舗設定(単一行) | name |
-| `business_hours` | 店の営業時間(曜日ごと) | weekday(PK), is_open, open_time, close_time |
-| `staff` | スタッフ(施術者 兼 管理画面ユーザー) | name, role('owner'/'staff'), auth_user_id(→auth.users, 招待制), photo_url, bio, display_order, is_active |
-| `staff_working_hours` | スタッフの週次勤務パターン | staff_id, weekday, start_time, end_time, break_start, break_end |
-| `menus` | メニュー | name, category(自由入力), price, duration_minutes, display_order, is_active |
-| `customers` | 顧客 | line_user_id(unique, 電話客はNULL), name, phone, note |
-| `reservations` | 予約+予約不可ブロック | customer_id(blockはNULL), staff_id, during(tstzrange), status('confirmed'/'cancelled'), kind('booking'/'block'), source('line'/'admin'), note, cancelled_at |
-| `reservation_menus` | 予約⇔メニュー(複数選択可) | reservation_id, menu_id, menu_name/price/duration_minutes(予約時点のスナップショット) |
-| `push_messages` | LINEプッシュ送信ログ(無料枠200通の可視化用: ADR-002) | reservation_id, type('reminder'等), sent_at |
+| テーブル              | 役割                                                 | 主な列                                                                                                                                                      |
+| --------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `salon_settings`      | 店舗設定(単一行)                                     | name                                                                                                                                                        |
+| `business_hours`      | 店の営業時間(曜日ごと)                               | weekday(PK), is_open, open_time, close_time                                                                                                                 |
+| `staff`               | スタッフ(施術者 兼 管理画面ユーザー)                 | name, role('owner'/'staff'), auth_user_id(→auth.users, 招待制), photo_url, bio, display_order, is_active                                                    |
+| `staff_working_hours` | スタッフの週次勤務パターン                           | staff_id, weekday, start_time, end_time, break_start, break_end                                                                                             |
+| `menus`               | メニュー                                             | name, category(自由入力), price, duration_minutes, display_order, is_active                                                                                 |
+| `customers`           | 顧客                                                 | line_user_id(unique, 電話客はNULL), name, phone, note                                                                                                       |
+| `reservations`        | 予約+予約不可ブロック                                | customer_id(blockはNULL), staff_id, during(tstzrange), status('confirmed'/'cancelled'), kind('booking'/'block'), source('line'/'admin'), note, cancelled_at |
+| `reservation_menus`   | 予約⇔メニュー(複数選択可)                            | reservation_id, menu_id, menu_name/price/duration_minutes(予約時点のスナップショット)                                                                       |
+| `push_messages`       | LINEプッシュ送信ログ(無料枠200通の可視化用: ADR-002) | reservation_id, type('reminder'等), sent_at                                                                                                                 |
 
 ### EXCLUDE制約(ADR-004の精緻化)
 
