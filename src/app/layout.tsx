@@ -1,11 +1,22 @@
 import type { Metadata } from "next";
-import { Noto_Sans_JP } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-// ADR-006: フォントは Noto Sans JP(無難で高可読)
-const notoSansJP = Noto_Sans_JP({
-  variable: "--font-noto-sans-jp",
-  subsets: ["latin"],
+// ADR-006の選択肢のうち LINE Seed JP を採用(公式配布のWOFF2、OFLライセンス)
+const lineSeedJP = localFont({
+  src: [
+    {
+      path: "../fonts/LINESeedJP_OTF_Rg.woff2",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "../fonts/LINESeedJP_OTF_Bd.woff2",
+      weight: "700",
+      style: "normal",
+    },
+  ],
+  variable: "--font-line-seed-jp",
 });
 
 export const metadata: Metadata = {
@@ -19,7 +30,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ja" className={`${notoSansJP.variable} h-full antialiased`}>
+    <html lang="ja" className={`${lineSeedJP.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-sans">{children}</body>
     </html>
   );
