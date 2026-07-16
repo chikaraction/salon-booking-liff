@@ -20,11 +20,14 @@ Next.js(App Router) / Supabase(PostgreSQL + Auth) / Cloudflare / Tailwind + shad
 ```sh
 npm run dev      # 開発サーバー
 npm run build    # 本番ビルド + 型チェック
-npm test         # ユニットテスト(src/lib/ の純粋ロジック)
-npm run lint     # Lint
+npm test         # ユニットテスト(src/lib/ の純粋ロジック、Vitest)
+npm run lint     # Lint(ESLint)
+npm run format   # Prettierで全体整形
 ```
 
-(雛形構築時に実際のコマンドへ更新すること)
+スキーマ変更: `supabase/migrations/` にマイグレーションを追加し
+`npx supabase db push` で適用(ローカルにDockerはない。制約の実機検証は
+verify-booking スキル、SQLの事前検証はPGliteが使える)。
 
 ## 設計規約
 
