@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatJstDateTimeLabel,
   formatYen,
+  groupMenusByCategory,
   isSlotTakenError,
   summarizeSelectedMenus,
   validateCustomerInfo,
@@ -27,6 +28,39 @@ describe("summarizeSelectedMenus: 選択メニューの合計", () => {
       totalPrice: 0,
       totalDurationMinutes: 0,
     });
+  });
+});
+
+describe("groupMenusByCategory: メニューのカテゴリ別グループ化", () => {
+  const cut = { id: "cat-cut", name: "カット", description: "説明文" };
+  const color = { id: "cat-color", name: "カラー", description: null };
+  const menuA = {
+    id: "m1",
+    name: "カット",
+    price: 4950,
+    durationMinutes: 60,
+    categoryId: "cat-cut",
+  };
+  const menuB = {
+    id: "m2",
+    name: "リタッチカラー",
+    price: 6600,
+    durationMinutes: 90,
+    categoryId: "cat-color",
+  };
+
+  it("カテゴリ・メニューとも入力の並び(display_order順)を保つ", () => {
+    const groups = groupMenusByCategory([cut, color], [menuA, menuB]);
+    expect(groups.map((g) => g.name)).toEqual(["カット", "カラー"]);
+    expect(groups[0].menus).toEqual([
+      { id: "m1", name: "カット", price: 4950, durationMinutes: 60 },
+    ]);
+    expect(groups[1].description).toBeNull();
+  });
+
+  it("メニューが1件もないカテゴリは除外する", () => {
+    const groups = groupMenusByCategory([cut, color], [menuA]);
+    expect(groups.map((g) => g.id)).toEqual(["cat-cut"]);
   });
 });
 

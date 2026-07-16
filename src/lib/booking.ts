@@ -38,6 +38,48 @@ export function summarizeSelectedMenus(menus: SelectedMenu[]): MenuSummary {
   };
 }
 
+export type MenuCategoryInput = {
+  id: string;
+  name: string;
+  description: string | null;
+};
+
+export type CategorizedMenu = {
+  id: string;
+  name: string;
+  price: number;
+  durationMinutes: number;
+  categoryId: string;
+};
+
+export type MenuCategoryGroup = MenuCategoryInput & {
+  menus: Array<Omit<CategorizedMenu, "categoryId">>;
+};
+
+/**
+ * メニューをカテゴリごとにグループ化する(客側メニュー選択画面用)。
+ * カテゴリ・メニューとも入力の並び(display_order順)を保ち、
+ * 表示できるメニューが1件もないカテゴリは見出しごと出さないため除外する。
+ */
+export function groupMenusByCategory(
+  categories: MenuCategoryInput[],
+  menus: CategorizedMenu[],
+): MenuCategoryGroup[] {
+  return categories
+    .map((category) => ({
+      ...category,
+      menus: menus
+        .filter((menu) => menu.categoryId === category.id)
+        .map((menu) => ({
+          id: menu.id,
+          name: menu.name,
+          price: menu.price,
+          durationMinutes: menu.durationMinutes,
+        })),
+    }))
+    .filter((group) => group.menus.length > 0);
+}
+
 /** 全角数字を半角に変換する */
 function toHalfWidthDigits(value: string): string {
   return value.replace(/[０-９]/g, (c) =>

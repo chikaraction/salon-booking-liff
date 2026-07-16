@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  calendarWeekday,
   computeStaffDaySlots,
+  isCalendarDate,
   isWithinBookingWindow,
   jstCalendarDate,
   jstDateTime,
@@ -65,6 +67,26 @@ describe("jstCalendarDate", () => {
     expect(jstCalendarDate(new Date("2026-07-17T20:00:00Z"))).toBe(
       "2026-07-18",
     );
+  });
+});
+
+describe("calendarWeekday", () => {
+  it("JSTの暦日の曜日を返す(0=日曜〜6=土曜。DBのweekday列と同じ)", () => {
+    expect(calendarWeekday("2026-07-18")).toBe(6); // 土曜
+    expect(calendarWeekday("2026-07-19")).toBe(0); // 日曜
+  });
+});
+
+describe("isCalendarDate", () => {
+  it("実在する YYYY-MM-DD の暦日を受理する", () => {
+    expect(isCalendarDate("2026-07-18")).toBe(true);
+  });
+
+  it("形式違い・実在しない日付は拒否する", () => {
+    expect(isCalendarDate("2026/07/18")).toBe(false);
+    expect(isCalendarDate("2026-7-18")).toBe(false);
+    expect(isCalendarDate("2026-02-30")).toBe(false);
+    expect(isCalendarDate("")).toBe(false);
   });
 });
 

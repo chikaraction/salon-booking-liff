@@ -1,0 +1,39 @@
+import { describe, expect, it } from "vitest";
+
+import { parseTstzrange } from "./tstzrange";
+
+describe("parseTstzrange: PostgRESTが返すtstzrange文字列の変換", () => {
+  it("引用符付き・+00オフセットの標準形式を変換する", () => {
+    const range = parseTstzrange(
+      '["2026-07-18 02:00:00+00","2026-07-18 03:00:00+00")',
+    );
+    expect(range.start.toISOString()).toBe("2026-07-18T02:00:00.000Z");
+    expect(range.end.toISOString()).toBe("2026-07-18T03:00:00.000Z");
+  });
+
+  it("+09 など UTC以外のオフセットもUTCのDateに変換する", () => {
+    const range = parseTstzrange(
+      '["2026-07-18 11:00:00+09","2026-07-18 12:30:00+09")',
+    );
+    expect(range.start.toISOString()).toBe("2026-07-18T02:00:00.000Z");
+    expect(range.end.toISOString()).toBe("2026-07-18T03:30:00.000Z");
+  });
+
+  it("引用符なし・+00:00形式・小数秒付きも受け付ける", () => {
+    const range = parseTstzrange(
+      "[2026-07-18T02:00:00.123+00:00,2026-07-18T03:00:00.456+00:00)",
+    );
+    expect(range.start.toISOString()).toBe("2026-07-18T02:00:00.123Z");
+    expect(range.end.toISOString()).toBe("2026-07-18T03:00:00.456Z");
+  });
+
+  it("想定外の形式はエラーにする", () => {
+    expect(() => parseTstzrange("")).toThrow();
+    expect(() => parseTstzrange("empty")).toThrow();
+    // 半開区間 [開始, 終了) 以外はCHECK制約上あり得ないため想定外
+    expect(() =>
+      parseTstzrange('("2026-07-18 02:00:00+00","2026-07-18 03:00:00+00"]'),
+    ).toThrow();
+    expect(() => parseTstzrange('["not-a-date","also-not-a-date")')).toThrow();
+  });
+});

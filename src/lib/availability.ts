@@ -67,6 +67,23 @@ export function addCalendarDays(date: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** JSTの暦日("YYYY-MM-DD")の曜日を返す(0=日曜〜6=土曜。DBのweekday列と同じ) */
+export function calendarWeekday(date: string): number {
+  return new Date(`${date}T00:00:00Z`).getUTCDay();
+}
+
+/** "YYYY-MM-DD" 形式の実在する暦日かどうかを判定する(クライアント入力の検証用) */
+export function isCalendarDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  // Dateは "2026-02-30" のような実在しない日を翌月に繰り越して解釈するため、
+  // 往復変換して元の文字列に戻ることを確認する
+  return (
+    !Number.isNaN(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === value
+  );
+}
+
 /** 今日(JST)から booking_window_days 日後までの日付だけ予約を受け付ける */
 export function isWithinBookingWindow(
   date: string,
