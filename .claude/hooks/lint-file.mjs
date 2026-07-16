@@ -45,7 +45,7 @@ run(["prettier", "--write", filePath]);
 const eslintOut = run(["eslint", "--fix", filePath]);
 if (eslintOut && eslintOut.trim()) {
   console.error(
-    `自動修正できないlintエラーが残っています。修正してください:\n${eslintOut.trim()}`
+    `自動修正できないlintエラーが残っています。修正してください:\n${eslintOut.trim()}`,
   );
   process.exit(2); // exit 2 のみがブロック+フィードバックとして扱われる
 }
