@@ -136,6 +136,11 @@ export function isSlotTakenError(error: unknown): boolean {
   );
 }
 
+/** メニュー名を「カット + カラー」形式で連結する(チップ・完了画面用) */
+export function menuNamesLabel(names: string[]): string {
+  return names.join(" + ");
+}
+
 /** 金額を「¥11,550」形式(半角¥ + 3桁区切り)にする */
 export function formatYen(price: number): string {
   return `¥${String(price).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;

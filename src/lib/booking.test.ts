@@ -5,6 +5,7 @@ import {
   formatYen,
   groupMenusByCategory,
   isSlotTakenError,
+  menuNamesLabel,
   summarizeSelectedMenus,
   validateCustomerInfo,
 } from "./booking";
@@ -129,6 +130,11 @@ describe("isSlotTakenError: EXCLUDE制約違反の判定", () => {
 });
 
 describe("表示フォーマット", () => {
+  it("メニュー名を「カット + カラー」形式で連結する", () => {
+    expect(menuNamesLabel(["カット", "カラー"])).toBe("カット + カラー");
+    expect(menuNamesLabel(["カット"])).toBe("カット");
+  });
+
   it("金額を「¥11,550」形式にする", () => {
     expect(formatYen(11550)).toBe("¥11,550");
     expect(formatYen(0)).toBe("¥0");
