@@ -427,9 +427,7 @@ export function BookingWizard({
           chips={chips}
         />
       )}
-      {step === "confirm" && (
-        <WizardHeader step={4} title="内容の確認" chips={chips} />
-      )}
+      {step === "confirm" && <WizardHeader step={4} title="内容の確認" />}
 
       {/* 変更モード: 変更元がわかる控えめな表示(完了画面では出さない) */}
       {changeState.status === "ready" && step !== "complete" && (
