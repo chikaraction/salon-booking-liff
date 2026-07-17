@@ -136,6 +136,51 @@ export function isSlotTakenError(error: unknown): boolean {
   );
 }
 
+/**
+ * UUID形式(ハイフン区切りの8-4-4-4-12の16進、大文字小文字は問わない)か判定する。
+ * URL由来の予約IDをDBに問い合わせる前の形式チェックに使う
+ * (不正な形式をuuid列と比較するとPostgRESTがエラーを返すため)。
+ */
+export function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+}
+
+export type ChangeReservationOutcome =
+  | { result: "ok"; reservationId: string }
+  | { result: "not_found" }
+  | { result: "deadline_passed" }
+  | { result: "unexpected" };
+
+/**
+ * 変更RPC(change_reservation)のjsonb戻り値を判別可能な型に解釈する。
+ * 想定形: {"result":"ok","reservation_id":"<新ID>"} / {"result":"not_found"} /
+ * {"result":"deadline_passed"}。それ以外(okなのにIDがない等)は unexpected。
+ */
+export function parseChangeReservationResult(
+  data: unknown,
+): ChangeReservationOutcome {
+  if (typeof data !== "object" || data === null || !("result" in data)) {
+    return { result: "unexpected" };
+  }
+  const result = (data as { result: unknown }).result;
+  if (result === "ok") {
+    const reservationId = (data as { reservation_id?: unknown }).reservation_id;
+    if (typeof reservationId === "string" && reservationId !== "") {
+      return { result: "ok", reservationId };
+    }
+    return { result: "unexpected" };
+  }
+  if (result === "not_found") {
+    return { result: "not_found" };
+  }
+  if (result === "deadline_passed") {
+    return { result: "deadline_passed" };
+  }
+  return { result: "unexpected" };
+}
+
 /** メニュー名を「カット + カラー」形式で連結する(チップ・完了画面用) */
 export function menuNamesLabel(names: string[]): string {
   return names.join(" + ");

@@ -381,6 +381,70 @@ export async function findCustomerByLineUserId(
 }
 
 // ---------------------------------------------------------------------------
+// 変更元予約の取得(M3: 変更フロー)
+// ---------------------------------------------------------------------------
+
+type OwnBookingRow = {
+  id: string;
+  staff_id: string;
+  during: string; // tstzrangeは文字列で返る
+  note: string | null;
+  reservation_menus: Array<{ menu_id: string | null }>;
+};
+
+export type OwnConfirmedBooking = {
+  id: string;
+  staffId: string;
+  start: Date;
+  note: string | null;
+  /** 予約時のメニューID(元メニュー削除でnullになったスナップショットは除く) */
+  menuIds: string[];
+};
+
+/**
+ * 本人所有の確定予約(kind=booking)を1件取得する。
+ * 存在しない・他人の予約・キャンセル済み・blockはすべて null に畳む
+ * (予約IDの存在を外部に漏らさない。RPC側の判定と同じ発想)。
+ * reservationId はUUID形式であること(呼び出し元で isUuid 検証済みであること)。
+ */
+export async function findOwnConfirmedBooking(
+  lineUserId: string,
+  reservationId: string,
+): Promise<OwnConfirmedBooking | null> {
+  const customer = await findCustomerByLineUserId(lineUserId);
+  if (customer === null) {
+    return null;
+  }
+
+  const supabase = getServiceRoleClient();
+  const result = await supabase
+    .from("reservations")
+    .select("id, staff_id, during, note, reservation_menus(menu_id)")
+    .eq("id", reservationId)
+    .eq("customer_id", customer.id)
+    .eq("kind", "booking")
+    .eq("status", "confirmed")
+    .maybeSingle();
+  if (result.error !== null) {
+    throw new Error(`変更元予約の取得に失敗しました: ${result.error.message}`);
+  }
+  const row = result.data as OwnBookingRow | null;
+  if (row === null) {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    staffId: row.staff_id,
+    start: parseTstzrange(row.during).start,
+    note: row.note,
+    menuIds: row.reservation_menus
+      .map((menu) => menu.menu_id)
+      .filter((menuId): menuId is string => menuId !== null),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // マイ予約(M3): 今後の確定予約一覧 + キャンセル締切
 // ---------------------------------------------------------------------------
 
