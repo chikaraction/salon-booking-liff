@@ -30,8 +30,15 @@ insert into public.staff_working_hours (staff_id, weekday, start_time, end_time,
   ('22222222-2222-2222-2222-222222222222', 5, '10:00', '18:00', '13:00', '14:00'),
   ('22222222-2222-2222-2222-222222222222', 6, '10:00', '18:00', '13:00', '14:00');
 
-insert into public.menus (name, category, price, duration_minutes, display_order) values
-  ('カット', 'カット', 4400, 60, 1),
-  ('カラー', 'カラー', 8800, 120, 2),
-  ('パーマ', 'パーマ', 9900, 120, 3),
-  ('トリートメント', 'トリートメント', 3300, 30, 4);
+insert into public.menu_categories (id, name, description, display_order) values
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1', 'カット', 'シャンプー・ブロー込み(前髪カットは含まれません)', 1),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2', 'カラー', '前・後処理、頭皮保護込み', 2),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3', 'パーマ', null, 3),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa4', 'トリートメント', null, 4);
+
+insert into public.menus (name, category_id, price, duration_minutes, display_order) values
+  ('カット', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1', 4400, 60, 1),
+  ('前髪カット', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1', 1100, 15, 2),
+  ('カラー', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2', 8800, 120, 3),
+  ('パーマ', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3', 9900, 120, 4),
+  ('トリートメント', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa4', 3300, 30, 5);
