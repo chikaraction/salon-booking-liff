@@ -5,7 +5,9 @@ import {
   formatYen,
   groupMenusByCategory,
   isSlotTakenError,
+  isUuid,
   menuNamesLabel,
+  parseChangeReservationResult,
   summarizeSelectedMenus,
   validateCustomerInfo,
 } from "./booking";
@@ -126,6 +128,65 @@ describe("isSlotTakenError: EXCLUDE制約違反の判定", () => {
     expect(isSlotTakenError({ code: "P0001" })).toBe(false);
     expect(isSlotTakenError(null)).toBe(false);
     expect(isSlotTakenError(new Error("network"))).toBe(false);
+  });
+});
+
+describe("isUuid: UUID形式の判定", () => {
+  it("ハイフン区切りのUUID形式ならtrue(大文字も許容)", () => {
+    expect(isUuid("123e4567-e89b-12d3-a456-426614174000")).toBe(true);
+    expect(isUuid("123E4567-E89B-12D3-A456-426614174000")).toBe(true);
+  });
+
+  it("UUID形式でなければfalse", () => {
+    expect(isUuid("")).toBe(false);
+    expect(isUuid("abc")).toBe(false);
+    // ハイフンなし
+    expect(isUuid("123e4567e89b12d3a456426614174000")).toBe(false);
+    // 16進以外の文字を含む
+    expect(isUuid("123e4567-e89b-12d3-a456-42661417400g")).toBe(false);
+    // 前後に余計な文字がある
+    expect(isUuid(" 123e4567-e89b-12d3-a456-426614174000")).toBe(false);
+  });
+});
+
+describe("parseChangeReservationResult: 変更RPC(jsonb)の戻り値の解釈", () => {
+  it("okなら新しい予約IDを取り出す", () => {
+    expect(
+      parseChangeReservationResult({
+        result: "ok",
+        reservation_id: "123e4567-e89b-12d3-a456-426614174000",
+      }),
+    ).toEqual({
+      result: "ok",
+      reservationId: "123e4567-e89b-12d3-a456-426614174000",
+    });
+  });
+
+  it("not_found / deadline_passed はそのまま判別する", () => {
+    expect(parseChangeReservationResult({ result: "not_found" })).toEqual({
+      result: "not_found",
+    });
+    expect(parseChangeReservationResult({ result: "deadline_passed" })).toEqual(
+      { result: "deadline_passed" },
+    );
+  });
+
+  it("想定外の値はunexpectedにする(okなのに予約IDがない場合を含む)", () => {
+    expect(parseChangeReservationResult(null)).toEqual({
+      result: "unexpected",
+    });
+    expect(parseChangeReservationResult("ok")).toEqual({
+      result: "unexpected",
+    });
+    expect(parseChangeReservationResult({ result: "ok" })).toEqual({
+      result: "unexpected",
+    });
+    expect(
+      parseChangeReservationResult({ result: "ok", reservation_id: 1 }),
+    ).toEqual({ result: "unexpected" });
+    expect(parseChangeReservationResult({ result: "cancelled" })).toEqual({
+      result: "unexpected",
+    });
   });
 });
 

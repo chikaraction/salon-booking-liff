@@ -6,12 +6,15 @@
 // 遷移: メニュー選択 → スタッフ選択 → 日時選択 →(初回のみ情報入力)→ 確認 → 完了
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 
 import {
   checkCustomer,
   getAvailability,
+  getChangeSource,
   submitReservation,
   type AvailabilitySlot,
+  type ChangeSource,
 } from "@/app/booking/actions";
 import { Button } from "@/components/ui/button";
 import { getLineIdToken } from "@/liff/client";
@@ -45,8 +48,31 @@ type CompletedReservation = {
 
 const SLOT_TAKEN_MESSAGE = "その枠は埋まりました。別の時間をお選びください";
 
-export function BookingWizard({ data }: { data: BookingPageData }) {
+/** 変更モード(M3)の状態。新規予約モードでは常に none */
+type ChangeState =
+  | { status: "none" }
+  | { status: "loading" }
+  | { status: "ready"; source: ChangeSource }
+  // 変更元が確認できない(取り消し済み・他人の予約など。マイ予約へ誘導する)
+  | { status: "gone" }
+  | { status: "error"; message: string };
+
+export function BookingWizard({
+  data,
+  changeReservationId,
+}: {
+  data: BookingPageData;
+  /** 変更モード(M3): 変更元の予約ID(/booking?change=<予約ID>)。省略時は新規予約 */
+  changeReservationId?: string;
+}) {
   const [step, setStep] = useState<WizardStep>("menu");
+
+  // 変更モード(M3): 変更元の取得状態(初期選択への反映は取得後に行う)
+  const [changeState, setChangeState] = useState<ChangeState>(
+    changeReservationId !== undefined
+      ? { status: "loading" }
+      : { status: "none" },
+  );
 
   // LINE IDトークン(ページ表示時に取得して保持。取れなければ案内画面を出す)
   const [idToken, setIdToken] = useState<string | null>(null);
@@ -81,23 +107,51 @@ export function BookingWizard({ data }: { data: BookingPageData }) {
 
   useEffect(() => {
     let cancelled = false;
-    void getLineIdToken().then((token) => {
+    void getLineIdToken().then(async (token) => {
       if (cancelled) return;
-      if (token !== null) {
-        setIdToken(token);
-        setTokenState("ready");
-      } else {
+      if (token === null) {
         setTokenState("unavailable");
+        return;
+      }
+      setIdToken(token);
+      setTokenState("ready");
+
+      // 変更モード(M3): 変更元を取得し、メニュー・スタッフ・メモを初期選択にする
+      if (changeReservationId === undefined) return;
+      const result = await getChangeSource(token, changeReservationId);
+      if (cancelled) return;
+      if (result.ok) {
+        // 現在のメニュー一覧に無いもの(削除済み・無効化済み)は初期選択から外す
+        const currentMenuIds = new Set(
+          data.categories.flatMap((category) =>
+            category.menus.map((menu) => menu.id),
+          ),
+        );
+        setSelectedMenuIds(
+          result.source.menuIds.filter((menuId) => currentMenuIds.has(menuId)),
+        );
+        // スタッフも同様に、現在の有効スタッフに居る場合のみ初期選択にする
+        if (data.staff.some((member) => member.id === result.source.staffId)) {
+          setStaffSelection(result.source.staffId);
+        }
+        setNote(result.source.note);
+        setChangeState({ status: "ready", source: result.source });
+      } else if (result.reason === "not_found") {
+        setChangeState({ status: "gone" });
+      } else {
+        setChangeState({ status: "error", message: result.message });
       }
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [changeReservationId, data]);
 
   // ------------------------------------------------------------------
   // 派生値
   // ------------------------------------------------------------------
+
+  const isChangeMode = changeReservationId !== undefined;
 
   const allMenus = useMemo(
     () => data.categories.flatMap((category) => category.menus),
@@ -175,7 +229,15 @@ export function BookingWizard({ data }: { data: BookingPageData }) {
     setSlots(null);
     setSlotsError(null);
     setSlotsLoading(true);
-    const result = await getAvailability(date, selectedMenuIds, staff);
+    // 変更モードでは自分の旧予約の枠を空きとして見せる(本人確認はサーバーで行う)
+    const result = await getAvailability(
+      date,
+      selectedMenuIds,
+      staff,
+      changeReservationId !== undefined && idToken !== null
+        ? { idToken, reservationId: changeReservationId }
+        : undefined,
+    );
     if (seq !== availabilityRequestSeq.current) return; // 古い応答は捨てる
     setSlotsLoading(false);
     if (result.ok) {
@@ -241,6 +303,7 @@ export function BookingWizard({ data }: { data: BookingPageData }) {
       customerInfo: isNewCustomer
         ? { name: customerName, phone: customerPhone }
         : undefined,
+      changeReservationId,
     });
     setBusy(false);
 
@@ -268,6 +331,13 @@ export function BookingWizard({ data }: { data: BookingPageData }) {
         setCustomerErrors(result.errors);
         setStep("info");
         break;
+      case "change_source_gone":
+        // 変更元が取り消し済み等。専用画面でマイ予約へ誘導する
+        setChangeState({ status: "gone" });
+        break;
+      case "deadline_passed":
+        setFlowError("直前の変更はお店に直接ご連絡ください");
+        break;
       default:
         setFlowError(result.message);
     }
@@ -283,6 +353,53 @@ export function BookingWizard({ data }: { data: BookingPageData }) {
         <h1 className="text-2xl font-bold">LINEアプリから開いてください</h1>
         <p className="text-base text-muted-foreground">
           このページはLINEアプリ内でのみご利用いただけます。LINEのトーク画面から開き直してください。
+        </p>
+      </div>
+    );
+  }
+
+  // 変更モード: 変更元が確認できない(取り消し済み・他人の予約など)
+  if (changeState.status === "gone") {
+    return (
+      <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center gap-3 px-6 text-center">
+        <h1 className="text-2xl font-bold">この予約は変更できません</h1>
+        <p className="text-base text-muted-foreground">
+          既に取り消されているか、変更できない予約です。マイ予約からやり直してください。
+        </p>
+        <Button
+          asChild
+          className="mt-3 h-12 w-full rounded-xl text-base font-bold"
+        >
+          <Link href="/my">マイ予約へ戻る</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  // 変更モード: 変更元の取得に失敗(認証・サーバーエラー)
+  if (changeState.status === "error") {
+    return (
+      <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center gap-3 px-6 text-center">
+        <p className="w-full rounded-xl bg-destructive/10 p-4 text-base text-destructive">
+          {changeState.message}
+        </p>
+        <Button
+          asChild
+          variant="outline"
+          className="mt-3 h-12 w-full rounded-xl text-base font-bold"
+        >
+          <Link href="/my">マイ予約へ戻る</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  // 変更モード: 変更元の取得と初期選択への反映が済むまでウィザードを出さない
+  if (changeState.status === "loading") {
+    return (
+      <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center px-6 text-center">
+        <p className="text-base text-muted-foreground">
+          変更元のご予約を確認しています…
         </p>
       </div>
     );
@@ -310,8 +427,13 @@ export function BookingWizard({ data }: { data: BookingPageData }) {
           chips={chips}
         />
       )}
-      {step === "confirm" && (
-        <WizardHeader step={4} title="内容の確認" chips={chips} />
+      {step === "confirm" && <WizardHeader step={4} title="内容の確認" />}
+
+      {/* 変更モード: 変更元がわかる控えめな表示(完了画面では出さない) */}
+      {changeState.status === "ready" && step !== "complete" && (
+        <p className="border-b border-border bg-secondary/60 px-4 py-2 text-sm text-secondary-foreground">
+          予約の変更(変更前: {changeState.source.dateTimeLabel})
+        </p>
       )}
 
       <main className="flex-1 px-4 py-4">
@@ -376,6 +498,9 @@ export function BookingWizard({ data }: { data: BookingPageData }) {
         )}
         {step === "complete" && completed !== null && (
           <StepComplete
+            heading={
+              isChangeMode ? "予約を変更しました" : "ご予約が完了しました"
+            }
             startISO={completed.startISO}
             menusLabel={menusLabel}
             staffName={completed.staffName}
@@ -435,19 +560,27 @@ export function BookingWizard({ data }: { data: BookingPageData }) {
         {step === "confirm" && (
           <FooterNav
             onBack={() => setStep(isNewCustomer ? "info" : "datetime")}
-            nextLabel={busy ? "予約しています…" : "予約を確定する"}
+            nextLabel={
+              busy
+                ? isChangeMode
+                  ? "変更しています…"
+                  : "予約しています…"
+                : isChangeMode
+                  ? "予約を変更する"
+                  : "予約を確定する"
+            }
             nextDisabled={busy}
             onNext={() => void submit()}
           />
         )}
         {step === "complete" && (
-          // マイ予約はM3で実装するためプレースホルダ(無効)
+          // 完了画面の導線: マイ予約で内容を確認できる(新規・変更とも)
           <Button
+            asChild
             variant="outline"
             className="h-12 w-full rounded-xl text-base font-bold text-primary"
-            disabled
           >
-            マイ予約を見る
+            <Link href="/my">マイ予約を見る</Link>
           </Button>
         )}
       </footer>

@@ -23,6 +23,7 @@ import {
   type MenuCategoryGroup,
   type MenuSummary,
 } from "@/lib/booking";
+import type { ReservationCardInput } from "@/lib/my-reservations";
 import { parseTstzrange } from "@/lib/tstzrange";
 import { getServiceRoleClient } from "@/server/supabase";
 
@@ -218,11 +219,15 @@ export type DayAvailability =
 /**
  * 対象日(JSTの暦日)の全スタッフの空き枠を計算する。
  * 所要時間はメニューIDからサーバーで再計算する(クライアント申告を信用しない)。
+ *
+ * excludeReservationId: 「埋まり」計算から除外する予約ID。変更フロー(M3)で
+ * 自分の旧予約の枠を空きとして見せるために使う。省略時は従来どおり全予約が対象。
  */
 export async function getDayAvailability(
   date: string, // "YYYY-MM-DD"(呼び出し元で形式検証済みであること)
   menuIds: string[],
   now: Date,
+  excludeReservationId?: string,
 ): Promise<DayAvailability> {
   const distinctMenuIds = [...new Set(menuIds)];
   if (distinctMenuIds.length === 0) {
@@ -234,6 +239,19 @@ export async function getDayAvailability(
   // 対象日のJST 0時〜翌0時(UTCに変換して問い合わせる)
   const dayStart = jstDateTime(date, "00:00");
   const dayEnd = jstDateTime(addCalendarDays(date, 1), "00:00");
+
+  // 対象日と重なる確定済みの予約+ブロック(kindは問わない)。
+  // tstzrangeの重なり(&&)は overlaps フィルタ(PostgRESTのov演算子)に
+  // 範囲の文字列表現を渡す(@supabase/postgrest-js の型定義で確認)
+  let busyQuery = supabase
+    .from("reservations")
+    .select("staff_id, during")
+    .eq("status", "confirmed")
+    .overlaps("during", `[${dayStart.toISOString()},${dayEnd.toISOString()})`);
+  // 変更フロー(M3)では自分の旧予約を除外する(省略時は条件を足さない = 従来と同一)
+  if (excludeReservationId !== undefined) {
+    busyQuery = busyQuery.neq("id", excludeReservationId);
+  }
 
   const [settingsRes, hoursRes, menusRes, staffRes, workingRes, busyRes] =
     await Promise.all([
@@ -260,17 +278,7 @@ export async function getDayAvailability(
         .from("staff_working_hours")
         .select("staff_id, start_time, end_time, break_start, break_end")
         .eq("weekday", weekday),
-      // 対象日と重なる確定済みの予約+ブロック(kindは問わない)。
-      // tstzrangeの重なり(&&)は overlaps フィルタ(PostgRESTのov演算子)に
-      // 範囲の文字列表現を渡す(@supabase/postgrest-js の型定義で確認)
-      supabase
-        .from("reservations")
-        .select("staff_id, during")
-        .eq("status", "confirmed")
-        .overlaps(
-          "during",
-          `[${dayStart.toISOString()},${dayEnd.toISOString()})`,
-        ),
+      busyQuery,
     ]);
 
   const settings = must(settingsRes, "店舗設定") as Pick<
@@ -370,4 +378,157 @@ export async function findCustomerByLineUserId(
     throw new Error(`顧客の取得に失敗しました: ${result.error.message}`);
   }
   return result.data as { id: string; name: string } | null;
+}
+
+// ---------------------------------------------------------------------------
+// 変更元予約の取得(M3: 変更フロー)
+// ---------------------------------------------------------------------------
+
+type OwnBookingRow = {
+  id: string;
+  staff_id: string;
+  during: string; // tstzrangeは文字列で返る
+  note: string | null;
+  reservation_menus: Array<{ menu_id: string | null }>;
+};
+
+export type OwnConfirmedBooking = {
+  id: string;
+  staffId: string;
+  start: Date;
+  note: string | null;
+  /** 予約時のメニューID(元メニュー削除でnullになったスナップショットは除く) */
+  menuIds: string[];
+};
+
+/**
+ * 本人所有の確定予約(kind=booking)を1件取得する。
+ * 存在しない・他人の予約・キャンセル済み・blockはすべて null に畳む
+ * (予約IDの存在を外部に漏らさない。RPC側の判定と同じ発想)。
+ * reservationId はUUID形式であること(呼び出し元で isUuid 検証済みであること)。
+ */
+export async function findOwnConfirmedBooking(
+  lineUserId: string,
+  reservationId: string,
+): Promise<OwnConfirmedBooking | null> {
+  const customer = await findCustomerByLineUserId(lineUserId);
+  if (customer === null) {
+    return null;
+  }
+
+  const supabase = getServiceRoleClient();
+  const result = await supabase
+    .from("reservations")
+    .select("id, staff_id, during, note, reservation_menus(menu_id)")
+    .eq("id", reservationId)
+    .eq("customer_id", customer.id)
+    .eq("kind", "booking")
+    .eq("status", "confirmed")
+    .maybeSingle();
+  if (result.error !== null) {
+    throw new Error(`変更元予約の取得に失敗しました: ${result.error.message}`);
+  }
+  const row = result.data as OwnBookingRow | null;
+  if (row === null) {
+    return null;
+  }
+
+  return {
+    id: row.id,
+    staffId: row.staff_id,
+    start: parseTstzrange(row.during).start,
+    note: row.note,
+    menuIds: row.reservation_menus
+      .map((menu) => menu.menu_id)
+      .filter((menuId): menuId is string => menuId !== null),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// マイ予約(M3): 今後の確定予約一覧 + キャンセル締切
+// ---------------------------------------------------------------------------
+
+type UpcomingReservationRow = {
+  id: string;
+  staff_id: string;
+  during: string; // tstzrangeは文字列で返る
+  // 一対多の埋め込み(reservation_menus.reservation_id が本テーブルへのFK)は配列で返る
+  reservation_menus: Array<{
+    menu_name: string;
+    price: number;
+    duration_minutes: number;
+  }>;
+};
+
+/**
+ * 該当顧客の今後の確定予約(kind=booking)を開始時刻昇順で返す。
+ * メニュースナップショット・スタッフ名込みで、buildReservationCard
+ * (src/lib/my-reservations.ts)の入力にそのまま渡せる形にする。
+ * 顧客が未登録なら空配列(予約フローを経ていない客がマイ予約を開いた場合)。
+ * 件数は高々数件なので、開始時刻のフィルタ・ソートはサーバー側で行う。
+ */
+export async function getUpcomingReservations(
+  lineUserId: string,
+  now: Date,
+): Promise<ReservationCardInput[]> {
+  const customer = await findCustomerByLineUserId(lineUserId);
+  if (customer === null) {
+    return [];
+  }
+
+  const supabase = getServiceRoleClient();
+  const result = await supabase
+    .from("reservations")
+    .select(
+      "id, staff_id, during, reservation_menus(menu_name, price, duration_minutes)",
+    )
+    .eq("customer_id", customer.id)
+    .eq("kind", "booking")
+    .eq("status", "confirmed");
+  const rows: UpcomingReservationRow[] = must(result, "マイ予約");
+
+  // スタッフ名は別クエリで引く(退職などで無効化済みでも予約表示には名前が要るため
+  // is_active では絞らない)
+  const staffIds = [...new Set(rows.map((row) => row.staff_id))];
+  const staffNameById = new Map<string, string>();
+  if (staffIds.length > 0) {
+    const staffRes = await supabase
+      .from("staff")
+      .select("id, name")
+      .in("id", staffIds);
+    const staffRows: Array<Pick<StaffRow, "id" | "name">> = must(
+      staffRes,
+      "スタッフ",
+    );
+    for (const row of staffRows) {
+      staffNameById.set(row.id, row.name);
+    }
+  }
+
+  return rows
+    .map((row) => ({
+      id: row.id,
+      start: parseTstzrange(row.during).start,
+      staffName: staffNameById.get(row.staff_id) ?? "",
+      menus: row.reservation_menus.map((menu) => ({
+        menuName: menu.menu_name,
+        price: menu.price,
+        durationMinutes: menu.duration_minutes,
+      })),
+    }))
+    .filter((reservation) => reservation.start.getTime() >= now.getTime())
+    .sort((a, b) => a.start.getTime() - b.start.getTime());
+}
+
+/** キャンセル締切(開始何分前まで客自身で変更・キャンセルできるか)を取得する */
+export async function getCancelDeadlineMinutes(): Promise<number> {
+  const supabase = getServiceRoleClient();
+  const result = await supabase
+    .from("salon_settings")
+    .select("cancel_deadline_minutes")
+    .single();
+  const settings = must(result, "店舗設定") as {
+    cancel_deadline_minutes: number;
+  };
+  return settings.cancel_deadline_minutes;
 }
