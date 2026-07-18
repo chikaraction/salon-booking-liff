@@ -54,6 +54,16 @@ export function isWallClockTime(value: string): boolean {
 }
 
 /**
+ * 開始時刻が現在(now)より厳密に過去かどうかを判定する。
+ * start===now は過去扱いしない(now ちょうどの開始は許可)。
+ * Server Action の過去ガードと空き表示で共有し、判定を一箇所に集約する。
+ * now はサーバーの現在時刻(new Date())を渡す(クライアント時計は信用しない)。
+ */
+export function isPastStart(start: Date, now: Date): boolean {
+  return start.getTime() < now.getTime();
+}
+
+/**
  * 代行登録フォームの入力を検証する(モックD準拠)。
  * - 顧客: 既存顧客ID があるか、なければ新規客名(必須。電話は任意)
  * - メニュー: 1件以上(重複は除去)

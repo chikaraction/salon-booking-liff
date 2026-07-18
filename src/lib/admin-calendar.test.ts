@@ -729,16 +729,20 @@ describe("slotAvailabilityMessage: 代行登録の空き判定メッセージ", 
     { start: jstDateTime("2026-07-18", "11:00"), status: "available" },
     { start: jstDateTime("2026-07-18", "14:00"), status: "taken" },
   ];
+  // すべての枠より前(=過去判定に引っかからない)基準時刻
+  const before = jstDateTime("2026-07-18", "08:00");
 
-  it("空いている枠は「この枠は空いています。150分確保できます。」", () => {
+  it("空いている枠は available・canRegister:true・確保分数入りメッセージ", () => {
     expect(
       slotAvailabilityMessage({
         slots,
         start: jstDateTime("2026-07-18", "11:00"),
         totalDurationMinutes: 150,
+        now: before,
       }),
     ).toEqual({
-      available: true,
+      status: "available",
+      canRegister: true,
       message: "この枠は空いています。150分確保できます。",
     });
   });
@@ -749,34 +753,60 @@ describe("slotAvailabilityMessage: 代行登録の空き判定メッセージ", 
         slots,
         start: jstDateTime("2026-07-18", "11:00"),
         totalDurationMinutes: 60,
+        now: before,
       }).message,
     ).toBe("この枠は空いています。60分確保できます。");
   });
 
-  it("既存予約と重なる枠は「この枠は埋まっています」", () => {
+  it("開始が現在より前(厳密に過去)なら past・canRegister:false・登録不可メッセージ", () => {
     expect(
       slotAvailabilityMessage({
         slots,
-        start: jstDateTime("2026-07-18", "14:00"),
+        start: jstDateTime("2026-07-18", "11:00"),
         totalDurationMinutes: 150,
+        now: jstDateTime("2026-07-18", "11:01"),
       }),
     ).toEqual({
-      available: false,
-      message: "この枠は埋まっています",
+      status: "past",
+      canRegister: false,
+      message: "過去の時間は登録できません",
     });
   });
 
-  it("候補にない時刻(営業時間外・勤務外・閉店までに収まらない)も埋まり扱い", () => {
+  it("開始ちょうど(start===now)は過去扱いせず、空きなら available", () => {
     expect(
       slotAvailabilityMessage({
         slots,
-        start: jstDateTime("2026-07-18", "18:30"),
+        start: jstDateTime("2026-07-18", "11:00"),
         totalDurationMinutes: 150,
-      }),
-    ).toEqual({
-      available: false,
-      message: "この枠は埋まっています",
+        now: jstDateTime("2026-07-18", "11:00"),
+      }).status,
+    ).toBe("available");
+  });
+
+  it("既存予約と重なる枠(taken)は unavailable だが canRegister:true(最終判定はEXCLUDE制約)", () => {
+    const result = slotAvailabilityMessage({
+      slots,
+      start: jstDateTime("2026-07-18", "14:00"),
+      totalDurationMinutes: 150,
+      now: before,
     });
+    expect(result.status).toBe("unavailable");
+    expect(result.canRegister).toBe(true);
+    expect(result.message).not.toBe("この枠は埋まっています");
+  });
+
+  it("候補にない時刻(休憩・勤務外・閉店までに収まらない=slot無し)は unavailable・canRegister:true(上書き可)", () => {
+    const result = slotAvailabilityMessage({
+      slots,
+      start: jstDateTime("2026-07-18", "18:30"),
+      totalDurationMinutes: 150,
+      now: before,
+    });
+    expect(result.status).toBe("unavailable");
+    expect(result.canRegister).toBe(true);
+    // 「埋まっています」と断定しない(休憩・勤務時間外の上書き登録を許すため)
+    expect(result.message).not.toBe("この枠は埋まっています");
   });
 });
 

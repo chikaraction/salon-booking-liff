@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import { jstDateTime } from "./availability";
+
 import {
+  isPastStart,
   isWallClockTime,
   restoreSelectableMenuIds,
   validateProxyRegistration,
@@ -38,6 +41,31 @@ describe("isWallClockTime", () => {
     expect(isWallClockTime("11:60")).toBe(false);
     expect(isWallClockTime("11:00:00")).toBe(false);
     expect(isWallClockTime("")).toBe(false);
+  });
+});
+
+describe("isPastStart: 開始時刻が過去かどうか", () => {
+  it("開始が現在より前なら true(1分前)", () => {
+    expect(
+      isPastStart(
+        jstDateTime("2026-07-18", "11:00"),
+        jstDateTime("2026-07-18", "11:01"),
+      ),
+    ).toBe(true);
+  });
+
+  it("開始ちょうど(start===now)は過去扱いしない(false)", () => {
+    const at = jstDateTime("2026-07-18", "11:00");
+    expect(isPastStart(at, at)).toBe(false);
+  });
+
+  it("開始が現在より後なら false(1分後)", () => {
+    expect(
+      isPastStart(
+        jstDateTime("2026-07-18", "11:01"),
+        jstDateTime("2026-07-18", "11:00"),
+      ),
+    ).toBe(false);
   });
 });
 

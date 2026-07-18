@@ -478,32 +478,68 @@ export function isJstToday(date: string, now: Date): boolean {
 // 4. 代行登録の空き判定メッセージ
 // ---------------------------------------------------------------------------
 
+/**
+ * 空き表示の状態。
+ * - past: 開始が現在より過去(登録不可。canRegister=false)
+ * - available: 対象枠が空いている(登録可)
+ * - unavailable: 空き枠ではない(休憩・勤務時間外・他予約と重なり)。
+ *   店側は休憩を削って受けられるため、上書き登録は許可(canRegister=true)。
+ *   最終判定はDBのEXCLUDE制約(ADR-004)であり、ここは断定しない。
+ */
+export type SlotAvailabilityStatus = "past" | "available" | "unavailable";
+
 export type SlotAvailability = {
-  available: boolean;
+  status: SlotAvailabilityStatus;
+  /** このメッセージ状態で登録操作を許すか(過去のみ false) */
+  canRegister: boolean;
   message: string;
 };
 
 /**
  * 代行登録フォームの空き判定メッセージ(モックD準拠)。
  * slots は対象スタッフの computeStaffDaySlots(availability.ts)の結果。
- * 候補にない時刻(営業時間外・勤務外・閉店までに収まらない)も、モックに
- * 2状態しかないため「埋まっています」に畳む。
- * この表示は補助であり、最後の砦はDBのEXCLUDE制約(ADR-004)。
+ * - 開始が現在(now)より厳密に過去なら past(start===now は過去扱いしない)
+ * - 対象枠が空いていれば available
+ * - それ以外(休憩・勤務時間外・他予約と重なり=slot が無い/taken)は unavailable。
+ *   店側の上書き登録を許すため canRegister は true のまま。「埋まっています」と
+ *   断定せず、最終判定はDBのEXCLUDE制約(ADR-004)に委ねる。
  */
 export function slotAvailabilityMessage(params: {
   slots: Slot[];
   start: Date; // 希望開始時刻(UTC)
   totalDurationMinutes: number; // 選択メニューの合計所要分
+  now: Date; // 現在時刻(過去判定の基準。サーバーの now を渡す)
 }): SlotAvailability {
-  const { slots, start, totalDurationMinutes } = params;
+  const { slots, start, totalDurationMinutes, now } = params;
+
+  if (start.getTime() < now.getTime()) {
+    return {
+      status: "past",
+      canRegister: false,
+      message: "過去の時間は登録できません",
+    };
+  }
+
   const slot = slots.find((s) => s.start.getTime() === start.getTime());
   if (slot?.status === "available") {
     return {
-      available: true,
+      status: "available",
+      canRegister: true,
       message: `この枠は空いています。${totalDurationMinutes}分確保できます。`,
     };
   }
-  return { available: false, message: "この枠は埋まっています" };
+  if (slot?.status === "taken") {
+    return {
+      status: "unavailable",
+      canRegister: true,
+      message: "この時間は他の予約と重なっています(登録できない場合があります)",
+    };
+  }
+  return {
+    status: "unavailable",
+    canRegister: true,
+    message: "空き枠ではありませんが登録できます(休憩・勤務時間外など)",
+  };
 }
 
 // ---------------------------------------------------------------------------

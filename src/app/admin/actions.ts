@@ -11,6 +11,7 @@ import {
 } from "@/lib/admin-calendar";
 import { describeLoginError, validateLoginInput } from "@/lib/admin-login";
 import {
+  isPastStart,
   isWallClockTime,
   validateProxyRegistration,
   validateReservationEdit,
@@ -134,17 +135,23 @@ export async function checkProxySlot(
 ): Promise<SlotAvailability> {
   try {
     if (!isCalendarDate(input.date) || !isWallClockTime(input.time)) {
-      return { available: false, message: "この枠は埋まっています" };
+      return {
+        status: "unavailable",
+        canRegister: false,
+        message: "日付・時間を選択してください",
+      };
     }
+    const now = new Date();
     const day = await getDayAvailability(
       input.date,
       input.menuIds,
-      new Date(),
+      now,
       input.excludeReservationId,
     );
     if (day.kind === "invalid_menus") {
       return {
-        available: false,
+        status: "unavailable",
+        canRegister: false,
         message: "メニューの指定が正しくありません",
       };
     }
@@ -155,10 +162,15 @@ export async function checkProxySlot(
       slots: entry?.slots ?? [],
       start: jstDateTime(input.date, input.time),
       totalDurationMinutes: day.summary.totalDurationMinutes,
+      now,
     });
   } catch (error) {
     console.error("checkProxySlot failed", error);
-    return { available: false, message: "空き状況の取得に失敗しました" };
+    return {
+      status: "unavailable",
+      canRegister: false,
+      message: "空き状況の取得に失敗しました",
+    };
   }
 }
 
@@ -180,6 +192,8 @@ export type CreateProxyReservationInput = {
 export type CreateProxyReservationResult =
   | { ok: true; reservationId: string }
   | { ok: false; reason: "invalid_input"; errors: ProxyRegistrationErrors }
+  // 開始が現在より過去(サーバーの now で判定。UIは時間フィールドにエラー表示)
+  | { ok: false; reason: "past"; message: string }
   // その枠は埋まりました(EXCLUDE制約違反 23P01。UIは日時付近にエラー表示)
   | { ok: false; reason: "slot_taken"; message: string }
   // メニュー・顧客の指定不正(RPCの P0001)
@@ -210,6 +224,15 @@ export async function createProxyReservation(
     return { ok: false, reason: "invalid_input", errors: validated.errors };
   }
   const value = validated.value;
+
+  // 過去ガード(UXでなく本当のガード)。サーバーの now で判定し、RPC前に止める
+  if (isPastStart(jstDateTime(value.date, value.time), new Date())) {
+    return {
+      ok: false,
+      reason: "past",
+      message: "過去の時間は登録できません",
+    };
+  }
 
   try {
     const supabase = await createAdminAuthClient();
@@ -288,6 +311,8 @@ export type UpdateAdminReservationInput = {
 export type UpdateAdminReservationResult =
   | { ok: true }
   | { ok: false; reason: "invalid_input"; errors: ReservationEditErrors }
+  // 開始が現在より過去(サーバーの now で判定。UIは時間フィールドにエラー表示)
+  | { ok: false; reason: "past"; message: string }
   // 対象が booking かつ confirmed でない(既に取り消し済み等)
   | { ok: false; reason: "not_found"; message: string }
   // その枠は埋まりました(EXCLUDE制約違反 23P01。元予約は無傷でロールバック)
@@ -323,6 +348,15 @@ export async function updateAdminReservation(
     return { ok: false, reason: "invalid_input", errors: validated.errors };
   }
   const value = validated.value;
+
+  // 過去ガード(UXでなく本当のガード)。サーバーの now で判定し、RPC前に止める
+  if (isPastStart(jstDateTime(value.date, value.time), new Date())) {
+    return {
+      ok: false,
+      reason: "past",
+      message: "過去の時間は登録できません",
+    };
+  }
 
   try {
     const supabase = await createAdminAuthClient();

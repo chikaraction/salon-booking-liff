@@ -21,7 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import type { ProxyRegistrationErrors } from "@/lib/admin-reservation-form";
 import { formatYen, summarizeSelectedMenus } from "@/lib/booking";
-import type { AdminStaff } from "@/lib/admin-calendar";
+import type { AdminStaff, SlotAvailability } from "@/lib/admin-calendar";
 import type { ActiveMenu, CustomerSearchResult } from "@/server/admin-data";
 import { cn } from "@/lib/utils";
 
@@ -83,10 +83,9 @@ export function ProxyRegistrationForm({
   const [note, setNote] = useState(initial?.note ?? "");
 
   // 空き表示・エラー・送信状態
-  const [availability, setAvailability] = useState<{
-    available: boolean;
-    message: string;
-  } | null>(null);
+  const [availability, setAvailability] = useState<SlotAvailability | null>(
+    null,
+  );
   const [fieldErrors, setFieldErrors] = useState<ProxyRegistrationErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, startSubmit] = useTransition();
@@ -201,17 +200,34 @@ export function ProxyRegistrationForm({
               note,
             });
       if (result.ok) {
-        // 登録・変更した日付のカレンダーへ(反映を確認できるように)
+        // 登録・変更した日付のカレンダーへ(反映を確認できるように)。
+        // push は別URL(search param)なのでサーバーコンポーネントが最新データを
+        // 取り直す。router.refresh() と併用すると遷移がハングして送信状態が
+        // 解除されないため、push 一本にする。
         router.push(`/admin?date=${date}`);
-        router.refresh();
         return;
       }
       if (result.reason === "invalid_input") {
         setFieldErrors(result.errors);
         return;
       }
+      if (result.reason === "past") {
+        // サーバーの now で過去と判定された(クライアント時計は信用しない)
+        setAvailability({
+          status: "past",
+          canRegister: false,
+          message: result.message,
+        });
+        setFieldErrors((prev) => ({ ...prev, time: result.message }));
+        setFormError(result.message);
+        return;
+      }
       if (result.reason === "slot_taken") {
-        setAvailability({ available: false, message: result.message });
+        setAvailability({
+          status: "unavailable",
+          canRegister: true,
+          message: result.message,
+        });
         setFormError(result.message);
         return;
       }
@@ -461,14 +477,19 @@ export function ProxyRegistrationForm({
             </div>
           </div>
 
-          {/* 空き状況の表示(補助。最後の砦はEXCLUDE制約) */}
+          {/* 空き状況の表示(補助。最後の砦はEXCLUDE制約)。状態で色を出し分ける:
+              available=空き(accent)/ past=過去で登録不可(destructive)/
+              unavailable=空き枠でないが上書き登録は可(注意色) */}
           {availability !== null && (
             <p
               className={cn(
                 "rounded-xl px-4 py-3 text-base",
-                availability.available
-                  ? "bg-accent text-accent-foreground"
-                  : "bg-destructive/10 text-destructive",
+                availability.status === "available" &&
+                  "bg-accent text-accent-foreground",
+                availability.status === "past" &&
+                  "bg-destructive/10 text-destructive",
+                availability.status === "unavailable" &&
+                  "bg-muted text-muted-foreground",
               )}
             >
               {availability.message}
@@ -501,7 +522,7 @@ export function ProxyRegistrationForm({
           <Button
             type="submit"
             size="lg"
-            disabled={isSubmitting}
+            disabled={isSubmitting || availability?.status === "past"}
             className="h-12 w-full rounded-xl text-base font-bold"
           >
             {isEdit

@@ -436,7 +436,10 @@ function WeekGrid({
   const height = timelineHeight(weekView.tickMarks);
 
   return (
-    <div className="overflow-x-auto">
+    // 横スクロールだけを担う領域。overflow-x-auto は既定で overflow-y を
+    // auto に格上げしてしまい(CSS仕様)、横スクロールバー出現時に不要な
+    // 縦スクロールバーを生む。縦は親(overflow-auto)に委ね、ここでは固定する。
+    <div className="overflow-x-auto overflow-y-hidden">
       <div className="min-w-[48rem]">
         {/* 曜日見出し */}
         <div className="flex border-b border-border">
