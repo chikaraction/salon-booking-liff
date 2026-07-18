@@ -265,3 +265,83 @@ export async function getAdminMiniSummary(
   ]);
   return { todayReservationCount, monthlyPushCount };
 }
+
+// ---------------------------------------------------------------------------
+// 代行登録(モックD)のデータ取得
+// ---------------------------------------------------------------------------
+
+/** 代行登録のメニュー複数選択に渡す有効メニュー1件 */
+export type ActiveMenu = {
+  id: string;
+  name: string;
+  price: number;
+  durationMinutes: number;
+};
+
+type ActiveMenuRow = {
+  id: string;
+  name: string;
+  price: number;
+  duration_minutes: number;
+};
+
+/** 有効メニュー一覧(display_order順)を取得する(代行登録の複数選択用) */
+export async function fetchActiveMenus(
+  supabase: SupabaseClient,
+): Promise<ActiveMenu[]> {
+  const result = await supabase
+    .from("menus")
+    .select("id, name, price, duration_minutes")
+    .eq("is_active", true)
+    .order("display_order");
+  const rows: ActiveMenuRow[] = must(result, "メニュー");
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    price: row.price,
+    durationMinutes: row.duration_minutes,
+  }));
+}
+
+/** 顧客検索の候補1件(名前+電話) */
+export type CustomerSearchResult = {
+  id: string;
+  name: string;
+  phone: string | null;
+};
+
+/** 顧客検索の表示上限(モックDの候補リスト) */
+const CUSTOMER_SEARCH_LIMIT = 10;
+
+/**
+ * 名前または電話の部分一致で顧客を検索する(代行登録の既存顧客検索)。
+ * 空クエリは空配列。上限は CUSTOMER_SEARCH_LIMIT 件、名前順。
+ * PostgREST の or フィルタを壊す文字と LIKE のワイルドカードは無害化する
+ * (店側の入力だがフィルタ構文の破損を防ぐ)。
+ */
+export async function searchCustomers(
+  supabase: SupabaseClient,
+  query: string,
+): Promise<CustomerSearchResult[]> {
+  const sanitized = query
+    .trim()
+    // or フィルタの区切り(, () )と LIKE ワイルドカード(% _ \ *)を空白に畳む
+    .replace(/[,()%_\\*]/g, " ")
+    .trim();
+  if (sanitized === "") {
+    return [];
+  }
+  const pattern = `%${sanitized}%`;
+  const result = await supabase
+    .from("customers")
+    .select("id, name, phone")
+    .or(`name.ilike.${pattern},phone.ilike.${pattern}`)
+    .order("name")
+    .limit(CUSTOMER_SEARCH_LIMIT);
+  const rows: CustomerSearchResult[] = must(result, "顧客検索");
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    phone: row.phone,
+  }));
+}
