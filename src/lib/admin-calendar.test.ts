@@ -4,6 +4,7 @@ import { jstDateTime, type Slot } from "./availability";
 
 import {
   buildDayTimeline,
+  buildReservationDetailLabels,
   buildReservationListItems,
   buildWeekView,
   dayNavLabel,
@@ -854,5 +855,39 @@ describe("buildReservationListItems: 予約リスト表示(スマホ)の整形",
       staffNames,
     );
     expect(items[0].start).toEqual(jstDateTime("2026-07-18", "09:30"));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 予約詳細ダイアログ(モックC)の整形
+// ---------------------------------------------------------------------------
+
+describe("buildReservationDetailLabels(予約詳細の日時・担当/メニュー整形)", () => {
+  it("日時・担当を「7月18日(土)11:00〜 田中」形式にする", () => {
+    const labels = buildReservationDetailLabels({
+      start: jstDateTime("2026-07-18", "11:00"),
+      staffName: "田中",
+      menus: [cut, color],
+    });
+    expect(labels.dateTimeStaffLabel).toBe("7月18日(土)11:00〜 田中");
+  });
+
+  it("メニューを「名前(合計所要分) 合計金額」形式にする(スナップショット合計)", () => {
+    const labels = buildReservationDetailLabels({
+      start: jstDateTime("2026-07-18", "11:00"),
+      staffName: "田中",
+      menus: [cut, color], // 60+90=150分 / 4950+6600=11550円
+    });
+    expect(labels.menuLabel).toBe("カット + カラー(150分) ¥11,550");
+  });
+
+  it("メニュー1件でも所要分と金額を表示する", () => {
+    const labels = buildReservationDetailLabels({
+      start: jstDateTime("2026-07-18", "09:30"),
+      staffName: "佐藤",
+      menus: [cut], // 60分 / 4950円
+    });
+    expect(labels.menuLabel).toBe("カット(60分) ¥4,950");
+    expect(labels.dateTimeStaffLabel).toBe("7月18日(土)9:30〜 佐藤");
   });
 });

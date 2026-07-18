@@ -21,6 +21,7 @@ import {
 } from "@/lib/admin-calendar";
 import { cn } from "@/lib/utils";
 
+import { ReservationDetailDialog } from "./reservation-detail-dialog";
 import { staffColor } from "./staff-colors";
 import {
   HourLines,
@@ -51,6 +52,9 @@ export function CalendarView({
   weekView,
 }: Props) {
   const router = useRouter();
+
+  // 選択中の予約ID(カレンダーの予約カードをクリックすると詳細ダイアログを開く)
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const go = (nextView: "day" | "week", nextDate: string) => {
     router.push(`/admin?view=${nextView}&date=${nextDate}`);
@@ -146,11 +150,28 @@ export function CalendarView({
 
       <div className="min-h-0 flex-1 overflow-auto">
         {view === "day" ? (
-          <DayView staff={staff} timeline={timeline} listItems={listItems} />
+          <DayView
+            staff={staff}
+            timeline={timeline}
+            listItems={listItems}
+            onSelect={setSelectedId}
+          />
         ) : (
-          <WeekGrid staff={staff} weekView={weekView} />
+          <WeekGrid
+            staff={staff}
+            weekView={weekView}
+            onSelect={setSelectedId}
+          />
         )}
       </div>
+
+      {selectedId !== null && (
+        <ReservationDetailDialog
+          key={selectedId}
+          reservationId={selectedId}
+          onClose={() => setSelectedId(null)}
+        />
+      )}
     </div>
   );
 }
@@ -163,10 +184,12 @@ function DayView({
   staff,
   timeline,
   listItems,
+  onSelect,
 }: {
   staff: AdminStaff[];
   timeline: DayTimeline;
   listItems: ReservationListItem[];
+  onSelect: (id: string) => void;
 }) {
   // スマホ幅のみ「タイムライン / リスト」を切り替える(モックH・I)
   const [mobileMode, setMobileMode] = useState<"timeline" | "list">("timeline");
@@ -179,7 +202,11 @@ function DayView({
     <>
       {/* PC/タブレット: 全スタッフ列を並べたタイムライン(モックB) */}
       <div className="hidden md:block">
-        <DayTimelineGrid staff={staff} timeline={timeline} />
+        <DayTimelineGrid
+          staff={staff}
+          timeline={timeline}
+          onSelect={onSelect}
+        />
       </div>
 
       {/* スマホ: タイムライン(1人)/ リスト の切替(モックH・I) */}
@@ -203,9 +230,9 @@ function DayView({
           ))}
         </div>
         {mobileMode === "timeline" ? (
-          <MobileTimeline timeline={timeline} />
+          <MobileTimeline timeline={timeline} onSelect={onSelect} />
         ) : (
-          <ReservationList listItems={listItems} />
+          <ReservationList listItems={listItems} onSelect={onSelect} />
         )}
       </div>
     </>
@@ -216,9 +243,11 @@ function DayView({
 function DayTimelineGrid({
   staff,
   timeline,
+  onSelect,
 }: {
   staff: AdminStaff[];
   timeline: DayTimeline;
+  onSelect: (id: string) => void;
 }) {
   const height = timelineHeight(timeline.tickMarks);
   const gridColumns = `repeat(${timeline.columns.length}, minmax(0, 1fr))`;
@@ -267,6 +296,7 @@ function DayTimelineGrid({
                   bookingCardClass={
                     colorByStaffId.get(column.staffId)?.card ?? ""
                   }
+                  onSelect={onSelect}
                 />
               </div>
             ))}
@@ -278,7 +308,13 @@ function DayTimelineGrid({
 }
 
 /** スマホの日表示タイムライン: スタッフを1人選んで1列表示(モックH) */
-function MobileTimeline({ timeline }: { timeline: DayTimeline }) {
+function MobileTimeline({
+  timeline,
+  onSelect,
+}: {
+  timeline: DayTimeline;
+  onSelect: (id: string) => void;
+}) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const height = timelineHeight(timeline.tickMarks);
   const column = timeline.columns[selectedIndex];
@@ -322,6 +358,7 @@ function MobileTimeline({ timeline }: { timeline: DayTimeline }) {
           <TimelineBlocks
             blocks={column.blocks}
             bookingCardClass={staffColor(selectedIndex).card}
+            onSelect={onSelect}
           />
         </div>
       </div>
@@ -330,7 +367,13 @@ function MobileTimeline({ timeline }: { timeline: DayTimeline }) {
 }
 
 /** スマホの日表示リスト: その日の全スタッフの予約を時刻順に並べる(モックI) */
-function ReservationList({ listItems }: { listItems: ReservationListItem[] }) {
+function ReservationList({
+  listItems,
+  onSelect,
+}: {
+  listItems: ReservationListItem[];
+  onSelect: (id: string) => void;
+}) {
   if (listItems.length === 0) {
     return (
       <p className="p-6 text-base text-muted-foreground">
@@ -342,19 +385,22 @@ function ReservationList({ listItems }: { listItems: ReservationListItem[] }) {
   return (
     <ul className="flex flex-col gap-3 p-4">
       {listItems.map((item) => (
-        <li
-          key={item.id}
-          className="flex items-start gap-4 rounded-xl border border-border bg-card p-4"
-        >
-          <span className="w-14 shrink-0 text-base font-bold text-primary">
-            {item.timeLabel}
-          </span>
-          <div className="min-w-0">
-            <p className="text-base font-bold">{item.customerLabel}</p>
-            <p className="mt-0.5 truncate text-sm text-muted-foreground">
-              {item.menuStaffLabel}
-            </p>
-          </div>
+        <li key={item.id}>
+          <button
+            type="button"
+            onClick={() => onSelect(item.id)}
+            className="flex w-full items-start gap-4 rounded-xl border border-border bg-card p-4 text-left transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <span className="w-14 shrink-0 text-base font-bold text-primary">
+              {item.timeLabel}
+            </span>
+            <div className="min-w-0">
+              <p className="text-base font-bold">{item.customerLabel}</p>
+              <p className="mt-0.5 truncate text-sm text-muted-foreground">
+                {item.menuStaffLabel}
+              </p>
+            </div>
+          </button>
         </li>
       ))}
     </ul>
@@ -368,9 +414,11 @@ function ReservationList({ listItems }: { listItems: ReservationListItem[] }) {
 function WeekGrid({
   staff,
   weekView,
+  onSelect,
 }: {
   staff: AdminStaff[];
   weekView: WeekView;
+  onSelect: (id: string) => void;
 }) {
   const colorIndexByStaffId = new Map(
     staff.map((member, index) => [member.id, index]),
@@ -434,10 +482,12 @@ function WeekGrid({
                       const colorIndex =
                         colorIndexByStaffId.get(item.staffId) ?? 0;
                       return (
-                        <div
+                        <button
                           key={item.id}
+                          type="button"
+                          onClick={() => onSelect(item.id)}
                           className={cn(
-                            "absolute inset-x-0.5 overflow-hidden rounded-md border-l-4 px-1.5 py-1",
+                            "absolute inset-x-0.5 overflow-hidden rounded-md border-l-4 px-1.5 py-1 text-left transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                             staffColor(colorIndex).card,
                           )}
                           style={{
@@ -453,7 +503,7 @@ function WeekGrid({
                               {item.menuLabel}
                             </p>
                           )}
-                        </div>
+                        </button>
                       );
                     })
                   )}

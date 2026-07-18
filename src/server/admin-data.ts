@@ -16,6 +16,7 @@ import {
   type StaffWorkingDay,
 } from "@/lib/availability";
 import { addMonths } from "@/lib/calendar";
+import type { ReservationMenuSnapshot } from "@/lib/my-reservations";
 import { parseTstzrange } from "@/lib/tstzrange";
 import { getServiceRoleClient } from "@/server/supabase";
 
@@ -199,6 +200,91 @@ export async function fetchAdminCalendarItems(
       })),
     };
   });
+}
+
+// ---------------------------------------------------------------------------
+// 予約詳細ダイアログ(モックC)のデータ取得
+// ---------------------------------------------------------------------------
+
+/**
+ * 予約詳細1件分(モックC)。
+ * - requestNote は予約時に客が入力した要望(reservations.note)
+ * - staffMemo は顧客単位の店内メモ(customers.note。2026-07-17決定)
+ */
+export type ReservationDetail = {
+  id: string;
+  customerId: string;
+  customerName: string;
+  customerPhone: string | null;
+  staffName: string;
+  start: Date;
+  end: Date;
+  menus: ReservationMenuSnapshot[];
+  requestNote: string | null;
+  staffMemo: string | null;
+};
+
+type ReservationDetailRow = {
+  id: string;
+  kind: "booking" | "block";
+  during: string;
+  note: string | null;
+  customer_id: string | null;
+  // 多対一の埋め込みは単一オブジェクト(顧客・スタッフ)
+  customers: { name: string; phone: string | null; note: string | null } | null;
+  staff: { name: string } | null;
+  // 一対多の埋め込み(予約時点のスナップショット)
+  reservation_menus: Array<{
+    menu_name: string;
+    price: number;
+    duration_minutes: number;
+  }>;
+};
+
+/**
+ * 予約詳細(顧客・担当・メニュースナップショット・要望・スタッフメモ)を1件取得する。
+ * kind='booking' の確定予約のみが対象。ブロック・存在しない・キャンセル済みは null。
+ */
+export async function fetchReservationDetail(
+  supabase: SupabaseClient,
+  id: string,
+): Promise<ReservationDetail | null> {
+  const result = await supabase
+    .from("reservations")
+    .select(
+      "id, kind, during, note, customer_id, customers(name, phone, note), staff(name), reservation_menus(menu_name, price, duration_minutes)",
+    )
+    .eq("id", id)
+    .eq("status", "confirmed")
+    .maybeSingle();
+  if (result.error !== null) {
+    throw new Error(`予約詳細の取得に失敗しました: ${result.error.message}`);
+  }
+  if (result.data === null) {
+    return null;
+  }
+  const row = result.data as unknown as ReservationDetailRow;
+  // ブロック(予約不可)には顧客・メニューがないため詳細は出さない
+  if (row.kind !== "booking" || row.customer_id === null) {
+    return null;
+  }
+  const during = parseTstzrange(row.during);
+  return {
+    id: row.id,
+    customerId: row.customer_id,
+    customerName: row.customers?.name ?? "",
+    customerPhone: row.customers?.phone ?? null,
+    staffName: row.staff?.name ?? "",
+    start: during.start,
+    end: during.end,
+    menus: row.reservation_menus.map((menu) => ({
+      menuName: menu.menu_name,
+      price: menu.price,
+      durationMinutes: menu.duration_minutes,
+    })),
+    requestNote: row.note,
+    staffMemo: row.customers?.note ?? null,
+  };
 }
 
 // ---------------------------------------------------------------------------

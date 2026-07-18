@@ -15,7 +15,12 @@ import {
   type Slot,
   type StaffWorkingDay,
 } from "./availability";
-import { formatYen, menuNamesLabel, summarizeSelectedMenus } from "./booking";
+import {
+  formatJstDateTimeLabel,
+  formatYen,
+  menuNamesLabel,
+  summarizeSelectedMenus,
+} from "./booking";
 import { calendarDateLabel, formatJstTime } from "./calendar";
 import type { ReservationMenuSnapshot } from "./my-reservations";
 
@@ -502,7 +507,39 @@ export function slotAvailabilityMessage(params: {
 }
 
 // ---------------------------------------------------------------------------
-// 5. 予約リスト表示(スマホ)の整形
+// 5. 予約詳細ダイアログ(モックC)の整形
+// ---------------------------------------------------------------------------
+
+export type ReservationDetailLabels = {
+  /** 「7月18日(土)11:00〜 田中」(日時・担当) */
+  dateTimeStaffLabel: string;
+  /** 「カット + カラー(150分) ¥11,550」(メニュー名 + 合計所要分 + 合計金額) */
+  menuLabel: string;
+};
+
+/**
+ * 予約詳細ダイアログの「日時・担当」「メニュー」ラベルを組み立てる(モックC準拠)。
+ * - 日時・担当: 開始時刻(JST)ラベルにスタッフ名を続ける
+ * - メニュー: スナップショットのメニュー名連結 + 合計所要分 + 合計金額
+ *   (合計はカレンダーブロックと違い、高さに関係なく常に表示する)
+ * 表記は booking.ts の既存フォーマッタに合わせる。
+ */
+export function buildReservationDetailLabels(params: {
+  start: Date;
+  staffName: string;
+  menus: ReservationMenuSnapshot[];
+}): ReservationDetailLabels {
+  const { start, staffName, menus } = params;
+  const summary = summarizeSelectedMenus(menus);
+  const names = menuNamesLabel(menus.map((m) => m.menuName));
+  return {
+    dateTimeStaffLabel: `${formatJstDateTimeLabel(start)} ${staffName}`,
+    menuLabel: `${names}(${summary.totalDurationMinutes}分) ${formatYen(summary.totalPrice)}`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 6. 予約リスト表示(スマホ)の整形
 // ---------------------------------------------------------------------------
 
 export type ReservationListItem = {

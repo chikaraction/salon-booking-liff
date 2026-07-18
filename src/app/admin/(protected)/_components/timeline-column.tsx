@@ -47,54 +47,86 @@ export function HourLines({ tickMarks }: { tickMarks: TickMark[] }) {
  * - 予約: 淡色カード+左ボーダー(bookingCardClass でスタッフ色分け)
  * - 休憩: さらに淡いブロック
  * - ブロック(kind=block): 斜線ハッチング+「予約不可」ラベル
- * 予約カードのクリック(予約詳細ダイアログ)は後続タスクがここに足す。
+ * onSelect が渡され、かつ予約(type="booking"で id あり)のときだけ
+ * クリック可能にして予約詳細ダイアログを開く。休憩・ブロックは非クリック。
  */
 export function TimelineBlocks({
   blocks,
   bookingCardClass,
+  onSelect,
 }: {
   blocks: PlacedBlock[];
   bookingCardClass: string;
+  onSelect?: (id: string) => void;
 }) {
   return (
     <>
-      {blocks.map((block, index) => (
-        <div
-          key={block.id ?? `break-${index}`}
-          className={cn(
-            "absolute inset-x-1 overflow-hidden rounded-lg px-2 py-1.5",
-            block.type === "booking" && cn("border-l-4", bookingCardClass),
-            block.type === "break" && "bg-muted text-muted-foreground",
-            block.type === "block" &&
-              "bg-secondary bg-[repeating-linear-gradient(45deg,transparent,transparent_6px,var(--color-border)_6px,var(--color-border)_7px)] text-secondary-foreground",
-          )}
-          style={{
-            top: `${block.topPercent}%`,
-            height: `${block.heightPercent}%`,
-          }}
-        >
-          <p
-            className={cn(
-              "truncate",
-              block.type === "booking"
-                ? "text-sm font-bold"
-                : "text-xs font-medium",
+      {blocks.map((block, index) => {
+        const clickable =
+          onSelect !== undefined &&
+          block.type === "booking" &&
+          block.id !== null;
+        const content = (
+          <>
+            <p
+              className={cn(
+                "truncate",
+                block.type === "booking"
+                  ? "text-sm font-bold"
+                  : "text-xs font-medium",
+              )}
+            >
+              {block.titleLabel}
+            </p>
+            {block.menuLabel !== null && (
+              <p className="truncate text-xs text-muted-foreground">
+                {block.menuLabel}
+              </p>
             )}
+            {block.priceLabel !== null && (
+              <p className="mt-1 truncate text-xs font-bold">
+                {block.priceLabel}
+              </p>
+            )}
+          </>
+        );
+        const className = cn(
+          "absolute inset-x-1 overflow-hidden rounded-lg px-2 py-1.5 text-left",
+          block.type === "booking" && cn("border-l-4", bookingCardClass),
+          block.type === "break" && "bg-muted text-muted-foreground",
+          block.type === "block" &&
+            "bg-secondary bg-[repeating-linear-gradient(45deg,transparent,transparent_6px,var(--color-border)_6px,var(--color-border)_7px)] text-secondary-foreground",
+          clickable &&
+            "cursor-pointer transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        );
+        const style = {
+          top: `${block.topPercent}%`,
+          height: `${block.heightPercent}%`,
+        };
+
+        if (clickable) {
+          return (
+            <button
+              key={block.id}
+              type="button"
+              className={className}
+              style={style}
+              onClick={() => onSelect(block.id as string)}
+            >
+              {content}
+            </button>
+          );
+        }
+        return (
+          <div
+            key={block.id ?? `break-${index}`}
+            className={className}
+            style={style}
           >
-            {block.titleLabel}
-          </p>
-          {block.menuLabel !== null && (
-            <p className="truncate text-xs text-muted-foreground">
-              {block.menuLabel}
-            </p>
-          )}
-          {block.priceLabel !== null && (
-            <p className="mt-1 truncate text-xs font-bold">
-              {block.priceLabel}
-            </p>
-          )}
-        </div>
-      ))}
+            {content}
+          </div>
+        );
+      })}
     </>
   );
 }

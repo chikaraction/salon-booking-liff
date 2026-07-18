@@ -16,11 +16,13 @@ import {
   type ProxyRegistrationErrors,
 } from "@/lib/admin-reservation-form";
 import { isCalendarDate, jstDateTime } from "@/lib/availability";
-import { isSlotTakenError } from "@/lib/booking";
+import { isSlotTakenError, isUuid } from "@/lib/booking";
 import { createAdminAuthClient } from "@/server/admin-auth";
 import {
+  fetchReservationDetail,
   searchCustomers,
   type CustomerSearchResult,
+  type ReservationDetail,
 } from "@/server/admin-data";
 import { getDayAvailability } from "@/server/booking-data";
 
@@ -248,5 +250,126 @@ export async function createProxyReservation(
       reason: "server_error",
       message: "予約の登録に失敗しました",
     };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 予約詳細ダイアログ(モックC): 詳細取得・店側キャンセル・スタッフメモ編集
+// - いずれも authenticated クライアント(RLS適用)。service_role は使わない
+// - キャンセルは単文UPDATE(RPC不要)。締切(cancel_deadline_minutes)は
+//   客側専用の制約なので店側キャンセルには適用しない(2026-07-17決定)
+// ---------------------------------------------------------------------------
+
+export type GetReservationDetailResult =
+  { ok: true; detail: ReservationDetail } | { ok: false; message: string };
+
+/**
+ * 予約詳細を取得する(カレンダーの予約カードクリックで開く)。
+ * detail は Date を含むが、RSC/Action境界を越えて client へ渡せる。
+ */
+export async function getReservationDetailAction(
+  id: string,
+): Promise<GetReservationDetailResult> {
+  if (typeof id !== "string" || !isUuid(id)) {
+    return { ok: false, message: "予約が見つかりませんでした" };
+  }
+  try {
+    const supabase = await createAdminAuthClient();
+    const detail = await fetchReservationDetail(supabase, id);
+    if (detail === null) {
+      return { ok: false, message: "予約が見つかりませんでした" };
+    }
+    return { ok: true, detail };
+  } catch (error) {
+    console.error("getReservationDetail failed", error);
+    return { ok: false, message: "予約の取得に失敗しました" };
+  }
+}
+
+export type CancelByAdminResult =
+  | { ok: true }
+  | { ok: false; reason: "not_found" | "server_error"; message: string };
+
+/**
+ * 店側キャンセル。authenticated クライアントで単文UPDATE
+ * (status='cancelled', cancelled_at=now())。対象は kind='booking' かつ
+ * status='confirmed' のみ。更新0件なら既にキャンセル済み等として not_found。
+ * confirmed から外れるとEXCLUDE制約(ADR-004)の対象から外れ、枠が空きに戻る。
+ * 更新件数は @supabase/supabase-js の update().select() が返す行数で判定する。
+ */
+export async function cancelReservationByAdmin(
+  id: string,
+): Promise<CancelByAdminResult> {
+  if (typeof id !== "string" || !isUuid(id)) {
+    return {
+      ok: false,
+      reason: "not_found",
+      message: "予約が見つかりませんでした",
+    };
+  }
+  try {
+    const supabase = await createAdminAuthClient();
+    const { data, error } = await supabase
+      .from("reservations")
+      .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
+      .eq("id", id)
+      .eq("kind", "booking")
+      .eq("status", "confirmed")
+      .select("id");
+    if (error !== null) {
+      console.error("cancelReservationByAdmin failed", error);
+      return {
+        ok: false,
+        reason: "server_error",
+        message: "キャンセルに失敗しました",
+      };
+    }
+    if (data === null || data.length === 0) {
+      return {
+        ok: false,
+        reason: "not_found",
+        message: "この予約は既に取り消されています",
+      };
+    }
+    return { ok: true };
+  } catch (error) {
+    console.error("cancelReservationByAdmin failed", error);
+    return {
+      ok: false,
+      reason: "server_error",
+      message: "キャンセルに失敗しました",
+    };
+  }
+}
+
+export type UpdateStaffMemoResult =
+  { ok: true } | { ok: false; message: string };
+
+/**
+ * スタッフメモ(顧客単位の店内メモ = customers.note)を更新する。
+ * 前後空白を除き、空文字は NULL にする(唯一の入力箇所: 2026-07-17決定)。
+ */
+export async function updateStaffMemo(
+  customerId: string,
+  memo: string,
+): Promise<UpdateStaffMemoResult> {
+  if (typeof customerId !== "string" || !isUuid(customerId)) {
+    return { ok: false, message: "お客様が見つかりませんでした" };
+  }
+  const trimmed = typeof memo === "string" ? memo.trim() : "";
+  try {
+    const supabase = await createAdminAuthClient();
+    const { error } = await supabase
+      .from("customers")
+      .update({ note: trimmed === "" ? null : trimmed })
+      .eq("id", customerId);
+    if (error !== null) {
+      console.error("updateStaffMemo failed", error);
+      return { ok: false, message: "メモの保存に失敗しました" };
+    }
+    return { ok: true };
+  } catch (error) {
+    console.error("updateStaffMemo failed", error);
+    return { ok: false, message: "メモの保存に失敗しました" };
   }
 }
