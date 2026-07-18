@@ -203,6 +203,8 @@ export type DayAvailability =
   | { kind: "invalid_menus" }
   | {
       kind: "ok";
+      /** 対象日が定休日(business_hours.is_open=false / 行なし)か */
+      isClosed: boolean;
       /** 有効スタッフ(display_order順)。perStaff も同順 */
       staff: Array<{ id: string; name: string }>;
       perStaff: StaffSlots[];
@@ -357,7 +359,14 @@ export async function getDayAvailability(
     }),
   }));
 
-  return { kind: "ok", staff, perStaff, menus: selectedMenus, summary };
+  return {
+    kind: "ok",
+    isClosed: !businessDay.isOpen,
+    staff,
+    perStaff,
+    menus: selectedMenus,
+    summary,
+  };
 }
 
 // ---------------------------------------------------------------------------

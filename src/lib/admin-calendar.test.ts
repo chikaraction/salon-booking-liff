@@ -386,7 +386,19 @@ describe("buildDayTimeline: 日表示の配置計算", () => {
     ).toEqual(["b3"]);
   });
 
-  it("休業日(is_open=false)は目盛りなし・列は空で isClosed=true", () => {
+  it("休業日で予約がなければ目盛りなし・列は空で isClosed=true(UIは「定休日です。」)", () => {
+    const timeline = buildDayTimeline({
+      ...base,
+      businessDay: { isOpen: false, openTime: null, closeTime: null },
+      items: [],
+    });
+    expect(timeline.isClosed).toBe(true);
+    expect(timeline.ticks).toEqual([]);
+    expect(timeline.columns).toHaveLength(2);
+    expect(timeline.columns.every((c) => c.blocks.length === 0)).toBe(true);
+  });
+
+  it("休業日でも予約があれば予約の範囲で軸を組み配置する(isClosed=true のまま隠さない)", () => {
     const timeline = buildDayTimeline({
       ...base,
       businessDay: { isOpen: false, openTime: null, closeTime: null },
@@ -401,10 +413,40 @@ describe("buildDayTimeline: 日表示の配置計算", () => {
         }),
       ],
     });
+    // 定休日バッジを出すため isClosed は true のまま
     expect(timeline.isClosed).toBe(true);
-    expect(timeline.ticks).toEqual([]);
-    expect(timeline.columns).toHaveLength(2);
-    expect(timeline.columns.every((c) => c.blocks.length === 0)).toBe(true);
+    // 9:30〜10:30 → 軸は 9:00〜11:00(正時に丸め)
+    expect(timeline.ticks).toEqual(["9:00", "10:00", "11:00"]);
+    const placed = timeline.columns[0].blocks[0];
+    expect(placed.id).toBe("b1");
+    // 軸 9:00〜11:00(120分)基準: 9:30 = 30分 → 25%、60分 → 50%
+    expect(placed.topPercent).toBe(25);
+    expect(placed.heightPercent).toBe(50);
+    // 予約のないスタッフ列も生成される(ブロックは空)
+    expect(timeline.columns[1].blocks).toHaveLength(0);
+  });
+
+  it("休業日+予約ありでも勤務パターンがなければ休憩ブロックは出さない", () => {
+    const timeline = buildDayTimeline({
+      ...base,
+      businessDay: { isOpen: false, openTime: null, closeTime: null },
+      workingHours: [], // 休業日は勤務パターンなし
+      items: [
+        booking({
+          id: "b1",
+          staffId: "sato",
+          start: "10:00",
+          end: "11:00",
+          customerName: "鈴木",
+          menus: [cut],
+        }),
+      ],
+    });
+    expect(
+      timeline.columns
+        .flatMap((c) => c.blocks)
+        .filter((b) => b.type === "break"),
+    ).toHaveLength(0);
   });
 
   it("勤務パターンのないスタッフの列も生成する(休憩ブロックなし)", () => {
@@ -613,6 +655,51 @@ describe("buildWeekView: 週表示への集約", () => {
     expect(view.days[2].items).toHaveLength(0);
   });
 
+  it("定休日でも予約があれば day.items に配置する(定休日の予約を隠さない)", () => {
+    const view = buildWeekView({
+      weekStart,
+      businessHours,
+      items: [
+        // 日曜(定休)に別経路・過去作成の予約が入っているケース
+        booking({
+          id: "sun",
+          staffId: "tanaka",
+          date: "2026-07-12",
+          start: "10:00",
+          end: "11:00",
+          customerName: "日曜",
+          menus: [cut],
+        }),
+      ],
+      isClosedDay,
+    });
+    expect(view.days[0].isClosed).toBe(true);
+    expect(view.days[0].items.map((i) => i.id)).toEqual(["sun"]);
+  });
+
+  it("営業時間外の予約も軸に含めて配置する(軸から外れて消えない)", () => {
+    const view = buildWeekView({
+      weekStart,
+      businessHours,
+      items: [
+        // 平日営業は 10:00〜だが、8:00 開始の予約(時間外)が消えないこと
+        booking({
+          id: "early",
+          staffId: "tanaka",
+          date: "2026-07-13",
+          start: "08:00",
+          end: "09:00",
+          customerName: "早朝",
+          menus: [cut],
+        }),
+      ],
+      isClosedDay,
+    });
+    // 8:00 が軸下限に入る(営業時間の最小開店 9:00 より前へ広がる)
+    expect(view.ticks[0]).toBe("8:00");
+    expect(view.days[1].items.map((i) => i.id)).toEqual(["early"]);
+  });
+
   it("同じ日のアイテムは開始時刻順に並べる", () => {
     const view = buildWeekView({
       weekStart,
@@ -739,6 +826,7 @@ describe("slotAvailabilityMessage: 代行登録の空き判定メッセージ", 
         start: jstDateTime("2026-07-18", "11:00"),
         totalDurationMinutes: 150,
         now: before,
+        isClosed: false,
       }),
     ).toEqual({
       status: "available",
@@ -754,6 +842,7 @@ describe("slotAvailabilityMessage: 代行登録の空き判定メッセージ", 
         start: jstDateTime("2026-07-18", "11:00"),
         totalDurationMinutes: 60,
         now: before,
+        isClosed: false,
       }).message,
     ).toBe("この枠は空いています。60分確保できます。");
   });
@@ -765,6 +854,7 @@ describe("slotAvailabilityMessage: 代行登録の空き判定メッセージ", 
         start: jstDateTime("2026-07-18", "11:00"),
         totalDurationMinutes: 150,
         now: jstDateTime("2026-07-18", "11:01"),
+        isClosed: false,
       }),
     ).toEqual({
       status: "past",
@@ -780,8 +870,50 @@ describe("slotAvailabilityMessage: 代行登録の空き判定メッセージ", 
         start: jstDateTime("2026-07-18", "11:00"),
         totalDurationMinutes: 150,
         now: jstDateTime("2026-07-18", "11:00"),
+        isClosed: false,
       }).status,
     ).toBe("available");
+  });
+
+  it("定休日(isClosed)は closed・canRegister:false・登録不可メッセージ(過去の次に優先)", () => {
+    expect(
+      slotAvailabilityMessage({
+        slots,
+        start: jstDateTime("2026-07-18", "11:00"),
+        totalDurationMinutes: 150,
+        now: before,
+        isClosed: true,
+      }),
+    ).toEqual({
+      status: "closed",
+      canRegister: false,
+      message: "定休日は登録できません",
+    });
+  });
+
+  it("過去は定休日より優先する(start<now なら isClosed でも past)", () => {
+    expect(
+      slotAvailabilityMessage({
+        slots,
+        start: jstDateTime("2026-07-18", "11:00"),
+        totalDurationMinutes: 150,
+        now: jstDateTime("2026-07-18", "11:01"),
+        isClosed: true,
+      }).status,
+    ).toBe("past");
+  });
+
+  it("定休日は空き枠(available候補)であっても closed を優先する", () => {
+    // 11:00 は available 枠だが、定休日なら登録させない
+    expect(
+      slotAvailabilityMessage({
+        slots,
+        start: jstDateTime("2026-07-18", "11:00"),
+        totalDurationMinutes: 150,
+        now: before,
+        isClosed: true,
+      }).status,
+    ).toBe("closed");
   });
 
   it("既存予約と重なる枠(taken)は unavailable だが canRegister:true(最終判定はEXCLUDE制約)", () => {
@@ -790,6 +922,7 @@ describe("slotAvailabilityMessage: 代行登録の空き判定メッセージ", 
       start: jstDateTime("2026-07-18", "14:00"),
       totalDurationMinutes: 150,
       now: before,
+      isClosed: false,
     });
     expect(result.status).toBe("unavailable");
     expect(result.canRegister).toBe(true);
@@ -802,6 +935,7 @@ describe("slotAvailabilityMessage: 代行登録の空き判定メッセージ", 
       start: jstDateTime("2026-07-18", "18:30"),
       totalDurationMinutes: 150,
       now: before,
+      isClosed: false,
     });
     expect(result.status).toBe("unavailable");
     expect(result.canRegister).toBe(true);

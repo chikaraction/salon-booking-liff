@@ -194,12 +194,16 @@ function DayView({
   // スマホ幅のみ「タイムライン / リスト」を切り替える(モックH・I)
   const [mobileMode, setMobileMode] = useState<"timeline" | "list">("timeline");
 
-  if (timeline.isClosed) {
+  // 予約のない休業日だけ「定休日です。」で終える。定休日でも予約があれば
+  // (ticks が立つ)タイムラインを描画し、上部に定休日バッジを添える。
+  if (timeline.isClosed && timeline.ticks.length === 0) {
     return <p className="p-6 text-base text-muted-foreground">定休日です。</p>;
   }
 
   return (
     <>
+      {timeline.isClosed && <ClosedDayBanner />}
+
       {/* PC/タブレット: 全スタッフ列を並べたタイムライン(モックB) */}
       <div className="hidden md:block">
         <DayTimelineGrid
@@ -236,6 +240,23 @@ function DayView({
         )}
       </div>
     </>
+  );
+}
+
+/**
+ * 定休日でも予約があるときに、タイムライン上部へ添える定休日バッジ。
+ * 定休日への新規登録はブロックされるが、過去・別経路の予約は表示・確認できる。
+ */
+function ClosedDayBanner() {
+  return (
+    <div className="flex items-center gap-2 border-b border-border bg-muted/50 px-4 py-2 md:px-6">
+      <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-bold text-muted-foreground">
+        定休日
+      </span>
+      <span className="text-sm text-muted-foreground">
+        定休日ですが予約があります(新規の登録はできません)
+      </span>
+    </div>
   );
 }
 
@@ -476,40 +497,41 @@ function WeekGrid({
                       "bg-[repeating-linear-gradient(45deg,transparent,transparent_8px,var(--color-muted)_8px,var(--color-muted)_9px)]",
                   )}
                 >
-                  {day.isClosed ? (
-                    <p className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-xs text-muted-foreground">
+                  {/* 定休日はハッチング背景+ラベルを残しつつ、予約があれば重ねて描画。
+                      定休日への新規登録はブロックするが、過去・別経路の予約は隠さない */}
+                  {day.isClosed && (
+                    <p className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-xs text-muted-foreground">
                       定休日
                     </p>
-                  ) : (
-                    day.items.map((item) => {
-                      const colorIndex =
-                        colorIndexByStaffId.get(item.staffId) ?? 0;
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => onSelect(item.id)}
-                          className={cn(
-                            "absolute inset-x-0.5 overflow-hidden rounded-md border-l-4 px-1.5 py-1 text-left transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                            staffColor(colorIndex).card,
-                          )}
-                          style={{
-                            top: `${item.topPercent}%`,
-                            height: `${item.heightPercent}%`,
-                          }}
-                        >
-                          <p className="truncate text-xs font-bold">
-                            {item.titleLabel}
-                          </p>
-                          {item.menuLabel !== null && (
-                            <p className="truncate text-xs text-muted-foreground">
-                              {item.menuLabel}
-                            </p>
-                          )}
-                        </button>
-                      );
-                    })
                   )}
+                  {day.items.map((item) => {
+                    const colorIndex =
+                      colorIndexByStaffId.get(item.staffId) ?? 0;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => onSelect(item.id)}
+                        className={cn(
+                          "absolute inset-x-0.5 overflow-hidden rounded-md border-l-4 px-1.5 py-1 text-left transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                          staffColor(colorIndex).card,
+                        )}
+                        style={{
+                          top: `${item.topPercent}%`,
+                          height: `${item.heightPercent}%`,
+                        }}
+                      >
+                        <p className="truncate text-xs font-bold">
+                          {item.titleLabel}
+                        </p>
+                        {item.menuLabel !== null && (
+                          <p className="truncate text-xs text-muted-foreground">
+                            {item.menuLabel}
+                          </p>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               ))}
             </div>

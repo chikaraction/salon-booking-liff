@@ -222,6 +222,17 @@ export function ProxyRegistrationForm({
         setFormError(result.message);
         return;
       }
+      if (result.reason === "closed") {
+        // サーバーの business_hours で定休日と判定された(登録不可)
+        setAvailability({
+          status: "closed",
+          canRegister: false,
+          message: result.message,
+        });
+        setFieldErrors((prev) => ({ ...prev, date: result.message }));
+        setFormError(result.message);
+        return;
+      }
       if (result.reason === "slot_taken") {
         setAvailability({
           status: "unavailable",
@@ -479,6 +490,7 @@ export function ProxyRegistrationForm({
 
           {/* 空き状況の表示(補助。最後の砦はEXCLUDE制約)。状態で色を出し分ける:
               available=空き(accent)/ past=過去で登録不可(destructive)/
+              closed=定休日で登録不可(destructive)/
               unavailable=空き枠でないが上書き登録は可(注意色) */}
           {availability !== null && (
             <p
@@ -486,7 +498,8 @@ export function ProxyRegistrationForm({
                 "rounded-xl px-4 py-3 text-base",
                 availability.status === "available" &&
                   "bg-accent text-accent-foreground",
-                availability.status === "past" &&
+                (availability.status === "past" ||
+                  availability.status === "closed") &&
                   "bg-destructive/10 text-destructive",
                 availability.status === "unavailable" &&
                   "bg-muted text-muted-foreground",
@@ -522,7 +535,11 @@ export function ProxyRegistrationForm({
           <Button
             type="submit"
             size="lg"
-            disabled={isSubmitting || availability?.status === "past"}
+            disabled={
+              isSubmitting ||
+              availability?.status === "past" ||
+              availability?.status === "closed"
+            }
             className="h-12 w-full rounded-xl text-base font-bold"
           >
             {isEdit

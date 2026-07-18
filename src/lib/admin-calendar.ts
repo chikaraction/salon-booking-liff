@@ -154,7 +154,11 @@ export type DayColumn = {
 };
 
 export type DayTimeline = {
-  /** 休業日(定休)なら true(時間軸なし・列は空) */
+  /**
+   * 休業日(定休)なら true。UIの定休日バッジ判断に使う。
+   * 予約のない休業日は時間軸なし・列は空だが、予約があれば isClosed:true の
+   * まま予約の範囲で軸・列を組む(定休日の既存予約を隠さない)。
+   */
   isClosed: boolean;
   /** 1時間刻みの目盛り(「9:00」〜「19:00」) */
   ticks: string[];
@@ -167,6 +171,31 @@ export type DayTimeline = {
 /** スタッフ列の見出し「田中(オーナー)」を組み立てる */
 function staffHeading(staff: AdminStaff): string {
   return `${staff.name}(${staff.role === "owner" ? "オーナー" : "スタッフ"})`;
+}
+
+/**
+ * 休業日でも既存予約を隠さないための時間軸を items から決める。
+ * - openMinutes = 最も早い開始を時(正時)で切り下げ
+ * - closeMinutes = 最も遅い終了を時(正時)で切り上げ(最低1時間確保)
+ * items が空(=予約なしの休業日)なら null(UIは「定休日です。」)。
+ */
+function itemsAxis(
+  items: AdminCalendarItem[],
+  date: string,
+): { openMinutes: number; closeMinutes: number } | null {
+  let minStart = Number.POSITIVE_INFINITY;
+  let maxEnd = Number.NEGATIVE_INFINITY;
+  for (const item of items) {
+    minStart = Math.min(minStart, jstMinutesOfDay(date, item.during.start));
+    maxEnd = Math.max(maxEnd, jstMinutesOfDay(date, item.during.end));
+  }
+  if (minStart >= maxEnd) return null; // items が空(または長さ0のみ)
+  const openMinutes = Math.floor(minStart / 60) * 60;
+  const closeMinutes = Math.max(
+    Math.ceil(maxEnd / 60) * 60,
+    openMinutes + 60, // 最低1時間の軸を確保する
+  );
+  return { openMinutes, closeMinutes };
 }
 
 /** 予約1件を配置済みブロックにする(時間軸の外なら null) */
@@ -244,6 +273,10 @@ function placeBreakBlock(
  * - 予約・ブロックはスタッフ列ごとに top%・height% で配置する
  * - 休憩は勤務パターンから擬似ブロックとして生成する
  * - 営業時間の外にはみ出す区間は切り詰め、全く重ならないものは配置しない
+ * - 休業日(定休)でも予約が1件でもあれば、予約の時間範囲から軸を組んで
+ *   予約・ブロックを表示する(店側が過去・別経路の予約を確認・取り消せるように)。
+ *   その場合も isClosed は true のまま返す(UIが定休日バッジを出す判断に使う)。
+ *   予約のない休業日は従来どおり isClosed:true・目盛り空で返す。
  */
 export function buildDayTimeline(params: {
   date: string; // JSTの暦日 "YYYY-MM-DD"
@@ -254,7 +287,22 @@ export function buildDayTimeline(params: {
 }): DayTimeline {
   const { date, businessDay, staff, items, workingHours } = params;
 
-  if (!businessDay.isOpen || !businessDay.openTime || !businessDay.closeTime) {
+  const isClosed =
+    !businessDay.isOpen || !businessDay.openTime || !businessDay.closeTime;
+
+  // 時間軸([open, close] 分数)を決める。
+  // - 営業日: 営業時間
+  // - 休業日でも予約があれば予約の時間範囲から組む(定休日の予約を隠さない)
+  const axis =
+    !isClosed && businessDay.openTime && businessDay.closeTime
+      ? {
+          openMinutes: timeToMinutes(businessDay.openTime),
+          closeMinutes: timeToMinutes(businessDay.closeTime),
+        }
+      : itemsAxis(items, date);
+
+  // 予約のない休業日は目盛りなし・列は空(UIは「定休日です。」)
+  if (axis === null) {
     return {
       isClosed: true,
       ticks: [],
@@ -267,8 +315,7 @@ export function buildDayTimeline(params: {
     };
   }
 
-  const openMinutes = timeToMinutes(businessDay.openTime);
-  const closeMinutes = timeToMinutes(businessDay.closeTime);
+  const { openMinutes, closeMinutes } = axis;
   const workingByStaff = new Map(workingHours.map((row) => [row.staffId, row]));
 
   const columns = staff.map((member) => {
@@ -290,7 +337,7 @@ export function buildDayTimeline(params: {
 
   const marks = hourTickMarks(openMinutes, closeMinutes);
   return {
-    isClosed: false,
+    isClosed,
     ticks: marks.map((mark) => mark.label),
     tickMarks: marks,
     columns,
@@ -359,7 +406,23 @@ export function buildWeekView(params: {
 }): WeekView {
   const { weekStart, businessHours, items, isClosedDay } = params;
 
-  // 週の時間軸 = 営業日の最小開店〜最大閉店
+  // 週の7日分の暦日(範囲外の予約を軸・配置から除くための集合)
+  const weekDates = new Set<string>();
+  for (let i = 0; i < 7; i++) weekDates.add(addCalendarDays(weekStart, i));
+
+  // 日別にグルーピング(予約のみ。ブロックは週表示に載せない。範囲外も除く)
+  const bookingsByDate = new Map<string, AdminBooking[]>();
+  for (const item of items) {
+    if (item.kind !== "booking") continue;
+    const date = jstCalendarDate(item.during.start);
+    if (!weekDates.has(date)) continue;
+    const list = bookingsByDate.get(date) ?? [];
+    list.push(item);
+    bookingsByDate.set(date, list);
+  }
+
+  // 週の時間軸 = 営業日の最小開店〜最大閉店に、予約の開始・終了も含める。
+  // (定休日・営業時間外の予約が軸から外れて消えないようにする)
   let openMinutes = Number.POSITIVE_INFINITY;
   let closeMinutes = Number.NEGATIVE_INFINITY;
   for (const day of businessHours) {
@@ -367,17 +430,19 @@ export function buildWeekView(params: {
     openMinutes = Math.min(openMinutes, timeToMinutes(day.openTime));
     closeMinutes = Math.max(closeMinutes, timeToMinutes(day.closeTime));
   }
-  const hasAxis = openMinutes < closeMinutes;
-
-  // 日別にグルーピング(予約のみ。ブロックは週表示に載せない)
-  const bookingsByDate = new Map<string, AdminBooking[]>();
-  for (const item of items) {
-    if (item.kind !== "booking") continue;
-    const date = jstCalendarDate(item.during.start);
-    const list = bookingsByDate.get(date) ?? [];
-    list.push(item);
-    bookingsByDate.set(date, list);
+  for (const [date, list] of bookingsByDate) {
+    for (const item of list) {
+      openMinutes = Math.min(
+        openMinutes,
+        jstMinutesOfDay(date, item.during.start),
+      );
+      closeMinutes = Math.max(
+        closeMinutes,
+        jstMinutesOfDay(date, item.during.end),
+      );
+    }
   }
+  const hasAxis = openMinutes < closeMinutes;
 
   const days: WeekDayColumn[] = [];
   for (let i = 0; i < 7; i++) {
@@ -481,12 +546,15 @@ export function isJstToday(date: string, now: Date): boolean {
 /**
  * 空き表示の状態。
  * - past: 開始が現在より過去(登録不可。canRegister=false)
+ * - closed: 対象日が定休日(登録不可。canRegister=false)。休憩・勤務時間外の
+ *   上書きは許すが、定休日だけは登録をブロックする(2026-07-18決定)
  * - available: 対象枠が空いている(登録可)
  * - unavailable: 空き枠ではない(休憩・勤務時間外・他予約と重なり)。
  *   店側は休憩を削って受けられるため、上書き登録は許可(canRegister=true)。
  *   最終判定はDBのEXCLUDE制約(ADR-004)であり、ここは断定しない。
  */
-export type SlotAvailabilityStatus = "past" | "available" | "unavailable";
+export type SlotAvailabilityStatus =
+  "past" | "closed" | "available" | "unavailable";
 
 export type SlotAvailability = {
   status: SlotAvailabilityStatus;
@@ -499,6 +567,7 @@ export type SlotAvailability = {
  * 代行登録フォームの空き判定メッセージ(モックD準拠)。
  * slots は対象スタッフの computeStaffDaySlots(availability.ts)の結果。
  * - 開始が現在(now)より厳密に過去なら past(start===now は過去扱いしない)
+ * - 対象日が定休日なら closed(過去の次に優先。登録不可)
  * - 対象枠が空いていれば available
  * - それ以外(休憩・勤務時間外・他予約と重なり=slot が無い/taken)は unavailable。
  *   店側の上書き登録を許すため canRegister は true のまま。「埋まっています」と
@@ -509,14 +578,25 @@ export function slotAvailabilityMessage(params: {
   start: Date; // 希望開始時刻(UTC)
   totalDurationMinutes: number; // 選択メニューの合計所要分
   now: Date; // 現在時刻(過去判定の基準。サーバーの now を渡す)
+  isClosed: boolean; // 対象日が定休日か(定休日は登録不可)
 }): SlotAvailability {
-  const { slots, start, totalDurationMinutes, now } = params;
+  const { slots, start, totalDurationMinutes, now, isClosed } = params;
 
+  // 判定順: past(過去)→ closed(定休日)→ available →(taken)→ unavailable。
+  // 過去は定休日より優先する(過去の定休日でも「過去」と表示する)。
   if (start.getTime() < now.getTime()) {
     return {
       status: "past",
       canRegister: false,
       message: "過去の時間は登録できません",
+    };
+  }
+
+  if (isClosed) {
+    return {
+      status: "closed",
+      canRegister: false,
+      message: "定休日は登録できません",
     };
   }
 

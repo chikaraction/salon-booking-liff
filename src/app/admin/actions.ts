@@ -6,6 +6,7 @@
 // - セッションcookieの読み書きは createAdminAuthClient(@supabase/ssr)が行う
 
 import {
+  isClosedByBusinessHours,
   slotAvailabilityMessage,
   type SlotAvailability,
 } from "@/lib/admin-calendar";
@@ -22,6 +23,7 @@ import { isCalendarDate, jstDateTime } from "@/lib/availability";
 import { isSlotTakenError, isUuid } from "@/lib/booking";
 import { createAdminAuthClient } from "@/server/admin-auth";
 import {
+  fetchAdminBusinessHours,
   fetchReservationDetail,
   searchCustomers,
   type CustomerSearchResult,
@@ -163,6 +165,8 @@ export async function checkProxySlot(
       start: jstDateTime(input.date, input.time),
       totalDurationMinutes: day.summary.totalDurationMinutes,
       now,
+      // 定休日は登録不可(getDayAvailability が business_hours から判定)
+      isClosed: day.isClosed,
     });
   } catch (error) {
     console.error("checkProxySlot failed", error);
@@ -194,6 +198,8 @@ export type CreateProxyReservationResult =
   | { ok: false; reason: "invalid_input"; errors: ProxyRegistrationErrors }
   // 開始が現在より過去(サーバーの now で判定。UIは時間フィールドにエラー表示)
   | { ok: false; reason: "past"; message: string }
+  // 対象日が定休日(business_hours.is_open=false。UIは日付フィールドにエラー表示)
+  | { ok: false; reason: "closed"; message: string }
   // その枠は埋まりました(EXCLUDE制約違反 23P01。UIは日時付近にエラー表示)
   | { ok: false; reason: "slot_taken"; message: string }
   // メニュー・顧客の指定不正(RPCの P0001)
@@ -236,6 +242,19 @@ export async function createProxyReservation(
 
   try {
     const supabase = await createAdminAuthClient();
+
+    // 定休日ガード(UXでなく本当のガード)。対象日の曜日が定休日ならRPC前に止める。
+    // 判定は authenticated クライアントの business_hours(全曜日)+ 純粋関数。
+    // 休憩・勤務時間外の上書きは許すが、定休日だけはブロックする(2026-07-18決定)
+    const businessHours = await fetchAdminBusinessHours(supabase);
+    if (isClosedByBusinessHours(value.date, businessHours)) {
+      return {
+        ok: false,
+        reason: "closed",
+        message: "定休日は登録できません",
+      };
+    }
+
     const { data, error } = await supabase.rpc("admin_create_reservation", {
       p_customer_id: value.customerId,
       p_customer_name: value.customerName,
@@ -313,6 +332,8 @@ export type UpdateAdminReservationResult =
   | { ok: false; reason: "invalid_input"; errors: ReservationEditErrors }
   // 開始が現在より過去(サーバーの now で判定。UIは時間フィールドにエラー表示)
   | { ok: false; reason: "past"; message: string }
+  // 対象日が定休日(business_hours.is_open=false。UIは日付フィールドにエラー表示)
+  | { ok: false; reason: "closed"; message: string }
   // 対象が booking かつ confirmed でない(既に取り消し済み等)
   | { ok: false; reason: "not_found"; message: string }
   // その枠は埋まりました(EXCLUDE制約違反 23P01。元予約は無傷でロールバック)
@@ -360,6 +381,19 @@ export async function updateAdminReservation(
 
   try {
     const supabase = await createAdminAuthClient();
+
+    // 定休日ガード(UXでなく本当のガード)。対象日の曜日が定休日ならRPC前に止める。
+    // 判定は authenticated クライアントの business_hours(全曜日)+ 純粋関数。
+    // 休憩・勤務時間外の上書きは許すが、定休日だけはブロックする(2026-07-18決定)
+    const businessHours = await fetchAdminBusinessHours(supabase);
+    if (isClosedByBusinessHours(value.date, businessHours)) {
+      return {
+        ok: false,
+        reason: "closed",
+        message: "定休日は登録できません",
+      };
+    }
+
     const { data, error } = await supabase.rpc("admin_update_reservation", {
       p_reservation_id: input.reservationId,
       p_staff_id: value.staffId,
