@@ -126,6 +126,45 @@ describe("buildDayTimeline: 日表示の配置計算", () => {
     ]);
   });
 
+  it("目盛りには時間軸上の位置(top%)も付く(グリッド線の描画用)", () => {
+    const timeline = buildDayTimeline({ ...base, items: [] });
+    // 9:00〜19:00(600分)→ 1時間 = 10%
+    expect(timeline.tickMarks[0]).toEqual({ label: "9:00", topPercent: 0 });
+    expect(timeline.tickMarks[1]).toEqual({ label: "10:00", topPercent: 10 });
+    expect(timeline.tickMarks[timeline.tickMarks.length - 1]).toEqual({
+      label: "19:00",
+      topPercent: 100,
+    });
+    expect(timeline.tickMarks.map((m) => m.label)).toEqual(timeline.ticks);
+  });
+
+  it("開店が正時でない場合、最初の目盛りは0%より下に置く", () => {
+    // 9:30〜19:30(600分)→ 最初の目盛り 10:00 は開店から30分 = 5%
+    const timeline = buildDayTimeline({
+      ...base,
+      businessDay: {
+        isOpen: true,
+        openTime: "09:30:00",
+        closeTime: "19:30:00",
+      },
+      items: [],
+    });
+    expect(timeline.tickMarks[0]).toEqual({ label: "10:00", topPercent: 5 });
+    expect(timeline.tickMarks[timeline.tickMarks.length - 1]).toEqual({
+      label: "19:00",
+      topPercent: 95,
+    });
+  });
+
+  it("休業日は目盛り位置も空", () => {
+    const timeline = buildDayTimeline({
+      ...base,
+      businessDay: { isOpen: false, openTime: null, closeTime: null },
+      items: [],
+    });
+    expect(timeline.tickMarks).toEqual([]);
+  });
+
   it("スタッフ列は入力順で、見出しは「田中(オーナー)」形式", () => {
     const timeline = buildDayTimeline({ ...base, items: [] });
     expect(timeline.columns.map((c) => c.staffId)).toEqual(["tanaka", "sato"]);
@@ -466,6 +505,22 @@ describe("buildWeekView: 週表示への集約", () => {
     });
     expect(view.ticks[0]).toBe("9:00");
     expect(view.ticks[view.ticks.length - 1]).toBe("19:00");
+  });
+
+  it("週の目盛りにも時間軸上の位置(top%)が付く", () => {
+    const view = buildWeekView({
+      weekStart,
+      businessHours,
+      items: [],
+      isClosedDay,
+    });
+    // 9:00〜19:00(600分)→ 1時間 = 10%
+    expect(view.tickMarks[0]).toEqual({ label: "9:00", topPercent: 0 });
+    expect(view.tickMarks[view.tickMarks.length - 1]).toEqual({
+      label: "19:00",
+      topPercent: 100,
+    });
+    expect(view.tickMarks.map((m) => m.label)).toEqual(view.ticks);
   });
 
   it("各アイテムは開始時刻+客名のラベルとスタッフID(色分け用)を持つ", () => {

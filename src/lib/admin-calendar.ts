@@ -80,13 +80,27 @@ function jstMinutesOfDay(date: string, at: Date): number {
   return Math.round((at.getTime() - midnight.getTime()) / MINUTE_MS);
 }
 
-/** 営業時間(分数)に合わせた1時間刻みの目盛りを生成する */
-function hourTicks(openMinutes: number, closeMinutes: number): string[] {
-  const ticks: string[] = [];
+/** 時間目盛り1つ分(ラベルと時間軸上の位置%。グリッド線の描画用) */
+export type TickMark = {
+  label: string;
+  topPercent: number;
+};
+
+/**
+ * 営業時間(分数)に合わせた1時間刻みの目盛りを生成する。
+ * 開店が正時でない場合、最初の目盛りは開店位置(0%)より下になる。
+ */
+function hourTickMarks(openMinutes: number, closeMinutes: number): TickMark[] {
+  const total = closeMinutes - openMinutes;
+  if (total <= 0) return [];
+  const marks: TickMark[] = [];
   for (let t = Math.ceil(openMinutes / 60) * 60; t <= closeMinutes; t += 60) {
-    ticks.push(minutesLabel(t));
+    marks.push({
+      label: minutesLabel(t),
+      topPercent: ((t - openMinutes) * 100) / total,
+    });
   }
-  return ticks;
+  return marks;
 }
 
 /** 時間軸([open, close] 分数)上の区間を top%・height% に変換する。範囲外は null */
@@ -139,6 +153,8 @@ export type DayTimeline = {
   isClosed: boolean;
   /** 1時間刻みの目盛り(「9:00」〜「19:00」) */
   ticks: string[];
+  /** 目盛りの位置付き(グリッド線の描画用。ラベルは ticks と同一) */
+  tickMarks: TickMark[];
   /** スタッフ列(入力の staff と同順) */
   columns: DayColumn[];
 };
@@ -237,6 +253,7 @@ export function buildDayTimeline(params: {
     return {
       isClosed: true,
       ticks: [],
+      tickMarks: [],
       columns: staff.map((member) => ({
         staffId: member.id,
         heading: staffHeading(member),
@@ -266,9 +283,11 @@ export function buildDayTimeline(params: {
     return { staffId: member.id, heading: staffHeading(member), blocks };
   });
 
+  const marks = hourTickMarks(openMinutes, closeMinutes);
   return {
     isClosed: false,
-    ticks: hourTicks(openMinutes, closeMinutes),
+    ticks: marks.map((mark) => mark.label),
+    tickMarks: marks,
     columns,
   };
 }
@@ -301,6 +320,8 @@ export type WeekDayColumn = {
 export type WeekView = {
   /** 週内の営業時間の最小開店〜最大閉店に合わせた1時間刻みの目盛り */
   ticks: string[];
+  /** 目盛りの位置付き(グリッド線の描画用。ラベルは ticks と同一) */
+  tickMarks: TickMark[];
   /** 日曜から7日分 */
   days: WeekDayColumn[];
 };
@@ -390,8 +411,10 @@ export function buildWeekView(params: {
     });
   }
 
+  const marks = hasAxis ? hourTickMarks(openMinutes, closeMinutes) : [];
   return {
-    ticks: hasAxis ? hourTicks(openMinutes, closeMinutes) : [],
+    ticks: marks.map((mark) => mark.label),
+    tickMarks: marks,
     days,
   };
 }
