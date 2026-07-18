@@ -13,7 +13,9 @@ import { describeLoginError, validateLoginInput } from "@/lib/admin-login";
 import {
   isWallClockTime,
   validateProxyRegistration,
+  validateReservationEdit,
   type ProxyRegistrationErrors,
+  type ReservationEditErrors,
 } from "@/lib/admin-reservation-form";
 import { isCalendarDate, jstDateTime } from "@/lib/availability";
 import { isSlotTakenError, isUuid } from "@/lib/booking";
@@ -112,13 +114,20 @@ export type CheckProxySlotInput = {
   date: string;
   time: string;
   menuIds: string[];
+  /**
+   * 変更モードで自分の旧予約を空き計算から除外する予約ID(省略時は従来動作)。
+   * UPDATE方式の変更で、同じ枠のまま/近接時間へずらすと自分の予約が
+   * 「埋まり」に見えてしまうのを防ぐ。
+   */
+  excludeReservationId?: string;
 };
 
 /**
- * 代行登録フォームの空き表示(モックD)を返す。
+ * 代行登録・店側変更フォームの空き表示(モックD)を返す。
  * 対象スタッフ・日付・時間・メニューが揃ったときに呼ぶ。
  * getDayAvailability(サーバーで所要時間を再計算)の対象スタッフの枠から、
  * 純粋関数 slotAvailabilityMessage が2状態のメッセージを導出する。
+ * 変更モードでは excludeReservationId で自分の旧予約を空き計算から除く。
  */
 export async function checkProxySlot(
   input: CheckProxySlotInput,
@@ -127,7 +136,12 @@ export async function checkProxySlot(
     if (!isCalendarDate(input.date) || !isWallClockTime(input.time)) {
       return { available: false, message: "この枠は埋まっています" };
     }
-    const day = await getDayAvailability(input.date, input.menuIds, new Date());
+    const day = await getDayAvailability(
+      input.date,
+      input.menuIds,
+      new Date(),
+      input.excludeReservationId,
+    );
     if (day.kind === "invalid_menus") {
       return {
         available: false,
@@ -249,6 +263,125 @@ export async function createProxyReservation(
       ok: false,
       reason: "server_error",
       message: "予約の登録に失敗しました",
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 店側変更(代行登録フォームを変更モードで再利用: モックC「変更」→モックD)
+// - 顧客は固定(変更不可)。メニュー・スタッフ・日時・メモを編集できる
+// - 確定は admin_update_reservation(UPDATE方式)。同じ予約を近接時間へずらしても
+//   自己衝突しない。他予約と衝突したら23P01が伝搬しトランザクション全体ロールバック
+//   (元予約は無傷)。ダブルブッキング防止の本体はEXCLUDE制約(ADR-004)
+// ---------------------------------------------------------------------------
+
+export type UpdateAdminReservationInput = {
+  reservationId: string;
+  staffId: string;
+  date: string;
+  time: string;
+  menuIds: string[];
+  /** メモ(任意・店内用) */
+  note: string;
+};
+
+export type UpdateAdminReservationResult =
+  | { ok: true }
+  | { ok: false; reason: "invalid_input"; errors: ReservationEditErrors }
+  // 対象が booking かつ confirmed でない(既に取り消し済み等)
+  | { ok: false; reason: "not_found"; message: string }
+  // その枠は埋まりました(EXCLUDE制約違反 23P01。元予約は無傷でロールバック)
+  | { ok: false; reason: "slot_taken"; message: string }
+  // メニューの指定不正(RPCの P0001)
+  | { ok: false; reason: "invalid"; message: string }
+  | { ok: false; reason: "server_error"; message: string };
+
+/**
+ * 店側変更を確定する。
+ * 入力検証(純粋・顧客は対象外)→ authenticated クライアントで
+ * admin_update_reservation RPC。返り値 'ok' | 'not_found' と
+ * SQLSTATE(23P01=slot_taken / P0001=invalid)で分岐する。
+ */
+export async function updateAdminReservation(
+  input: UpdateAdminReservationInput,
+): Promise<UpdateAdminReservationResult> {
+  if (typeof input.reservationId !== "string" || !isUuid(input.reservationId)) {
+    return {
+      ok: false,
+      reason: "not_found",
+      message: "予約が見つかりませんでした",
+    };
+  }
+
+  const validated = validateReservationEdit({
+    menuIds: input.menuIds,
+    staffId: input.staffId,
+    date: input.date,
+    time: input.time,
+  });
+  if (!validated.ok) {
+    return { ok: false, reason: "invalid_input", errors: validated.errors };
+  }
+  const value = validated.value;
+
+  try {
+    const supabase = await createAdminAuthClient();
+    const { data, error } = await supabase.rpc("admin_update_reservation", {
+      p_reservation_id: input.reservationId,
+      p_staff_id: value.staffId,
+      p_start: jstDateTime(value.date, value.time).toISOString(),
+      p_menu_ids: value.menuIds,
+      p_note: input.note === "" ? null : input.note,
+    });
+
+    if (error !== null) {
+      // EXCLUDE制約違反(SQLSTATE 23P01)= 事前チェック後に他の予約が入った。
+      // UPDATE方式なので自己衝突はせず、全体ロールバックで元予約は無傷
+      if (isSlotTakenError(error)) {
+        return {
+          ok: false,
+          reason: "slot_taken",
+          message: "その枠は埋まりました",
+        };
+      }
+      // RPCが raise した業務エラー(無効メニュー)
+      if ((error as { code?: string }).code === "P0001") {
+        return {
+          ok: false,
+          reason: "invalid",
+          message: "メニューの指定が正しくありません",
+        };
+      }
+      console.error("admin_update_reservation failed", error);
+      return {
+        ok: false,
+        reason: "server_error",
+        message: "予約の変更に失敗しました",
+      };
+    }
+
+    if (data === "ok") {
+      return { ok: true };
+    }
+    if (data === "not_found") {
+      return {
+        ok: false,
+        reason: "not_found",
+        message: "この予約は既に取り消されています",
+      };
+    }
+    console.error("admin_update_reservation returned unexpected value", data);
+    return {
+      ok: false,
+      reason: "server_error",
+      message: "予約の変更に失敗しました",
+    };
+  } catch (error) {
+    console.error("updateAdminReservation failed", error);
+    return {
+      ok: false,
+      reason: "server_error",
+      message: "予約の変更に失敗しました",
     };
   }
 }

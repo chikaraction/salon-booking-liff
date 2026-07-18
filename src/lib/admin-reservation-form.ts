@@ -108,3 +108,96 @@ export function validateProxyRegistration(
     },
   };
 }
+
+// ---------------------------------------------------------------------------
+// 店側変更(代行登録フォームを変更モードで再利用)の入力検証。
+// 顧客は固定(変更不可)なので顧客の検証はしない。それ以外(メニュー・スタッフ・
+// 日付・時間)は代行登録と同じ規則で検証する。
+// ---------------------------------------------------------------------------
+
+/** 変更モードの入力(顧客は含めない = 変更不可) */
+export type ReservationEditInput = {
+  /** 選択メニュー(1件以上) */
+  menuIds: string[];
+  staffId: string;
+  /** JSTの暦日 "YYYY-MM-DD" */
+  date: string;
+  /** 壁時計時刻 "HH:MM" */
+  time: string;
+};
+
+/** 各項目のエラーメッセージ(存在する項目だけ入る)。顧客は対象外 */
+export type ReservationEditErrors = {
+  menu?: string;
+  staff?: string;
+  date?: string;
+  time?: string;
+};
+
+/** 検証済み・正規化済みの値(Server Action が admin_update_reservation へ渡す形) */
+export type ReservationEditValue = {
+  menuIds: string[];
+  staffId: string;
+  date: string;
+  time: string;
+};
+
+export type ReservationEditResult =
+  | { ok: true; value: ReservationEditValue }
+  | { ok: false; errors: ReservationEditErrors };
+
+/**
+ * 店側変更フォームの入力を検証する。顧客は変更できないため検証しない。
+ * メニュー(重複除去して1件以上)・スタッフ・日付(実在する暦日)・
+ * 時間("HH:MM")を代行登録と同じ規則で確認する。
+ */
+export function validateReservationEdit(
+  input: ReservationEditInput,
+): ReservationEditResult {
+  const errors: ReservationEditErrors = {};
+
+  const menuIds = [...new Set(input.menuIds)];
+  if (menuIds.length === 0) {
+    errors.menu = "メニューを1つ以上選択してください";
+  }
+
+  if (input.staffId === "") {
+    errors.staff = "スタッフを選択してください";
+  }
+
+  if (!isCalendarDate(input.date)) {
+    errors.date = "日付を選択してください";
+  }
+
+  if (!isWallClockTime(input.time)) {
+    errors.time = "時間を選択してください";
+  }
+
+  if (Object.keys(errors).length > 0) {
+    return { ok: false, errors };
+  }
+
+  return {
+    ok: true,
+    value: {
+      menuIds,
+      staffId: input.staffId,
+      date: input.date,
+      time: input.time,
+    },
+  };
+}
+
+/**
+ * 変更フォームの初期選択メニューを復元する。
+ * 予約時のスナップショットに残るメニューIDのうち、現在も有効なメニュー
+ * (fetchActiveMenus に載っているもの)だけを保存順で残す。無効化・改定で
+ * 消えたメニューは落とす(1つも残らなければ未選択にフォールバック)。
+ */
+export function restoreSelectableMenuIds(
+  savedMenuIds: string[],
+  activeMenuIds: string[],
+): string[] {
+  const active = new Set(activeMenuIds);
+  return [...new Set(savedMenuIds)].filter((id) => active.has(id));
+}

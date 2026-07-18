@@ -6,6 +6,7 @@ import {
   isCalendarDate,
   isWithinBookingWindow,
   jstCalendarDate,
+  jstClockTime,
   jstDateTime,
   mergeStaffSlots,
   pickStaffForStart,
@@ -67,6 +68,23 @@ describe("jstCalendarDate", () => {
     expect(jstCalendarDate(new Date("2026-07-17T20:00:00Z"))).toBe(
       "2026-07-18",
     );
+  });
+});
+
+describe("jstClockTime", () => {
+  it("UTCのDateをJSTの壁時計時刻 HH:MM(ゼロ埋め)にする", () => {
+    // UTC 02:00 = JST 11:00
+    expect(jstClockTime(new Date("2026-07-18T02:00:00Z"))).toBe("11:00");
+  });
+
+  it('時・分ともゼロ埋めする(<input type="time"> にそのまま入る形)', () => {
+    // UTC 00:30 = JST 09:30
+    expect(jstClockTime(new Date("2026-07-18T00:30:00Z"))).toBe("09:30");
+  });
+
+  it("日付をまたぐ深夜も壁時計時刻を返す", () => {
+    // UTC 7/17 20:05 = JST 7/18 05:05
+    expect(jstClockTime(new Date("2026-07-17T20:05:00Z"))).toBe("05:05");
   });
 });
 

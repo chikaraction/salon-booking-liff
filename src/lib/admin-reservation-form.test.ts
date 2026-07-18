@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   isWallClockTime,
+  restoreSelectableMenuIds,
   validateProxyRegistration,
+  validateReservationEdit,
   type ProxyRegistrationInput,
+  type ReservationEditInput,
 } from "./admin-reservation-form";
 
 // ---------------------------------------------------------------------------
@@ -163,5 +166,108 @@ describe("validateProxyRegistration", () => {
     expect(result.errors.staff).toBeDefined();
     expect(result.errors.date).toBeDefined();
     expect(result.errors.time).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 店側変更(モックDのフォームを変更モードで再利用)の入力検証。
+// 顧客は固定(変更不可)なので顧客チェックはしない。それ以外は代行登録と同じ。
+// ---------------------------------------------------------------------------
+
+/** 全項目が妥当な変更入力(各テストで一部だけ壊す) */
+const validEditInput: ReservationEditInput = {
+  menuIds: ["menu-cut", "menu-color"],
+  staffId: "staff-tanaka",
+  date: "2026-07-18",
+  time: "11:00",
+};
+
+describe("validateReservationEdit", () => {
+  it("全項目が妥当なら ok と正規化済みの値を返す(顧客は検証しない)", () => {
+    const result = validateReservationEdit(validEditInput);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value).toEqual({
+      menuIds: ["menu-cut", "menu-color"],
+      staffId: "staff-tanaka",
+      date: "2026-07-18",
+      time: "11:00",
+    });
+  });
+
+  it("メニュー0件はエラー", () => {
+    const result = validateReservationEdit({ ...validEditInput, menuIds: [] });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors.menu).toBeDefined();
+  });
+
+  it("メニューの重複は除去する(順序は保つ)", () => {
+    const result = validateReservationEdit({
+      ...validEditInput,
+      menuIds: ["a", "b", "a"],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.menuIds).toEqual(["a", "b"]);
+  });
+
+  it("スタッフ未指定はエラー", () => {
+    const result = validateReservationEdit({ ...validEditInput, staffId: "" });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors.staff).toBeDefined();
+  });
+
+  it("日付が実在しない暦日ならエラー", () => {
+    const result = validateReservationEdit({
+      ...validEditInput,
+      date: "2026-02-30",
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors.date).toBeDefined();
+  });
+
+  it("時間が HH:MM 形式でないならエラー", () => {
+    const result = validateReservationEdit({ ...validEditInput, time: "9:0" });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors.time).toBeDefined();
+  });
+
+  it("複数項目の不備をまとめて返す", () => {
+    const result = validateReservationEdit({
+      menuIds: [],
+      staffId: "",
+      date: "bad",
+      time: "bad",
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors.menu).toBeDefined();
+    expect(result.errors.staff).toBeDefined();
+    expect(result.errors.date).toBeDefined();
+    expect(result.errors.time).toBeDefined();
+  });
+});
+
+describe("restoreSelectableMenuIds", () => {
+  it("保存済みメニューのうち現在も有効なものだけを復元する(保存順を保つ)", () => {
+    expect(
+      restoreSelectableMenuIds(["cut", "color", "perm"], ["perm", "cut"]),
+    ).toEqual(["cut", "perm"]);
+  });
+
+  it("有効なものが1つもなければ空配列(未選択にフォールバック)", () => {
+    expect(restoreSelectableMenuIds(["old"], ["cut", "color"])).toEqual([]);
+  });
+
+  it("重複を除去する", () => {
+    expect(restoreSelectableMenuIds(["cut", "cut"], ["cut"])).toEqual(["cut"]);
+  });
+
+  it("保存済みが空なら空配列", () => {
+    expect(restoreSelectableMenuIds([], ["cut"])).toEqual([]);
   });
 });

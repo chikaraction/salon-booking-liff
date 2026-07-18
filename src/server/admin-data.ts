@@ -216,10 +216,17 @@ export type ReservationDetail = {
   customerId: string;
   customerName: string;
   customerPhone: string | null;
+  /** 担当スタッフID(変更フォームの初期選択に使う) */
+  staffId: string;
   staffName: string;
   start: Date;
   end: Date;
   menus: ReservationMenuSnapshot[];
+  /**
+   * 予約時のメニューID(スナップショット)。変更フォームの初期選択の復元に使う。
+   * 元メニュー削除で menu_id が NULL になったスナップショットは除く。
+   */
+  menuIds: string[];
   requestNote: string | null;
   staffMemo: string | null;
 };
@@ -230,11 +237,13 @@ type ReservationDetailRow = {
   during: string;
   note: string | null;
   customer_id: string | null;
+  staff_id: string;
   // 多対一の埋め込みは単一オブジェクト(顧客・スタッフ)
   customers: { name: string; phone: string | null; note: string | null } | null;
   staff: { name: string } | null;
   // 一対多の埋め込み(予約時点のスナップショット)
   reservation_menus: Array<{
+    menu_id: string | null;
     menu_name: string;
     price: number;
     duration_minutes: number;
@@ -252,7 +261,7 @@ export async function fetchReservationDetail(
   const result = await supabase
     .from("reservations")
     .select(
-      "id, kind, during, note, customer_id, customers(name, phone, note), staff(name), reservation_menus(menu_name, price, duration_minutes)",
+      "id, kind, during, note, customer_id, staff_id, customers(name, phone, note), staff(name), reservation_menus(menu_id, menu_name, price, duration_minutes)",
     )
     .eq("id", id)
     .eq("status", "confirmed")
@@ -274,6 +283,7 @@ export async function fetchReservationDetail(
     customerId: row.customer_id,
     customerName: row.customers?.name ?? "",
     customerPhone: row.customers?.phone ?? null,
+    staffId: row.staff_id,
     staffName: row.staff?.name ?? "",
     start: during.start,
     end: during.end,
@@ -282,6 +292,9 @@ export async function fetchReservationDetail(
       price: menu.price,
       durationMinutes: menu.duration_minutes,
     })),
+    menuIds: row.reservation_menus
+      .map((menu) => menu.menu_id)
+      .filter((menuId): menuId is string => menuId !== null),
     requestNote: row.note,
     staffMemo: row.customers?.note ?? null,
   };

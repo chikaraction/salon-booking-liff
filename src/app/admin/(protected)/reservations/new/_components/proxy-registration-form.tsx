@@ -16,6 +16,7 @@ import {
   checkProxySlot,
   createProxyReservation,
   searchCustomersAction,
+  updateAdminReservation,
 } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
 import type { ProxyRegistrationErrors } from "@/lib/admin-reservation-form";
@@ -28,29 +29,58 @@ const inputClass =
   "h-12 w-full rounded-xl border border-input bg-card px-4 text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50";
 const labelClass = "text-base font-bold";
 
+/** 変更モードの初期値(既存予約から復元する) */
+export type ReservationFormInitial = {
+  menuIds: string[];
+  staffId: string;
+  /** JSTの暦日 "YYYY-MM-DD" */
+  date: string;
+  /** 壁時計時刻 "HH:MM" */
+  time: string;
+  note: string;
+};
+
 type Props = {
   staff: AdminStaff[];
   menus: ActiveMenu[];
-  /** 日付の初期値(今日・JST) */
+  /** 日付の初期値(今日・JST)。変更モードでは initial.date が優先される */
   defaultDate: string;
+  /** "create"(既定・代行登録)/ "edit"(店側変更) */
+  mode?: "create" | "edit";
+  /** 変更モードの対象予約ID */
+  reservationId?: string;
+  /** 変更モードの初期値(既存予約から復元) */
+  initial?: ReservationFormInitial;
+  /** 変更モードで固定表示する顧客名(顧客は変更不可) */
+  fixedCustomerName?: string;
 };
 
-export function ProxyRegistrationForm({ staff, menus, defaultDate }: Props) {
+export function ProxyRegistrationForm({
+  staff,
+  menus,
+  defaultDate,
+  mode = "create",
+  reservationId,
+  initial,
+  fixedCustomerName,
+}: Props) {
   const router = useRouter();
+  const isEdit = mode === "edit";
 
-  // 顧客(検索型): 選択済み既存顧客 or 検索クエリ(=新規客名)
+  // 顧客(検索型): 選択済み既存顧客 or 検索クエリ(=新規客名)。
+  // 変更モードでは顧客は固定のため使わない
   const [query, setQuery] = useState("");
   const [selectedCustomer, setSelectedCustomer] =
     useState<CustomerSearchResult | null>(null);
   const [candidates, setCandidates] = useState<CustomerSearchResult[]>([]);
   const [newPhone, setNewPhone] = useState("");
 
-  // 予約内容
-  const [menuIds, setMenuIds] = useState<string[]>([]);
-  const [staffId, setStaffId] = useState("");
-  const [date, setDate] = useState(defaultDate);
-  const [time, setTime] = useState("");
-  const [note, setNote] = useState("");
+  // 予約内容(変更モードは既存予約の値で初期化)
+  const [menuIds, setMenuIds] = useState<string[]>(initial?.menuIds ?? []);
+  const [staffId, setStaffId] = useState(initial?.staffId ?? "");
+  const [date, setDate] = useState(initial?.date ?? defaultDate);
+  const [time, setTime] = useState(initial?.time ?? "");
+  const [note, setNote] = useState(initial?.note ?? "");
 
   // 空き表示・エラー・送信状態
   const [availability, setAvailability] = useState<{
@@ -103,7 +133,14 @@ export function ProxyRegistrationForm({ staff, menus, defaultDate }: Props) {
           setAvailability(null);
           return;
         }
-        const result = await checkProxySlot({ staffId, date, time, menuIds });
+        const result = await checkProxySlot({
+          staffId,
+          date,
+          time,
+          menuIds,
+          // 変更モードは自分の旧予約を空き計算から除く(UPDATE方式の自己非衝突)
+          excludeReservationId: isEdit ? reservationId : undefined,
+        });
         if (cancelled) return;
         setAvailability(result);
       },
@@ -113,7 +150,7 @@ export function ProxyRegistrationForm({ staff, menus, defaultDate }: Props) {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [staffId, date, time, menuIds]);
+  }, [staffId, date, time, menuIds, isEdit, reservationId]);
 
   const selectCustomer = (customer: CustomerSearchResult) => {
     setSelectedCustomer(customer);
@@ -142,18 +179,29 @@ export function ProxyRegistrationForm({ staff, menus, defaultDate }: Props) {
     event.preventDefault();
     setFormError(null);
     startSubmit(async () => {
-      const result = await createProxyReservation({
-        customerId: selectedCustomer?.id ?? null,
-        customerName: selectedCustomer !== null ? "" : query,
-        customerPhone: selectedCustomer !== null ? "" : newPhone,
-        menuIds,
-        staffId,
-        date,
-        time,
-        note,
-      });
+      // 変更モード: 顧客は固定(送らない)。admin_update_reservation(UPDATE方式)へ
+      const result =
+        isEdit && reservationId !== undefined
+          ? await updateAdminReservation({
+              reservationId,
+              menuIds,
+              staffId,
+              date,
+              time,
+              note,
+            })
+          : await createProxyReservation({
+              customerId: selectedCustomer?.id ?? null,
+              customerName: selectedCustomer !== null ? "" : query,
+              customerPhone: selectedCustomer !== null ? "" : newPhone,
+              menuIds,
+              staffId,
+              date,
+              time,
+              note,
+            });
       if (result.ok) {
-        // 登録した日付のカレンダーへ(反映を確認できるように)
+        // 登録・変更した日付のカレンダーへ(反映を確認できるように)
         router.push(`/admin?date=${date}`);
         router.refresh();
         return;
@@ -174,9 +222,13 @@ export function ProxyRegistrationForm({ staff, menus, defaultDate }: Props) {
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 md:px-8 md:py-10">
       <div className="rounded-2xl border border-border bg-card p-6 md:p-8">
-        <h1 className="text-2xl font-bold">電話予約の代行登録</h1>
+        <h1 className="text-2xl font-bold">
+          {isEdit ? "予約の変更" : "電話予約の代行登録"}
+        </h1>
         <p className="mt-1 text-base text-muted-foreground">
-          オーナーが電話で受けた予約を登録します
+          {isEdit
+            ? "メニュー・スタッフ・日時・メモを変更できます"
+            : "オーナーが電話で受けた予約を登録します"}
         </p>
 
         <form
@@ -184,96 +236,113 @@ export function ProxyRegistrationForm({ staff, menus, defaultDate }: Props) {
           className="mt-8 flex flex-col gap-6"
           noValidate
         >
-          {/* お客様名(既存顧客を検索) */}
-          <div>
-            <label htmlFor="proxy-customer" className={labelClass}>
-              お客様名(既存顧客を検索)
-            </label>
-            <div className="relative mt-2">
-              <Search
-                aria-hidden="true"
-                className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground"
-              />
-              <input
-                id="proxy-customer"
-                ref={searchInputRef}
-                type="text"
-                value={query}
-                readOnly={selectedCustomer !== null}
-                autoComplete="off"
-                placeholder="お名前・電話番号で検索、または新規のお名前"
-                onChange={(event) => setQuery(event.target.value)}
+          {/* お客様(変更モードは固定表示。作成モードは既存顧客を検索) */}
+          {isEdit ? (
+            <div>
+              <span className={labelClass}>お客様</span>
+              <div
                 className={cn(
                   inputClass,
-                  "pl-11",
-                  selectedCustomer !== null && "pr-11",
+                  "mt-2 flex items-center bg-muted text-muted-foreground",
                 )}
-              />
+              >
+                {fixedCustomerName ?? ""}
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                お客様は変更できません
+              </p>
+            </div>
+          ) : (
+            <div>
+              <label htmlFor="proxy-customer" className={labelClass}>
+                お客様名(既存顧客を検索)
+              </label>
+              <div className="relative mt-2">
+                <Search
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground"
+                />
+                <input
+                  id="proxy-customer"
+                  ref={searchInputRef}
+                  type="text"
+                  value={query}
+                  readOnly={selectedCustomer !== null}
+                  autoComplete="off"
+                  placeholder="お名前・電話番号で検索、または新規のお名前"
+                  onChange={(event) => setQuery(event.target.value)}
+                  className={cn(
+                    inputClass,
+                    "pl-11",
+                    selectedCustomer !== null && "pr-11",
+                  )}
+                />
+                {selectedCustomer !== null && (
+                  <button
+                    type="button"
+                    onClick={clearCustomer}
+                    aria-label="お客様の選択を解除"
+                    className="absolute right-3 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <X aria-hidden="true" className="size-5" />
+                  </button>
+                )}
+              </div>
+
+              {/* 候補リスト(選択で既存顧客に確定) */}
+              {selectedCustomer === null && candidates.length > 0 && (
+                <ul className="mt-2 overflow-hidden rounded-xl border border-border">
+                  {candidates.map((customer) => (
+                    <li key={customer.id}>
+                      <button
+                        type="button"
+                        onClick={() => selectCustomer(customer)}
+                        className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left hover:bg-muted"
+                      >
+                        <span className="text-base font-bold">
+                          {customer.name}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          {customer.phone ?? "電話未登録"}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {/* 新規客の電話(任意)。既存顧客を選んでいないときだけ出す */}
+              {selectedCustomer === null && query.trim() !== "" && (
+                <div className="mt-3">
+                  <label
+                    htmlFor="proxy-new-phone"
+                    className="text-sm text-muted-foreground"
+                  >
+                    電話番号(任意・新規のお客様)
+                  </label>
+                  <input
+                    id="proxy-new-phone"
+                    type="tel"
+                    value={newPhone}
+                    autoComplete="off"
+                    placeholder="090-1234-5678"
+                    onChange={(event) => setNewPhone(event.target.value)}
+                    className={cn(inputClass, "mt-1")}
+                  />
+                </div>
+              )}
               {selectedCustomer !== null && (
-                <button
-                  type="button"
-                  onClick={clearCustomer}
-                  aria-label="お客様の選択を解除"
-                  className="absolute right-3 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
-                >
-                  <X aria-hidden="true" className="size-5" />
-                </button>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  既存のお客様として登録します
+                </p>
+              )}
+              {fieldErrors.customer !== undefined && (
+                <p role="alert" className="mt-1 text-sm text-destructive">
+                  {fieldErrors.customer}
+                </p>
               )}
             </div>
-
-            {/* 候補リスト(選択で既存顧客に確定) */}
-            {selectedCustomer === null && candidates.length > 0 && (
-              <ul className="mt-2 overflow-hidden rounded-xl border border-border">
-                {candidates.map((customer) => (
-                  <li key={customer.id}>
-                    <button
-                      type="button"
-                      onClick={() => selectCustomer(customer)}
-                      className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left hover:bg-muted"
-                    >
-                      <span className="text-base font-bold">
-                        {customer.name}
-                      </span>
-                      <span className="text-sm text-muted-foreground">
-                        {customer.phone ?? "電話未登録"}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            {/* 新規客の電話(任意)。既存顧客を選んでいないときだけ出す */}
-            {selectedCustomer === null && query.trim() !== "" && (
-              <div className="mt-3">
-                <label
-                  htmlFor="proxy-new-phone"
-                  className="text-sm text-muted-foreground"
-                >
-                  電話番号(任意・新規のお客様)
-                </label>
-                <input
-                  id="proxy-new-phone"
-                  type="tel"
-                  value={newPhone}
-                  autoComplete="off"
-                  placeholder="090-1234-5678"
-                  onChange={(event) => setNewPhone(event.target.value)}
-                  className={cn(inputClass, "mt-1")}
-                />
-              </div>
-            )}
-            {selectedCustomer !== null && (
-              <p className="mt-2 text-sm text-muted-foreground">
-                既存のお客様として登録します
-              </p>
-            )}
-            {fieldErrors.customer !== undefined && (
-              <p role="alert" className="mt-1 text-sm text-destructive">
-                {fieldErrors.customer}
-              </p>
-            )}
-          </div>
+          )}
 
           {/* メニュー(複数選択) */}
           <fieldset>
@@ -435,7 +504,13 @@ export function ProxyRegistrationForm({ staff, menus, defaultDate }: Props) {
             disabled={isSubmitting}
             className="h-12 w-full rounded-xl text-base font-bold"
           >
-            {isSubmitting ? "登録中…" : "この内容で登録"}
+            {isEdit
+              ? isSubmitting
+                ? "変更中…"
+                : "この内容で変更"
+              : isSubmitting
+                ? "登録中…"
+                : "この内容で登録"}
           </Button>
         </form>
       </div>
