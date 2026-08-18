@@ -13,6 +13,7 @@ import {
   dayNavLabel,
   moveDay,
   timeFromTimelineRatio,
+  weekItemTooltip,
   weekNavLabel,
   weekStartOf,
   weekdayLabel,
@@ -607,6 +608,11 @@ function WeekGrid({
   const colorIndexByStaffId = new Map(
     staff.map((member, index) => [member.id, index]),
   );
+  // 週表示は1日1列に全スタッフを並べるため、カードだけでは担当が色でしか
+  // 分からない。ツールチップに担当名を添えるための引き当て表
+  const staffNameById = new Map(
+    staff.map((member) => [member.id, member.name]),
+  );
 
   // 週内に営業日が1日もない(時間軸なし)場合のフォールバック
   if (weekView.ticks.length === 0) {
@@ -680,15 +686,27 @@ function WeekGrid({
                         key={item.id}
                         type="button"
                         onClick={() => onSelect(item.id)}
+                        // 重なりで幅が狭くなると文字が切れるため、完全な情報を
+                        // ネイティブのツールチップで補う(クリックの詳細ダイアログは従来どおり)
+                        title={weekItemTooltip(
+                          item,
+                          staffNameById.get(item.staffId),
+                        )}
                         className={cn(
                           // ring は定休日の下地(bg-secondary)と同色のカード
                           // (staff-colors の3人目)でも輪郭が消えないようにする
-                          "absolute inset-x-0.5 overflow-hidden rounded-md border-l-4 px-1.5 py-1 text-left ring-1 ring-border transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                          "absolute overflow-hidden rounded-md border-l-4 px-1.5 py-1 text-left ring-1 ring-border transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                           staffColor(colorIndex).card,
                         )}
+                        // 横位置は重なりのレーン分割(admin-calendar.ts)が決める。
+                        // 左右2pxずつ削るのは従来の inset-x-0.5 と同じ見た目にするためで、
+                        // 幅を分け合ったときは隣との間に4pxの間隔ができる
+                        // (加えて ring-1 ring-border で輪郭が分かる)
                         style={{
                           top: `${item.topPercent}%`,
                           height: `${item.heightPercent}%`,
+                          left: `calc(${item.leftPercent}% + 2px)`,
+                          width: `calc(${item.widthPercent}% - 4px)`,
                         }}
                       >
                         <p className="truncate text-xs font-bold">

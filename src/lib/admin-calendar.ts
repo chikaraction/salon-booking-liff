@@ -2,8 +2,9 @@
 // 日表示の配置計算・週表示への集約・日付ナビゲーション・
 // 代行登録の空き判定メッセージ・予約リスト表示(スマホ)の整形を扱う。
 // 日時の前提は availability.ts / booking.ts と同じ(JST = UTC+9 固定)。
-// EXCLUDE制約(ADR-004)により confirmed 同士は重ならない前提のため、
-// 重なり回避レイアウトは行わない。
+// 日表示はスタッフごとに列が分かれ、同一スタッフの重複はEXCLUDE制約(ADR-004)で
+// 起きないため、重なり回避レイアウトは行わない。週表示は1つの日付列に全スタッフの
+// 予約を並べるため、別スタッフ同士が重なる。こちらはレーン分割で横に並べる。
 
 import {
   addCalendarDays,
@@ -455,7 +456,95 @@ export type WeekItem = {
   titleLabel: string;
   /** 「カット + カラー」(週表示は所要分なし)。60分以下は null */
   menuLabel: string | null;
+  /**
+   * ツールチップ用の全メニュー名「カット + カラー」。カードの高さで省略する
+   * menuLabel と違い、常に全メニューを持つ(幅が狭くて文字が切れても
+   * title 属性で内容が分かるようにするため)。
+   */
+  menuNames: string;
+  /** 重なり時の横位置(%)。重なりが無ければ 0 */
+  leftPercent: number;
+  /** 重なり時の横幅(%)。重なりが無ければ 100 */
+  widthPercent: number;
 };
+
+/**
+ * 週表示カードのツールチップ文字列。
+ * 「11:00 山田様 / カット + カラー / 田中」。
+ * 空の要素(メニューなし・担当名が引けない)は区切りごと落とす。
+ */
+export function weekItemTooltip(
+  item: { titleLabel: string; menuNames: string },
+  staffName: string | undefined | null,
+): string {
+  return [item.titleLabel, item.menuNames, staffName ?? ""]
+    .filter((part) => part !== "")
+    .join(" / ");
+}
+
+/**
+ * 同じ日に重なる区間を横に並べるためのレーン分割(標準的なカレンダーの方式)。
+ * - 開始時刻順(同時刻なら終了が早い順、それも同じなら入力順)に並べる
+ * - 連鎖的に重なるアイテムの集まり(クラスタ)を求める
+ * - 各アイテムを「最後のアイテムが自分の開始以前に終わっている最初のレーン」へ入れる
+ *   (空いたレーンは再利用する。A-B と B-C が重なり A-C が重ならない連鎖なら
+ *   C は A のレーンに入り、クラスタのレーン数は2になる)
+ * - クラスタ内は同じレーン数で幅を等分する(2件なら各50%、3件なら各33.33%)
+ * 重なり判定は半開区間 [開始, 終了)。接している(前の終了 == 次の開始)は
+ * 重なりではない(EXCLUDE制約と同じ扱い)。
+ *
+ * 入力の順序は壊さず、入力と同じ添字で {leftPercent, widthPercent} を返す。
+ */
+function assignOverlapLanes(
+  ranges: Array<{ startMs: number; endMs: number }>,
+): Array<{ leftPercent: number; widthPercent: number }> {
+  const order = ranges
+    .map((range, index) => ({ ...range, index }))
+    .sort(
+      (a, b) => a.startMs - b.startMs || a.endMs - b.endMs || a.index - b.index,
+    );
+
+  const result = ranges.map(() => ({ leftPercent: 0, widthPercent: 100 }));
+
+  // クラスタ内の状態: レーンごとの「最後のアイテムの終了時刻」と、
+  // 幅を確定させるためにクラスタのメンバー(添字とレーン)を溜める。
+  let laneEnds: number[] = [];
+  let cluster: Array<{ index: number; lane: number }> = [];
+  let clusterEnd = Number.NEGATIVE_INFINITY;
+
+  const flush = () => {
+    if (cluster.length === 0) return;
+    const width = 100 / laneEnds.length;
+    for (const member of cluster) {
+      result[member.index] = {
+        leftPercent: member.lane * width,
+        widthPercent: width,
+      };
+    }
+    laneEnds = [];
+    cluster = [];
+    clusterEnd = Number.NEGATIVE_INFINITY;
+  };
+
+  for (const range of order) {
+    // クラスタ内の誰とも重ならない(全員が自分の開始までに終わっている)なら
+    // そこでクラスタを切る
+    if (range.startMs >= clusterEnd) flush();
+
+    let lane = laneEnds.findIndex((end) => end <= range.startMs);
+    if (lane === -1) {
+      lane = laneEnds.length;
+      laneEnds.push(range.endMs);
+    } else {
+      laneEnds[lane] = range.endMs;
+    }
+    cluster.push({ index: range.index, lane });
+    clusterEnd = Math.max(clusterEnd, range.endMs);
+  }
+  flush();
+
+  return result;
+}
 
 export type WeekDayColumn = {
   date: string; // "YYYY-MM-DD"
@@ -545,8 +634,14 @@ export function buildWeekView(params: {
   for (let i = 0; i < 7; i++) {
     const date = addCalendarDays(weekStart, i);
     const [, , dayNumber] = date.split("-").map(Number);
-    const dayItems: WeekItem[] = [];
+    let dayItems: WeekItem[] = [];
     if (hasAxis) {
+      // 軸に載る予約だけを先に確定させ、その並びでレーン分割する。
+      // 重なり判定は %(浮動小数)ではなく元の during(ミリ秒)で行う。
+      const placedBookings: Array<{
+        item: AdminBooking;
+        placed: { topPercent: number; heightPercent: number };
+      }> = [];
       for (const item of bookingsByDate.get(date) ?? []) {
         const placed = placeOnAxis(
           jstMinutesOfDay(date, item.during.start),
@@ -555,19 +650,35 @@ export function buildWeekView(params: {
           closeMinutes,
         );
         if (placed === null) continue;
+        placedBookings.push({ item, placed });
+      }
+
+      const lanes = assignOverlapLanes(
+        placedBookings.map(({ item }) => ({
+          startMs: item.during.start.getTime(),
+          endMs: item.during.end.getTime(),
+        })),
+      );
+
+      dayItems = placedBookings.map(({ item, placed }, index) => {
         const summary = summarizeSelectedMenus(item.menus);
-        dayItems.push({
+        const names = menuNamesLabel(item.menus.map((m) => m.menuName));
+        return {
           id: item.id,
           staffId: item.staffId,
           ...placed,
+          ...lanes[index],
           titleLabel: `${formatJstTime(item.during.start)} ${item.customerName}様`,
           menuLabel:
             summary.totalDurationMinutes >= DURATION_LABEL_MIN_MINUTES
-              ? menuNamesLabel(item.menus.map((m) => m.menuName))
+              ? names
               : null,
-        });
-      }
-      dayItems.sort((a, b) => a.topPercent - b.topPercent);
+          menuNames: names,
+        };
+      });
+      dayItems.sort(
+        (a, b) => a.topPercent - b.topPercent || a.leftPercent - b.leftPercent,
+      );
     }
     days.push({
       date,

@@ -17,6 +17,7 @@ import {
   moveWeek,
   slotAvailabilityMessage,
   timeFromTimelineRatio,
+  weekItemTooltip,
   weekNavLabel,
   weekStartOf,
   weekdayLabel,
@@ -786,6 +787,218 @@ describe("buildWeekView: 週表示への集約", () => {
       isClosedDay,
     });
     expect(view.days[2].items.map((i) => i.id)).toEqual(["early", "late"]);
+  });
+
+  it("ツールチップ用に、高さに関わらず全メニュー名(menuNames)を持つ", () => {
+    const view = buildWeekView({
+      weekStart,
+      businessHours,
+      items: [
+        // 60分以下なのでカード上の menuLabel は省略されるが、menuNames は残る
+        booking({
+          id: "short",
+          staffId: "tanaka",
+          date: "2026-07-14",
+          start: "11:00",
+          end: "12:00",
+          customerName: "森",
+          menus: [cut],
+        }),
+      ],
+      isClosedDay,
+    });
+    expect(view.days[2].items[0].menuLabel).toBeNull();
+    expect(view.days[2].items[0].menuNames).toBe("カット");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2-2. 週表示の重なりレーン分割
+// ---------------------------------------------------------------------------
+
+describe("buildWeekView: 重なる予約のレーン分割", () => {
+  // 週表示は1つの日付列に全スタッフの予約を並べるため、別スタッフ同士の
+  // 予約が同じ時間帯で重なる。横位置(left%/width%)で並べて両方見せる。
+  const businessHours = [1, 2, 3, 4, 5, 6, 0].map((weekday) => ({
+    weekday,
+    isOpen: true,
+    openTime: "09:00:00",
+    closeTime: "19:00:00",
+  }));
+  const isClosedDay = () => false;
+  const weekStart = "2026-07-12"; // 日曜
+  const date = "2026-07-14"; // 火曜(days[2])
+
+  /** 火曜の予約だけを渡して、その日のアイテムを id 順に引けるようにする */
+  function tuesdayItems(
+    ranges: Array<{ id: string; start: string; end: string }>,
+  ) {
+    const view = buildWeekView({
+      weekStart,
+      businessHours,
+      items: ranges.map((range, index) =>
+        booking({
+          id: range.id,
+          // 週表示は全スタッフを1列に並べる。重なるのは必ず別スタッフ同士
+          // (同一スタッフの重複はEXCLUDE制約(ADR-004)で起きない)
+          staffId: `staff-${index}`,
+          date,
+          start: range.start,
+          end: range.end,
+          customerName: range.id,
+          menus: [cut],
+        }),
+      ),
+      isClosedDay,
+    });
+    return new Map(view.days[2].items.map((item) => [item.id, item]));
+  }
+
+  it("重なりが無ければ横幅いっぱい(left 0% / width 100%)", () => {
+    const items = tuesdayItems([
+      { id: "a", start: "10:00", end: "11:00" },
+      { id: "b", start: "14:00", end: "15:00" },
+    ]);
+    expect(items.get("a")).toMatchObject({ leftPercent: 0, widthPercent: 100 });
+    expect(items.get("b")).toMatchObject({ leftPercent: 0, widthPercent: 100 });
+  });
+
+  it("2件が重なると左右half(width 50%・left 0%と50%)", () => {
+    const items = tuesdayItems([
+      { id: "a", start: "10:00", end: "11:00" },
+      { id: "b", start: "10:30", end: "11:30" },
+    ]);
+    expect(items.get("a")).toMatchObject({ leftPercent: 0, widthPercent: 50 });
+    expect(items.get("b")).toMatchObject({ leftPercent: 50, widthPercent: 50 });
+  });
+
+  it("3件が重なると3等分(width 約33.33%・left 0/33.33/66.67%)", () => {
+    const items = tuesdayItems([
+      { id: "a", start: "10:00", end: "12:00" },
+      { id: "b", start: "10:30", end: "12:00" },
+      { id: "c", start: "11:00", end: "12:00" },
+    ]);
+    for (const id of ["a", "b", "c"]) {
+      expect(items.get(id)!.widthPercent).toBeCloseTo(100 / 3, 6);
+    }
+    expect(items.get("a")!.leftPercent).toBeCloseTo(0, 6);
+    expect(items.get("b")!.leftPercent).toBeCloseTo(100 / 3, 6);
+    expect(items.get("c")!.leftPercent).toBeCloseTo(200 / 3, 6);
+  });
+
+  it("接しているだけ(前の終了 == 次の開始)は重なりではない(どちらも100%)", () => {
+    const items = tuesdayItems([
+      { id: "a", start: "10:00", end: "11:00" },
+      { id: "b", start: "11:00", end: "12:00" },
+    ]);
+    expect(items.get("a")).toMatchObject({ leftPercent: 0, widthPercent: 100 });
+    expect(items.get("b")).toMatchObject({ leftPercent: 0, widthPercent: 100 });
+  });
+
+  it("連鎖する重なり(A-B と B-C は重なるが A-C は重ならない)は同一クラスタで幅を分け合い、空いたレーンは再利用する", () => {
+    const items = tuesdayItems([
+      { id: "a", start: "10:00", end: "11:00" },
+      { id: "b", start: "10:30", end: "11:30" },
+      { id: "c", start: "11:00", end: "12:00" }, // A とは接するだけ
+    ]);
+    // A-B-C は連鎖でひとつのクラスタ。C は A の終わったレーン0に入るため
+    // クラスタのレーン数は2(全員 width 50%)。
+    expect(items.get("a")).toMatchObject({ leftPercent: 0, widthPercent: 50 });
+    expect(items.get("b")).toMatchObject({ leftPercent: 50, widthPercent: 50 });
+    expect(items.get("c")).toMatchObject({ leftPercent: 0, widthPercent: 50 });
+  });
+
+  it("別クラスタはそれぞれ独立してレーン数が決まる", () => {
+    const items = tuesdayItems([
+      // 午前のクラスタ: 3件重なり
+      { id: "m1", start: "10:00", end: "12:00" },
+      { id: "m2", start: "10:30", end: "12:00" },
+      { id: "m3", start: "11:00", end: "12:00" },
+      // 午後のクラスタ: 2件重なり(午前とは重ならない)
+      { id: "a1", start: "15:00", end: "16:00" },
+      { id: "a2", start: "15:30", end: "16:30" },
+      // 単独
+      { id: "s1", start: "18:00", end: "19:00" },
+    ]);
+    expect(items.get("m1")!.widthPercent).toBeCloseTo(100 / 3, 6);
+    expect(items.get("m3")!.widthPercent).toBeCloseTo(100 / 3, 6);
+    expect(items.get("a1")).toMatchObject({ leftPercent: 0, widthPercent: 50 });
+    expect(items.get("a2")).toMatchObject({
+      leftPercent: 50,
+      widthPercent: 50,
+    });
+    expect(items.get("s1")).toMatchObject({
+      leftPercent: 0,
+      widthPercent: 100,
+    });
+  });
+
+  it("開始が同時刻なら終了が早い順に左から並べる(決定的な順序)", () => {
+    const items = tuesdayItems([
+      { id: "long", start: "10:00", end: "12:00" },
+      { id: "short", start: "10:00", end: "11:00" },
+    ]);
+    expect(items.get("short")!.leftPercent).toBe(0);
+    expect(items.get("long")!.leftPercent).toBe(50);
+  });
+
+  it("日をまたいで影響しない(別の日の予約とは重なり判定しない)", () => {
+    const view = buildWeekView({
+      weekStart,
+      businessHours,
+      items: [
+        booking({
+          id: "tue",
+          staffId: "tanaka",
+          date: "2026-07-14",
+          start: "10:00",
+          end: "11:00",
+          customerName: "火",
+          menus: [cut],
+        }),
+        booking({
+          id: "wed",
+          staffId: "sato",
+          date: "2026-07-15",
+          start: "10:00",
+          end: "11:00",
+          customerName: "水",
+          menus: [cut],
+        }),
+      ],
+      isClosedDay,
+    });
+    expect(view.days[2].items[0]).toMatchObject({
+      leftPercent: 0,
+      widthPercent: 100,
+    });
+    expect(view.days[3].items[0]).toMatchObject({
+      leftPercent: 0,
+      widthPercent: 100,
+    });
+  });
+});
+
+describe("weekItemTooltip: 週表示カードのツールチップ", () => {
+  const item = { titleLabel: "11:00 山田様", menuNames: "カット + カラー" };
+
+  it("開始時刻・客名・メニュー・担当を「 / 」で連ねる", () => {
+    expect(weekItemTooltip(item, "田中")).toBe(
+      "11:00 山田様 / カット + カラー / 田中",
+    );
+  });
+
+  it("担当名が引けないときは省く(区切りだけが残らない)", () => {
+    expect(weekItemTooltip(item, undefined)).toBe(
+      "11:00 山田様 / カット + カラー",
+    );
+    expect(weekItemTooltip(item, "")).toBe("11:00 山田様 / カット + カラー");
+  });
+
+  it("メニュー名が空のときも区切りだけが残らない", () => {
+    expect(
+      weekItemTooltip({ titleLabel: "11:00 山田様", menuNames: "" }, "田中"),
+    ).toBe("11:00 山田様 / 田中");
   });
 });
 
