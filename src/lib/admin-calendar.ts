@@ -9,10 +9,12 @@ import {
   addCalendarDays,
   calendarWeekday,
   jstCalendarDate,
+  jstClockTime,
   jstDateTime,
   type BusinessDay,
   type BusyRange,
   type Slot,
+  type SlotStatus,
   type StaffWorkingDay,
 } from "./availability";
 import {
@@ -697,4 +699,45 @@ export function buildReservationListItems(
         endPriceLabel: `〜${formatJstTime(item.during.end)} ・ ${formatYen(summary.totalPrice)}`,
       };
     });
+}
+
+// ---------------------------------------------------------------------------
+// 代行登録の「その日の空き時間」一覧(客側 step-datetime と同じ見せ方)
+// ---------------------------------------------------------------------------
+
+/**
+ * 代行登録フォームに渡す空き枠。Server Action の境界を越えるため
+ * Date ではなくISO文字列で運ぶ(客側 AvailabilitySlot と同じ形)。
+ */
+export type ProxyDaySlot = {
+  /** 開始時刻(UTCのISO文字列) */
+  startISO: string;
+  status: SlotStatus;
+};
+
+/** 時刻ボタン1個分の表示情報 */
+export type ProxySlotOption = {
+  /** JSTの壁時計時刻 "HH:MM"。表示ラベルであり <input type="time"> の値でもある */
+  time: string;
+  /** 埋まっている枠(取り消し線+グレーで選択不可にする。モック準拠) */
+  isTaken: boolean;
+};
+
+/**
+ * 空き枠(UTCのISO)を、時刻ボタン一覧の表示情報に整形する。
+ * - JSTの壁時計時刻に直す(そのまま時間フィールドへ反映できるゼロ埋め形式)
+ * - taken は「埋まり」として残す(隠さない。客側と同じ取り消し線表示)
+ * - 開始時刻の昇順に並べる(入力配列は破壊しない)
+ */
+export function buildProxySlotOptions(
+  slots: ProxyDaySlot[],
+): ProxySlotOption[] {
+  return [...slots]
+    .sort(
+      (a, b) => new Date(a.startISO).getTime() - new Date(b.startISO).getTime(),
+    )
+    .map((slot) => ({
+      time: jstClockTime(new Date(slot.startISO)),
+      isTaken: slot.status === "taken",
+    }));
 }

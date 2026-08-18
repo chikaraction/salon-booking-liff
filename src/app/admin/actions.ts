@@ -8,6 +8,7 @@
 import {
   isClosedByBusinessHours,
   slotAvailabilityMessage,
+  type ProxyDaySlot,
   type SlotAvailability,
 } from "@/lib/admin-calendar";
 import { describeLoginError, validateLoginInput } from "@/lib/admin-login";
@@ -175,6 +176,68 @@ export async function checkProxySlot(
       canRegister: false,
       message: "空き状況の取得に失敗しました",
     };
+  }
+}
+
+export type GetProxyDaySlotsInput = {
+  staffId: string;
+  date: string;
+  menuIds: string[];
+  /** 変更モードで自分の旧予約を空き計算から除外する予約ID(checkProxySlot と同じ扱い) */
+  excludeReservationId?: string;
+};
+
+export type GetProxyDaySlotsResult =
+  | {
+      ok: true;
+      /** 対象スタッフ・対象日の開始時刻候補(空き・埋まりの両方を含む) */
+      slots: ProxyDaySlot[];
+      /** 対象日が定休日か(定休日は候補が空になる。文言の出し分け用) */
+      isClosed: boolean;
+    }
+  | { ok: false; message: string };
+
+/**
+ * 代行登録・店側変更フォームの「その日の空き時間」一覧を返す。
+ * 対象スタッフ・日付・メニューが揃ったときに呼ぶ(時間は不要)。
+ * 客側 getAvailability と同じく getDayAvailability(サーバーで所要時間を再計算)の
+ * perStaff から対象スタッフ分を取り出し、ISO文字列に直して返す。
+ * これは「空いている時間の目安」であり、ダブルブッキング防止の本体は
+ * EXCLUDE制約(ADR-004)。手入力での上書き登録は引き続き許す。
+ */
+export async function getProxyDaySlots(
+  input: GetProxyDaySlotsInput,
+): Promise<GetProxyDaySlotsResult> {
+  try {
+    if (!isCalendarDate(input.date)) {
+      return { ok: false, message: "日付を選択してください" };
+    }
+    if (!isUuid(input.staffId)) {
+      return { ok: false, message: "スタッフを選択してください" };
+    }
+    const day = await getDayAvailability(
+      input.date,
+      input.menuIds,
+      new Date(),
+      input.excludeReservationId,
+    );
+    if (day.kind === "invalid_menus") {
+      return { ok: false, message: "メニューの指定が正しくありません" };
+    }
+    const entry = day.perStaff.find(
+      (candidate) => candidate.staffId === input.staffId,
+    );
+    return {
+      ok: true,
+      isClosed: day.isClosed,
+      slots: (entry?.slots ?? []).map((slot) => ({
+        startISO: slot.start.toISOString(),
+        status: slot.status,
+      })),
+    };
+  } catch (error) {
+    console.error("getProxyDaySlots failed", error);
+    return { ok: false, message: "空き時間の取得に失敗しました" };
   }
 }
 

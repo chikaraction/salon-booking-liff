@@ -19,6 +19,7 @@ import {
   type ReservationListItem,
   type WeekView,
 } from "@/lib/admin-calendar";
+import { isCalendarDate } from "@/lib/availability";
 import { cn } from "@/lib/utils";
 
 import { ReservationDetailDialog } from "./reservation-detail-dialog";
@@ -109,6 +110,20 @@ export function CalendarView({
         >
           今日
         </button>
+
+        {/* 日付ジャンプ(‹ › は1日/1週ずつなので、遠い日付へは直接指定する) */}
+        <input
+          type="date"
+          value={date}
+          aria-label="日付を指定して移動"
+          onChange={(event) => {
+            const next = event.target.value;
+            // 入力途中・消去時は空文字や不正な日付になる。その間は遷移しない
+            if (!isCalendarDate(next)) return;
+            go(view, next);
+          }}
+          className="h-9 rounded-lg border border-border bg-card px-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+        />
 
         {/* 週表示のスタッフ色分け凡例 */}
         {view === "week" && (
@@ -493,15 +508,21 @@ function WeekGrid({
                   key={day.date}
                   className={cn(
                     "relative border-l border-border",
+                    // 定休日: 淡い下地 + 斜線ハッチング。実機で見分けがつかなかった
+                    // ため、線を --color-muted-foreground に変え、間隔を詰めた
+                    // (日表示の「予約不可」は --color-border の 6px/7px なので区別できる)。
+                    // 色はトークンのみ。予約ブロックは不透明な下地を持つので上に重ねても読める
                     day.isClosed &&
-                      "bg-[repeating-linear-gradient(45deg,transparent,transparent_8px,var(--color-muted)_8px,var(--color-muted)_9px)]",
+                      "bg-muted/50 bg-[repeating-linear-gradient(45deg,transparent,transparent_4px,var(--color-muted-foreground)_4px,var(--color-muted-foreground)_5px)]",
                   )}
                 >
                   {/* 定休日はハッチング背景+ラベルを残しつつ、予約があれば重ねて描画。
                       定休日への新規登録はブロックするが、過去・別経路の予約は隠さない */}
                   {day.isClosed && (
-                    <p className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-xs text-muted-foreground">
-                      定休日
+                    <p className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 text-center">
+                      <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-bold text-muted-foreground">
+                        定休日
+                      </span>
                     </p>
                   )}
                   {day.items.map((item) => {

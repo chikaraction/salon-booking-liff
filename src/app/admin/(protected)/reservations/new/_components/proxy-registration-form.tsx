@@ -15,13 +15,19 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import {
   checkProxySlot,
   createProxyReservation,
+  getProxyDaySlots,
   searchCustomersAction,
   updateAdminReservation,
 } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
 import type { ProxyRegistrationErrors } from "@/lib/admin-reservation-form";
 import { formatYen, summarizeSelectedMenus } from "@/lib/booking";
-import type { AdminStaff, SlotAvailability } from "@/lib/admin-calendar";
+import {
+  buildProxySlotOptions,
+  type AdminStaff,
+  type ProxyDaySlot,
+  type SlotAvailability,
+} from "@/lib/admin-calendar";
 import type { ActiveMenu, CustomerSearchResult } from "@/server/admin-data";
 import { cn } from "@/lib/utils";
 
@@ -86,6 +92,10 @@ export function ProxyRegistrationForm({
   const [availability, setAvailability] = useState<SlotAvailability | null>(
     null,
   );
+  // その日の空き枠一覧(時間の目安。null = まだ条件が揃っていない)
+  const [daySlots, setDaySlots] = useState<ProxyDaySlot[] | null>(null);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotsError, setSlotsError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<ProxyRegistrationErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, startSubmit] = useTransition();
@@ -150,6 +160,45 @@ export function ProxyRegistrationForm({
       clearTimeout(timer);
     };
   }, [staffId, date, time, menuIds, isEdit, reservationId]);
+
+  // --- その日の空き枠一覧(スタッフ・日付・メニューが揃ったら取得) -----------
+  // 時間は不要(何時から何時まで空いているかを一覧で見せるのが目的)。
+  // 顧客検索・空き判定と同じ作法: 状態更新はすべて setTimeout のコールバック内。
+  useEffect(() => {
+    const ready = staffId !== "" && date !== "" && menuIds.length > 0;
+    let cancelled = false;
+    const timer = setTimeout(
+      async () => {
+        if (!ready) {
+          setDaySlots(null);
+          setSlotsError(null);
+          setSlotsLoading(false);
+          return;
+        }
+        setSlotsLoading(true);
+        setSlotsError(null);
+        const result = await getProxyDaySlots({
+          staffId,
+          date,
+          menuIds,
+          // 変更モードは自分の旧予約を空き計算から除く(自分の枠が埋まりに見えない)
+          excludeReservationId: isEdit ? reservationId : undefined,
+        });
+        if (cancelled) return;
+        setSlotsLoading(false);
+        setDaySlots(result.ok ? result.slots : null);
+        setSlotsError(result.ok ? null : result.message);
+      },
+      ready ? 250 : 0,
+    );
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [staffId, date, menuIds, isEdit, reservationId]);
+
+  const slotOptions =
+    daySlots === null ? null : buildProxySlotOptions(daySlots);
 
   const selectCustomer = (customer: CustomerSearchResult) => {
     setSelectedCustomer(customer);
@@ -487,6 +536,73 @@ export function ProxyRegistrationForm({
               )}
             </div>
           </div>
+
+          {/* その日の空き時間(時間の目安)。客側 step-datetime と同じ見せ方:
+              空きは押せるボタン、埋まりは取り消し線+グレーで選択不可。
+              手入力の時間フィールドは残してあり、休憩・勤務時間外への
+              上書き登録は引き続きできる(一覧に無い時間も登録可) */}
+          {(slotsLoading || slotsError !== null || slotOptions !== null) && (
+            <section>
+              <h2 className={labelClass}>この日の空き時間</h2>
+              {slotsLoading && (
+                <p className="mt-2 text-base text-muted-foreground">
+                  空き状況を確認しています…
+                </p>
+              )}
+              {slotsError !== null && (
+                <p className="mt-2 text-base text-destructive">{slotsError}</p>
+              )}
+              {!slotsLoading &&
+                slotsError === null &&
+                slotOptions !== null &&
+                (slotOptions.length === 0 ? (
+                  <p className="mt-2 text-base text-muted-foreground">
+                    この日に空き枠はありません
+                  </p>
+                ) : (
+                  <>
+                    <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-5">
+                      {slotOptions.map((option) =>
+                        option.isTaken ? (
+                          <span
+                            key={option.time}
+                            aria-disabled="true"
+                            className="flex h-11 items-center justify-center rounded-xl border border-border bg-muted text-base text-muted-foreground/70 line-through"
+                          >
+                            {option.time}
+                          </span>
+                        ) : (
+                          <button
+                            key={option.time}
+                            type="button"
+                            aria-pressed={option.time === time}
+                            onClick={() => {
+                              setTime(option.time);
+                              setFieldErrors((prev) => ({
+                                ...prev,
+                                time: undefined,
+                              }));
+                            }}
+                            className={cn(
+                              "flex h-11 items-center justify-center rounded-xl border text-base font-bold transition-colors",
+                              option.time === time
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : "border-border bg-card hover:bg-muted",
+                            )}
+                          >
+                            {option.time}
+                          </button>
+                        ),
+                      )}
+                    </div>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      ※ 所要{summary.totalDurationMinutes}
+                      分の枠が確保できる時間のみ表示。一覧に無い時間も手入力で登録できます
+                    </p>
+                  </>
+                ))}
+            </section>
+          )}
 
           {/* 空き状況の表示(補助。最後の砦はEXCLUDE制約)。状態で色を出し分ける:
               available=空き(accent)/ past=過去で登録不可(destructive)/

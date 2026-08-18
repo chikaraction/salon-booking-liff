@@ -4,6 +4,7 @@ import { jstDateTime, type Slot } from "./availability";
 
 import {
   buildDayTimeline,
+  buildProxySlotOptions,
   buildReservationDetailLabels,
   buildReservationListItems,
   buildWeekView,
@@ -1053,5 +1054,88 @@ describe("buildReservationDetailLabels(予約詳細の日時・担当/メニュ�
     });
     expect(labels.menuLabel).toBe("カット(60分) ¥4,950");
     expect(labels.dateTimeStaffLabel).toBe("7月18日(土)9:30〜 佐藤");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildProxySlotOptions(代行登録の「その日の空き時間」一覧)
+// ---------------------------------------------------------------------------
+
+describe("buildProxySlotOptions", () => {
+  it("開始時刻(UTCのISO)をJSTの壁時計時刻 HH:MM(ゼロ埋め)に変換する", () => {
+    const options = buildProxySlotOptions([
+      {
+        startISO: jstDateTime("2026-07-18", "09:00").toISOString(),
+        status: "available",
+      },
+      {
+        startISO: jstDateTime("2026-07-18", "13:30").toISOString(),
+        status: "available",
+      },
+    ]);
+    expect(options.map((o) => o.time)).toEqual(["09:00", "13:30"]);
+  });
+
+  it("埋まっている枠は isTaken=true(取り消し線+選択不可の目印)にする", () => {
+    const options = buildProxySlotOptions([
+      {
+        startISO: jstDateTime("2026-07-18", "10:00").toISOString(),
+        status: "taken",
+      },
+      {
+        startISO: jstDateTime("2026-07-18", "11:00").toISOString(),
+        status: "available",
+      },
+    ]);
+    expect(options.map((o) => o.isTaken)).toEqual([true, false]);
+  });
+
+  it("順不同で渡されても開始時刻の昇順に並べ替える", () => {
+    const options = buildProxySlotOptions([
+      {
+        startISO: jstDateTime("2026-07-18", "15:00").toISOString(),
+        status: "available",
+      },
+      {
+        startISO: jstDateTime("2026-07-18", "09:30").toISOString(),
+        status: "taken",
+      },
+      {
+        startISO: jstDateTime("2026-07-18", "12:00").toISOString(),
+        status: "available",
+      },
+    ]);
+    expect(options.map((o) => o.time)).toEqual(["09:30", "12:00", "15:00"]);
+  });
+
+  it("日をまたぐ深夜帯(JSTの前日扱いにならないこと)も壁時計時刻で表す", () => {
+    // JST 2026-07-18 00:30 は UTC では 2026-07-17 15:30
+    const options = buildProxySlotOptions([
+      {
+        startISO: jstDateTime("2026-07-18", "00:30").toISOString(),
+        status: "available",
+      },
+    ]);
+    expect(options[0].time).toBe("00:30");
+  });
+
+  it("空き枠が無ければ空配列を返す(呼び出し側が「空き枠はありません」を出す)", () => {
+    expect(buildProxySlotOptions([])).toEqual([]);
+  });
+
+  it("入力の配列を破壊的に並べ替えない", () => {
+    const slots = [
+      {
+        startISO: jstDateTime("2026-07-18", "15:00").toISOString(),
+        status: "available" as const,
+      },
+      {
+        startISO: jstDateTime("2026-07-18", "09:30").toISOString(),
+        status: "available" as const,
+      },
+    ];
+    const before = slots.map((s) => s.startISO);
+    buildProxySlotOptions(slots);
+    expect(slots.map((s) => s.startISO)).toEqual(before);
   });
 });
