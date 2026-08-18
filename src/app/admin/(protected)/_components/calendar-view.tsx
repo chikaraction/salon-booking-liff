@@ -78,7 +78,8 @@ export function CalendarView({
   /**
    * 日表示のスタッフ列で押された位置から代行登録を開く。
    * 縦比率→時刻の変換は純粋関数(timeFromTimelineRatio)に任せる。
-   * 列の中心Xも一緒に持たせ、ダイアログを押した列の反対側に出す(dialogInitialX)。
+   * 列とグリッド全体の左右Xも一緒に持たせ、ダイアログを押した列以外の領域の
+   * 中央に出す(dialogInitialX)。
    * 定休日・過去の時間でもここでは開く(登録可否はフォームとサーバーの
    * 既存ガードが「定休日は登録できません」「過去の時間は登録できません」で示す)。
    * 既にダイアログが開いているときは無視する: 非モーダルで背後のカレンダーを
@@ -87,7 +88,7 @@ export function CalendarView({
    */
   const openCreateAt = (
     staffId: string,
-    point: { ratio: number; columnCenterX: number },
+    point: ColumnClickPoint,
     axis: TimelineAxis,
   ) => {
     if (createTarget !== null) return;
@@ -99,7 +100,10 @@ export function CalendarView({
         ...axis,
         intervalMinutes: slotIntervalMinutes,
       }),
-      columnCenterX: point.columnCenterX,
+      columnLeft: point.columnLeft,
+      columnRight: point.columnRight,
+      gridLeft: point.gridLeft,
+      gridRight: point.gridRight,
     });
   };
 
@@ -269,19 +273,37 @@ export function CalendarView({
 // ---------------------------------------------------------------------------
 
 /**
- * スタッフ列(relative なコンテナ)の中で押された位置を計測する。
+ * スタッフ列(relative なコンテナ)の中で押された位置と、列・グリッドの横位置。
  * - ratio: 列内の縦位置 0〜1(→ 時刻への変換は純粋関数 timeFromTimelineRatio)
- * - columnCenterX: 列の中心X(→ ダイアログの初期位置は純粋関数 dialogInitialX)
+ * - column/grid の左右X(→ ダイアログの初期位置は純粋関数 dialogInitialX)
  * DOM計測はUI層の責務。判断は純粋関数に任せる。
  */
-function columnClickPoint(event: React.MouseEvent<HTMLElement>): {
+type ColumnClickPoint = {
   ratio: number;
-  columnCenterX: number;
-} {
+  columnLeft: number;
+  columnRight: number;
+  gridLeft: number;
+  gridRight: number;
+};
+
+function columnClickPoint(
+  event: React.MouseEvent<HTMLElement>,
+): ColumnClickPoint {
   const rect = event.currentTarget.getBoundingClientRect();
+  // スタッフ列グリッド全体 = 押された列の親要素。PC/タブレットの日表示では
+  // DayTimelineGrid の grid コンテナ(全スタッフ列の直接の親)がこれにあたる。
+  // 親が取れない場合は列自身をグリッド全体とみなす(dialogInitialX 側で
+  // 反対側の領域が 0 になり、クランプで画面内に収まる)。
+  // スマホの1列表示は親に時間目盛りを含むが、md未満はシート表示で初期位置を
+  // 使わないため影響しない。
+  const gridRect =
+    event.currentTarget.parentElement?.getBoundingClientRect() ?? rect;
   return {
     ratio: rect.height <= 0 ? 0 : (event.clientY - rect.top) / rect.height,
-    columnCenterX: rect.left + rect.width / 2,
+    columnLeft: rect.left,
+    columnRight: rect.right,
+    gridLeft: gridRect.left,
+    gridRight: gridRect.right,
   };
 }
 
@@ -301,7 +323,7 @@ function DayView({
   onSelect: (id: string) => void;
   onCreateAt: (
     staffId: string,
-    point: { ratio: number; columnCenterX: number },
+    point: ColumnClickPoint,
     axis: TimelineAxis,
   ) => void;
 }) {
@@ -391,7 +413,7 @@ function DayTimelineGrid({
   onSelect: (id: string) => void;
   onCreateAt: (
     staffId: string,
-    point: { ratio: number; columnCenterX: number },
+    point: ColumnClickPoint,
     axis: TimelineAxis,
   ) => void;
 }) {
@@ -483,7 +505,7 @@ function MobileTimeline({
   onSelect: (id: string) => void;
   onCreateAt: (
     staffId: string,
-    point: { ratio: number; columnCenterX: number },
+    point: ColumnClickPoint,
     axis: TimelineAxis,
   ) => void;
 }) {

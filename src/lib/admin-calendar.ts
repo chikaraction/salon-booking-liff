@@ -422,24 +422,53 @@ export function clampDialogPosition(params: {
 }
 
 /**
- * 代行登録ダイアログの初期X座標(px)。クリックしたスタッフ列とは反対側に出す。
- * 非モーダルで「背後のカレンダーを見ながら入力する」ダイアログなので、
- * いま押した列の空き状況がダイアログで隠れると目的を果たせない。
- * - 列の中心が画面の左半分 → 右寄せ / 右半分 → 左寄せ
- * - 中央ちょうどは右寄せ(左端の時間目盛りを隠さない側を選ぶ)
+ * 代行登録ダイアログの初期X座標(px)。クリックしたスタッフ列「以外」の領域の
+ * 中央にダイアログを重ねる。非モーダルで「背後のカレンダーを見ながら入力する」
+ * ダイアログなので、いま押した列の空き状況が隠れると目的を果たせない。
+ * 画面端に寄せるのではなく他の列に重ねることで、押した列が中途半端に隠れず、
+ * 2人ならもう一方の列の真ん中に出る(実機フィードバック)。
+ * - クリック列の右側に残る領域の幅 = gridRight - clickedColumnRight、
+ *   左側に残る領域の幅 = clickedColumnLeft - gridLeft
+ * - 広い方の領域を選び、その中央にダイアログの中心を合わせる
+ * - 同幅なら右側(左端の時間目盛りを隠さない側。従来の方針を踏襲)
+ * - 最後にビューポート内へクランプする(左右に margin を残す。反対側の領域が
+ *   ダイアログより狭い場合・スタッフ1人で反対側が無い場合もここで収まる)
  * - 画面がダイアログより狭い場合は左余白に倒す(clampDialogPosition と同じ扱い)
  */
 export function dialogInitialX(params: {
-  /** クリックした列の中心X(ビューポート座標のpx) */
-  columnCenterX: number;
+  /** クリックした列の左右X(ビューポート座標のpx) */
+  clickedColumnLeft: number;
+  clickedColumnRight: number;
+  /** スタッフ列グリッド全体の左右X(ビューポート座標のpx) */
+  gridLeft: number;
+  gridRight: number;
   viewportWidth: number;
   dialogWidth: number;
   margin: number;
 }): number {
-  const { columnCenterX, viewportWidth, dialogWidth, margin } = params;
-  const rightX = Math.max(margin, viewportWidth - dialogWidth - margin);
-  const clickedRightHalf = columnCenterX > viewportWidth / 2;
-  return clickedRightHalf ? margin : rightX;
+  const {
+    clickedColumnLeft,
+    clickedColumnRight,
+    gridLeft,
+    gridRight,
+    viewportWidth,
+    dialogWidth,
+    margin,
+  } = params;
+
+  // 残り領域の幅。計測値が壊れていても負にしない(0 = 反対側が無い扱い)
+  const rightWidth = Math.max(0, gridRight - clickedColumnRight);
+  const leftWidth = Math.max(0, clickedColumnLeft - gridLeft);
+
+  // 広い方の領域の中央。同幅(両方0=スタッフ1人を含む)なら右側
+  const areaCenter =
+    rightWidth >= leftWidth
+      ? (clickedColumnRight + gridRight) / 2
+      : (gridLeft + clickedColumnLeft) / 2;
+
+  const x = areaCenter - dialogWidth / 2;
+  const maxX = Math.max(margin, viewportWidth - dialogWidth - margin);
+  return Math.min(Math.max(x, margin), maxX);
 }
 
 // ---------------------------------------------------------------------------

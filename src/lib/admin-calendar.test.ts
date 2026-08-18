@@ -1567,41 +1567,112 @@ describe("clampDialogPosition: ダイアログ位置をビューポート内に�
   });
 });
 
-describe("dialogInitialX: 代行登録ダイアログをクリックした列の反対側に出す", () => {
-  const base = { viewportWidth: 1280, dialogWidth: 416, margin: 16 };
-  /** 画面右端に寄せたときのX(1280 - 416 - 16) */
-  const rightX = 848;
+describe("dialogInitialX: 代行登録ダイアログをクリックした列以外の領域の中央に出す", () => {
+  const DIALOG_WIDTH = 416;
+  const base = { viewportWidth: 1280, dialogWidth: DIALOG_WIDTH, margin: 16 };
+  /** 時間目盛り(w-14 = 56px)の右からスタッフ列グリッドが始まる想定 */
+  const grid = { gridLeft: 56, gridRight: 1280 };
 
-  it("画面左半分の列をクリックしたら右寄せにする", () => {
-    expect(dialogInitialX({ columnCenterX: 300, ...base })).toBe(rightX);
+  /** 返ったX(左端)からダイアログの中心Xを求める */
+  const centerOf = (x: number) => x + DIALOG_WIDTH / 2;
+
+  describe("スタッフ2人(列幅 612px ずつ)", () => {
+    const left = { clickedColumnLeft: 56, clickedColumnRight: 668 };
+    const right = { clickedColumnLeft: 668, clickedColumnRight: 1280 };
+
+    it("左列をクリックしたらダイアログの中心が右列の中央に来る", () => {
+      const x = dialogInitialX({ ...left, ...grid, ...base });
+      expect(centerOf(x)).toBe((668 + 1280) / 2); // 974 = 右列の中央
+    });
+
+    it("右列をクリックしたらダイアログの中心が左列の中央に来る", () => {
+      const x = dialogInitialX({ ...right, ...grid, ...base });
+      expect(centerOf(x)).toBe((56 + 668) / 2); // 362 = 左列の中央
+    });
   });
 
-  it("画面右半分の列をクリックしたら左寄せにする", () => {
-    expect(dialogInitialX({ columnCenterX: 1000, ...base })).toBe(16);
+  describe("スタッフ3人(列幅 408px ずつ)", () => {
+    // col1 [56,464] / col2 [464,872] / col3 [872,1280]
+    it("左端の列をクリックしたら広い右側領域(残り2列)の中央に出す", () => {
+      const x = dialogInitialX({
+        clickedColumnLeft: 56,
+        clickedColumnRight: 464,
+        ...grid,
+        ...base,
+      });
+      expect(centerOf(x)).toBe((464 + 1280) / 2); // 872
+    });
+
+    it("右端の列をクリックしたら広い左側領域(残り2列)の中央に出す", () => {
+      const x = dialogInitialX({
+        clickedColumnLeft: 872,
+        clickedColumnRight: 1280,
+        ...grid,
+        ...base,
+      });
+      expect(centerOf(x)).toBe((56 + 872) / 2); // 464
+    });
   });
 
-  it("ちょうど中央の列は右寄せにする(左側の時間軸を隠さない)", () => {
-    expect(dialogInitialX({ columnCenterX: 640, ...base })).toBe(rightX);
+  it("左右の残り領域が同じ幅なら右側を選ぶ(左端の時間目盛りを隠さない側)", () => {
+    // グリッド [0,800]、クリック列 [300,500] → 左右とも 300px
+    const x = dialogInitialX({
+      clickedColumnLeft: 300,
+      clickedColumnRight: 500,
+      gridLeft: 0,
+      gridRight: 800,
+      ...base,
+    });
+    expect(centerOf(x)).toBe((500 + 800) / 2); // 650(左を選ぶなら150になる)
   });
 
-  it("スタッフ1人で列が画面全幅でも、中心は中央なので右寄せになる", () => {
-    // 列中心 = 画面中央。境界の扱いが決まっていれば1人でも破綻しない
-    expect(dialogInitialX({ columnCenterX: 640, ...base })).toBe(rightX);
+  it("反対側の領域がダイアログより狭いときはビューポート内へクランプする", () => {
+    // 画面幅500・グリッド [56,500] の2列。右領域の中央に合わせるとはみ出す
+    const x = dialogInitialX({
+      clickedColumnLeft: 56,
+      clickedColumnRight: 278,
+      gridLeft: 56,
+      gridRight: 500,
+      viewportWidth: 500,
+      dialogWidth: DIALOG_WIDTH,
+      margin: 16,
+    });
+    expect(x).toBe(500 - DIALOG_WIDTH - 16); // 68
+    expect(x).toBeGreaterThanOrEqual(16);
+    expect(x + DIALOG_WIDTH).toBeLessThanOrEqual(500 - 16);
   });
 
-  it("画面がダイアログより狭いときは左余白までクランプする", () => {
-    expect(
-      dialogInitialX({
-        columnCenterX: 100,
-        viewportWidth: 400,
-        dialogWidth: 416,
-        margin: 16,
-      }),
-    ).toBe(16);
+  it("スタッフ1人(反対側の領域がない)でも画面内の妥当な位置に収まる", () => {
+    const x = dialogInitialX({
+      clickedColumnLeft: 56,
+      clickedColumnRight: 1280,
+      ...grid,
+      ...base,
+    });
+    expect(x).toBe(1280 - DIALOG_WIDTH - 16); // 848(右余白まで寄る)
   });
 
-  it("列の中心が画面外(負・右端超え)でも余白の内側に収まる", () => {
-    expect(dialogInitialX({ columnCenterX: -500, ...base })).toBe(rightX);
-    expect(dialogInitialX({ columnCenterX: 9999, ...base })).toBe(16);
+  it("ビューポートがダイアログより狭くても左余白に倒す", () => {
+    const x = dialogInitialX({
+      clickedColumnLeft: 0,
+      clickedColumnRight: 200,
+      gridLeft: 0,
+      gridRight: 400,
+      viewportWidth: 400,
+      dialogWidth: DIALOG_WIDTH,
+      margin: 16,
+    });
+    expect(x).toBe(16);
+  });
+
+  it("列がグリッドをはみ出す不正な計測値でも画面内に収まる", () => {
+    const x = dialogInitialX({
+      clickedColumnLeft: -500,
+      clickedColumnRight: 9999,
+      ...grid,
+      ...base,
+    });
+    expect(x).toBeGreaterThanOrEqual(16);
+    expect(x).toBeLessThanOrEqual(1280 - DIALOG_WIDTH - 16);
   });
 });

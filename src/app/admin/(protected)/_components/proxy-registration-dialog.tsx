@@ -42,10 +42,14 @@ export type ProxyRegistrationTarget = {
   /** 壁時計時刻 "HH:MM" */
   time: string;
   /**
-   * クリックしたスタッフ列の中心X(ビューポート座標のpx)。
-   * その列を隠さない側にダイアログを出すために使う(dialogInitialX)
+   * クリックしたスタッフ列と、スタッフ列グリッド全体の左右X
+   * (ビューポート座標のpx)。押した列以外の領域の中央にダイアログを
+   * 重ねるために使う(dialogInitialX)
    */
-  columnCenterX: number;
+  columnLeft: number;
+  columnRight: number;
+  gridLeft: number;
+  gridRight: number;
 };
 
 type Props = {
@@ -74,12 +78,15 @@ export function ProxyRegistrationDialog({
     () => window.matchMedia(DESKTOP_QUERY).matches,
   );
 
-  // パネルの位置(fixed の left/top)。初期の左右はクリックしたスタッフ列の
-  // 反対側(dialogInitialX)= いま見たい列の空き状況を隠さない位置から始める
+  // パネルの位置(fixed の left/top)。初期の左右はクリックしたスタッフ列
+  // 以外の領域の中央(dialogInitialX)= いま見たい列の空き状況を隠さない位置
   const [position, setPosition] = useState<{ x: number; y: number }>(() =>
     clampDialogPosition({
       x: dialogInitialX({
-        columnCenterX: target.columnCenterX,
+        clickedColumnLeft: target.columnLeft,
+        clickedColumnRight: target.columnRight,
+        gridLeft: target.gridLeft,
+        gridRight: target.gridRight,
         viewportWidth: window.innerWidth,
         dialogWidth: PANEL_WIDTH,
         margin: VIEWPORT_MARGIN,
