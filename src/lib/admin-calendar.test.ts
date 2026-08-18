@@ -16,6 +16,7 @@ import {
   slotAvailabilityMessage,
   weekNavLabel,
   weekStartOf,
+  weekdayLabel,
   type AdminCalendarItem,
 } from "./admin-calendar";
 
@@ -761,6 +762,12 @@ describe("日付ナビゲーション", () => {
   it("日表示ラベルは「2026年7月18日(土)」形式", () => {
     expect(dayNavLabel("2026-07-18")).toBe("2026年7月18日(土)");
     expect(dayNavLabel("2026-08-02")).toBe("2026年8月2日(日)"); // ゼロ埋めなし
+  });
+
+  it("曜日ラベルは日曜「日」〜土曜「土」を返す", () => {
+    expect(weekdayLabel("2026-07-12")).toBe("日"); // 日曜
+    expect(weekdayLabel("2026-07-18")).toBe("土"); // 土曜
+    expect(weekdayLabel("2026-07-15")).toBe("水"); // 平日
   });
 
   it("週表示ラベルは「2026年7月12日 〜 18日」形式", () => {

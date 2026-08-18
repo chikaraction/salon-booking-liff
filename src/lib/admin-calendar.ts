@@ -477,7 +477,7 @@ export function buildWeekView(params: {
     days.push({
       date,
       dayNumber,
-      weekdayLabel: WEEKDAY_LABELS[calendarWeekday(date)],
+      weekdayLabel: weekdayLabel(date),
       isClosed: isClosedDay(date),
       items: dayItems,
     });
@@ -499,6 +499,14 @@ export function buildWeekView(params: {
 export function dayNavLabel(date: string): string {
   const [year] = date.split("-").map(Number);
   return `${year}年${calendarDateLabel(date)}`;
+}
+
+/**
+ * 曜日ラベル「土」を返す。ネイティブの <input type="date"> は曜日を表示しないため、
+ * ヘッダーの日付ピッカーに添える(定休日の判断に曜日が要る)。
+ */
+export function weekdayLabel(date: string): string {
+  return WEEKDAY_LABELS[calendarWeekday(date)];
 }
 
 /** その週の日曜(JST暦日)を返す */

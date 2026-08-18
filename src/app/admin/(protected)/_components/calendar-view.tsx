@@ -14,6 +14,7 @@ import {
   moveDay,
   weekNavLabel,
   weekStartOf,
+  weekdayLabel,
   type AdminStaff,
   type DayTimeline,
   type ReservationListItem,
@@ -74,8 +75,13 @@ export function CalendarView({
 
   return (
     <div className="flex h-dvh flex-col md:h-screen">
-      {/* ヘッダー(前後ナビ + ラベル + 今日 + 日/週トグル) */}
+      {/* ヘッダー(前後ナビ + 日付ピッカー + 今日 + 日/週トグル) */}
       <header className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3 md:px-6">
+        {/* 可視の見出しは日付ピッカーが兼ねる(日付の二重表示を避ける)。
+            ページ見出しとしては読み上げ用に残す */}
+        <h1 className="sr-only">{centerLabel}</h1>
+
+        {/* ‹ › が日付ピッカーを左右から挟む(移動対象が一目で分かる) */}
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -85,6 +91,26 @@ export function CalendarView({
           >
             <ChevronLeft aria-hidden="true" className="size-5" />
           </button>
+
+          {/* 日付ジャンプ(‹ › は1日/1週ずつなので、遠い日付へは直接指定する) */}
+          <input
+            type="date"
+            value={date}
+            aria-label="日付を指定して移動"
+            onChange={(event) => {
+              const next = event.target.value;
+              // 入力途中・消去時は空文字や不正な日付になる。その間は遷移しない
+              if (!isCalendarDate(next)) return;
+              go(view, next);
+            }}
+            className="h-9 w-[9.5rem] rounded-lg border border-border bg-card px-2 text-sm font-medium text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+          />
+
+          {/* ネイティブの日付入力は曜日を出さない。定休日の判断に要るので添える */}
+          <span className="text-sm text-muted-foreground">
+            ({weekdayLabel(date)})
+          </span>
+
           <button
             type="button"
             onClick={handleNext}
@@ -94,8 +120,6 @@ export function CalendarView({
             <ChevronRight aria-hidden="true" className="size-5" />
           </button>
         </div>
-
-        <h1 className="text-lg font-bold md:text-xl">{centerLabel}</h1>
 
         <button
           type="button"
@@ -111,19 +135,12 @@ export function CalendarView({
           今日
         </button>
 
-        {/* 日付ジャンプ(‹ › は1日/1週ずつなので、遠い日付へは直接指定する) */}
-        <input
-          type="date"
-          value={date}
-          aria-label="日付を指定して移動"
-          onChange={(event) => {
-            const next = event.target.value;
-            // 入力途中・消去時は空文字や不正な日付になる。その間は遷移しない
-            if (!isCalendarDate(next)) return;
-            go(view, next);
-          }}
-          className="h-9 rounded-lg border border-border bg-card px-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
-        />
+        {/* 週表示の期間ラベル(1点を指すピッカーとは別情報なので併記する) */}
+        {view === "week" && (
+          <p aria-hidden="true" className="text-base font-bold">
+            {weekNavLabel(weekStartOf(date))}
+          </p>
+        )}
 
         {/* 週表示のスタッフ色分け凡例 */}
         {view === "week" && (
