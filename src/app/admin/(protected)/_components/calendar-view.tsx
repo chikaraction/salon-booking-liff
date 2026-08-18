@@ -694,8 +694,10 @@ function WeekGrid({
                         <p className="truncate text-xs font-bold">
                           {item.titleLabel}
                         </p>
+                        {/* 日表示のカードと同じ理由で、スタッフ色の下地に対して
+                            薄すぎる muted-foreground を使わない(timeline-column.tsx) */}
                         {item.menuLabel !== null && (
-                          <p className="truncate text-xs text-muted-foreground">
+                          <p className="truncate text-xs text-foreground/75">
                             {item.menuLabel}
                           </p>
                         )}

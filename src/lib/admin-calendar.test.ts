@@ -200,7 +200,7 @@ describe("buildDayTimeline: 日表示の配置計算", () => {
     expect(placed.id).toBe("b1");
   });
 
-  it("ラベルは「9:30 佐々木様」形式。60分以下は所要分を省略し料金も出さない", () => {
+  it("ラベルは「9:30 佐々木様」形式。60分は所要分を省略し料金も出さない(3行入らない)", () => {
     const timeline = buildDayTimeline({
       ...base,
       items: [
@@ -220,7 +220,7 @@ describe("buildDayTimeline: 日表示の配置計算", () => {
     expect(placed.priceLabel).toBeNull();
   });
 
-  it("複数メニューは「カット + カラー(150分)」形式で、150分以上なら料金も表示", () => {
+  it("複数メニューは「カット + カラー(150分)」形式で、150分なら料金も表示", () => {
     const timeline = buildDayTimeline({
       ...base,
       items: [
@@ -242,7 +242,26 @@ describe("buildDayTimeline: 日表示の配置計算", () => {
     expect(placed.heightPercent).toBe(25); // 150分 → 25%
   });
 
-  it("120分は所要分を表示するが料金は出さない(モック準拠)", () => {
+  it("90分でも料金を表示する(カード高さに3行が収まるため)", () => {
+    const timeline = buildDayTimeline({
+      ...base,
+      items: [
+        booking({
+          id: "b4",
+          staffId: "tanaka",
+          start: "11:00",
+          end: "12:30",
+          customerName: "高橋",
+          menus: [color],
+        }),
+      ],
+    });
+    const placed = timeline.columns[0].blocks.find((b) => b.id === "b4");
+    expect(placed?.menuLabel).toBe("カラー(90分)");
+    expect(placed?.priceLabel).toBe("¥6,600");
+  });
+
+  it("120分でも所要分と料金の両方を表示する", () => {
     const timeline = buildDayTimeline({
       ...base,
       items: [
@@ -258,7 +277,42 @@ describe("buildDayTimeline: 日表示の配置計算", () => {
     });
     const placed = timeline.columns[1].blocks.find((b) => b.id === "b3");
     expect(placed?.menuLabel).toBe("パーマ(120分)");
-    expect(placed?.priceLabel).toBeNull();
+    expect(placed?.priceLabel).toBe("¥9,900");
+  });
+
+  it("料金表示の境界: 70分ちょうどは出し、69分では出さない", () => {
+    const treatment = {
+      menuName: "トリートメント",
+      price: 3300,
+      durationMinutes: 70,
+    };
+    const timeline = buildDayTimeline({
+      ...base,
+      items: [
+        booking({
+          id: "just",
+          staffId: "tanaka",
+          start: "09:00",
+          end: "10:10", // 70分
+          customerName: "境界",
+          menus: [treatment],
+        }),
+        booking({
+          id: "under",
+          staffId: "sato",
+          start: "09:00",
+          end: "10:09", // 69分
+          customerName: "境界未満",
+          menus: [treatment],
+        }),
+      ],
+    });
+    expect(
+      timeline.columns[0].blocks.find((b) => b.id === "just")?.priceLabel,
+    ).toBe("¥3,300");
+    expect(
+      timeline.columns[1].blocks.find((b) => b.id === "under")?.priceLabel,
+    ).toBeNull();
   });
 
   it("営業開始ちょうどは上端(0%)、営業終了ちょうどは下端(合計100%)に接する", () => {

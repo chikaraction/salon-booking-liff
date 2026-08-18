@@ -78,8 +78,12 @@ export function TimelineBlocks({
             >
               {block.titleLabel}
             </p>
+            {/* menuLabel が入るのは予約カード(スタッフ色の下地)のみ。
+                muted-foreground では下地とのコントラストが約3.9:1 で薄いため、
+                foreground を弱めた濃さにする(約5.3:1。1行目の約10.3:1 より弱く、
+                ライト・ダークとも本文コントラスト 4.5:1 を満たす) */}
             {block.menuLabel !== null && (
-              <p className="truncate text-xs text-muted-foreground">
+              <p className="truncate text-xs text-foreground/75">
                 {block.menuLabel}
               </p>
             )}
