@@ -76,28 +76,36 @@ export function CalendarView({
     useState<ProxyRegistrationTarget | null>(null);
 
   /**
-   * 日表示のスタッフ列で押された位置から代行登録を開く。
+   * カレンダーの列で押された位置から代行登録を開く(日表示・週表示で共用)。
    * 縦比率→時刻の変換は純粋関数(timeFromTimelineRatio)に任せる。
    * 列とグリッド全体の左右Xも一緒に持たせ、ダイアログを押した列以外の領域の
    * 中央に出す(dialogInitialX)。
+   * - 日表示: 列=スタッフなので staffId が決まる
+   * - 週表示: 列=日付で全スタッフが同じ列に並ぶため staffId は決まらない。
+   *   日付・時刻だけを初期値にしてスタッフ未選択で開き、ダイアログ内の
+   *   スタッフ選択で確定させる(選んだ時点で空き時間一覧・空き判定が出る)
    * 定休日・過去の時間でもここでは開く(登録可否はフォームとサーバーの
    * 既存ガードが「定休日は登録できません」「過去の時間は登録できません」で示す)。
    * 既にダイアログが開いているときは無視する: 非モーダルで背後のカレンダーを
    * 操作できるため、入力途中のクリックでフォームを作り直すと入力が消える。
    * 時刻の変更はフォームの時間欄・空き時間一覧で行う。
    */
-  const openCreateAt = (
-    staffId: string,
-    point: ColumnClickPoint,
-    axis: TimelineAxis,
-  ) => {
+  const openCreateAt = (params: {
+    /** 週表示は列=日付でスタッフが定まらないため省略する */
+    staffId?: string;
+    /** クリックされた列の日付(日表示は表示中の日、週表示は列の日付) */
+    date: string;
+    point: ColumnClickPoint;
+    axis: TimelineAxis;
+  }) => {
     if (createTarget !== null) return;
+    const { point } = params;
     setCreateTarget({
-      staffId,
-      date,
+      staffId: params.staffId,
+      date: params.date,
       time: timeFromTimelineRatio({
         ratio: point.ratio,
-        ...axis,
+        ...params.axis,
         intervalMinutes: slotIntervalMinutes,
       }),
       columnLeft: point.columnLeft,
@@ -230,15 +238,21 @@ export function CalendarView({
             timeline={timeline}
             listItems={listItems}
             onSelect={setSelectedId}
-            onCreateAt={openCreateAt}
+            onCreateAt={(staffId, point, axis) =>
+              openCreateAt({ staffId, date, point, axis })
+            }
           />
         ) : (
-          // 週表示のセルは1日単位でスタッフが定まらないため、空き枠クリックは
-          // 日表示だけの機能にしている(週は従来どおり予約カードのみクリック可)
+          // 週表示のセルは列=日付でスタッフが定まらないため、日付と時刻だけを
+          // 初期値にしてスタッフ未選択でダイアログを開く(誰が空いているかは
+          // ダイアログ内でスタッフを選べば空き時間一覧・空き判定で分かる)
           <WeekGrid
             staff={staff}
             weekView={weekView}
             onSelect={setSelectedId}
+            onCreateAt={(dayDate, point, axis) =>
+              openCreateAt({ date: dayDate, point, axis })
+            }
           />
         )}
       </div>
@@ -273,7 +287,8 @@ export function CalendarView({
 // ---------------------------------------------------------------------------
 
 /**
- * スタッフ列(relative なコンテナ)の中で押された位置と、列・グリッドの横位置。
+ * 列(relative なコンテナ。日表示はスタッフ列・週表示は日付列)の中で押された
+ * 位置と、列・グリッドの横位置。
  * - ratio: 列内の縦位置 0〜1(→ 時刻への変換は純粋関数 timeFromTimelineRatio)
  * - column/grid の左右X(→ ダイアログの初期位置は純粋関数 dialogInitialX)
  * DOM計測はUI層の責務。判断は純粋関数に任せる。
@@ -290,8 +305,9 @@ function columnClickPoint(
   event: React.MouseEvent<HTMLElement>,
 ): ColumnClickPoint {
   const rect = event.currentTarget.getBoundingClientRect();
-  // スタッフ列グリッド全体 = 押された列の親要素。PC/タブレットの日表示では
-  // DayTimelineGrid の grid コンテナ(全スタッフ列の直接の親)がこれにあたる。
+  // 列グリッド全体 = 押された列の親要素。PC/タブレットの日表示では
+  // DayTimelineGrid の grid コンテナ(全スタッフ列の直接の親)、週表示では
+  // WeekGrid の grid-cols-7 コンテナ(7日分の列の直接の親)がこれにあたる。
   // 親が取れない場合は列自身をグリッド全体とみなす(dialogInitialX 側で
   // 反対側の領域が 0 になり、クランプで画面内に収まる)。
   // スマホの1列表示は親に時間目盛りを含むが、md未満はシート表示で初期位置を
@@ -622,10 +638,17 @@ function WeekGrid({
   staff,
   weekView,
   onSelect,
+  onCreateAt,
 }: {
   staff: AdminStaff[];
   weekView: WeekView;
   onSelect: (id: string) => void;
+  /** 日付列の空き領域クリック(スタッフはダイアログ内で選ぶので渡さない) */
+  onCreateAt: (
+    date: string,
+    point: ColumnClickPoint,
+    axis: TimelineAxis,
+  ) => void;
 }) {
   const colorIndexByStaffId = new Map(
     staff.map((member, index) => [member.id, index]),
@@ -646,6 +669,7 @@ function WeekGrid({
   }
 
   const height = timelineHeight(weekView.tickMarks);
+  const axis = weekView.axis;
 
   return (
     // 横スクロールだけを担う領域。overflow-x-auto は既定で overflow-y を
@@ -681,8 +705,21 @@ function WeekGrid({
             <HourLines tickMarks={weekView.tickMarks} />
             <div className="grid h-full grid-cols-7">
               {weekView.days.map((day) => (
+                // 日付列の空き領域クリックで代行登録ダイアログを開く。週表示は
+                // 列=日付で全スタッフが同じ列に並ぶためスタッフは決まらない。
+                // 日付・時刻だけを初期値にして開き、スタッフはダイアログ内で選ぶ
+                // (選んだ時点でその日の空き時間一覧・空き判定が出る)。
+                // 予約カードは stopPropagation するので、カード上は従来どおり
+                // 予約詳細ダイアログが開く。定休日の列も開いてよい(フォームと
+                // サーバーの「定休日は登録できません」ガードが働く。日表示と同じ)
                 <div
                   key={day.date}
+                  onClick={
+                    axis === null
+                      ? undefined
+                      : (event) =>
+                          onCreateAt(day.date, columnClickPoint(event), axis)
+                  }
                   className={cn(
                     "relative border-l border-border",
                     // 定休日: 斜線ハッチングは実機で見分けがつきにくかったため、
@@ -690,6 +727,7 @@ function WeekGrid({
                     // に対してライト 0.93/0.965、ダーク 0.269/0.145 と明度差があり、
                     // 不透明度を下げずに敷くことで一目で休みだと分かる。色はトークンのみ
                     day.isClosed && "bg-secondary",
+                    axis !== null && emptySlotClass,
                   )}
                 >
                   {/* 背景色だけでは意味が伝わらないのでラベルは残す。予約があれば
@@ -707,7 +745,12 @@ function WeekGrid({
                       <button
                         key={item.id}
                         type="button"
-                        onClick={() => onSelect(item.id)}
+                        // 日付列の空き領域クリック(代行登録ダイアログ)へ
+                        // 伝播させない。カードの上は従来どおり予約詳細を開く
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onSelect(item.id);
+                        }}
                         // 重なりで幅が狭くなると文字が切れるため、完全な情報を
                         // ネイティブのツールチップで補う(クリックの詳細ダイアログは従来どおり)
                         title={weekItemTooltip(

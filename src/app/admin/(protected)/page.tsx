@@ -39,7 +39,12 @@ const EMPTY_TIMELINE: DayTimeline = {
   tickMarks: [],
   columns: [],
 };
-const EMPTY_WEEK: WeekView = { ticks: [], tickMarks: [], days: [] };
+const EMPTY_WEEK: WeekView = {
+  axis: null,
+  ticks: [],
+  tickMarks: [],
+  days: [],
+};
 
 type SearchParams = { view?: string; date?: string };
 

@@ -1463,6 +1463,94 @@ describe("buildDayTimeline: 時間軸の分数(axis)", () => {
   });
 });
 
+describe("buildWeekView: 時間軸の分数(axis)", () => {
+  // 日曜定休。平日 10:00〜18:00、土曜 9:00〜19:00 → 週の時間軸は 9:00〜19:00
+  const businessHours = [
+    { weekday: 0, isOpen: false, openTime: null, closeTime: null },
+    ...[1, 2, 3, 4, 5].map((weekday) => ({
+      weekday,
+      isOpen: true,
+      openTime: "10:00:00",
+      closeTime: "18:00:00",
+    })),
+    { weekday: 6, isOpen: true, openTime: "09:00:00", closeTime: "19:00:00" },
+  ];
+  const isClosedDay = (date: string) =>
+    isClosedByBusinessHours(date, businessHours);
+  const weekStart = "2026-07-12"; // 日曜
+
+  it("営業日のある週は最小開店〜最大閉店を分数で返す(クリック位置→時刻の変換に使う)", () => {
+    const view = buildWeekView({
+      weekStart,
+      businessHours,
+      items: [],
+      isClosedDay,
+    });
+    expect(view.axis).toEqual({ openMinutes: 540, closeMinutes: 1140 });
+  });
+
+  it("週内に営業日が1日もなければ軸なし(null。クリックもできない)", () => {
+    const view = buildWeekView({
+      weekStart,
+      businessHours: businessHours.map((day) => ({
+        ...day,
+        isOpen: false,
+        openTime: null,
+        closeTime: null,
+      })),
+      items: [],
+      isClosedDay: () => true,
+    });
+    expect(view.axis).toBeNull();
+    expect(view.ticks).toEqual([]);
+  });
+
+  it("営業時間外の予約を含む週は、その予約を含むところまで軸が広がる", () => {
+    const view = buildWeekView({
+      weekStart,
+      businessHours,
+      items: [
+        // 平日営業は 10:00〜18:00 だが、8:00 開始・20:00 終了の予約が軸に入る
+        booking({
+          id: "early",
+          staffId: "tanaka",
+          date: "2026-07-13",
+          start: "08:00",
+          end: "09:00",
+          customerName: "早朝",
+          menus: [cut],
+        }),
+        booking({
+          id: "late",
+          staffId: "sato",
+          date: "2026-07-14",
+          start: "19:00",
+          end: "20:00",
+          customerName: "夜間",
+          menus: [cut],
+        }),
+      ],
+      isClosedDay,
+    });
+    expect(view.axis).toEqual({ openMinutes: 480, closeMinutes: 1200 });
+  });
+
+  it("目盛りの先頭・末尾は軸の開店・閉店と同じ時刻を指す(top%の基準が一致する)", () => {
+    const view = buildWeekView({
+      weekStart,
+      businessHours,
+      items: [],
+      isClosedDay,
+    });
+    // 軸が null なら意図的に一致しない値にして失敗させる
+    const axis = view.axis ?? { openMinutes: -1, closeMinutes: -1 };
+    expect(view.ticks[0]).toBe(`${axis.openMinutes / 60}:00`);
+    expect(view.ticks[view.ticks.length - 1]).toBe(
+      `${axis.closeMinutes / 60}:00`,
+    );
+  });
+});
+
 describe("timeFromTimelineRatio: クリック位置から枠の開始時刻を求める", () => {
   // 営業 9:00〜19:00(540〜1140分)を30分刻みで割る想定
   const axis = { openMinutes: 540, closeMinutes: 1140, intervalMinutes: 30 };

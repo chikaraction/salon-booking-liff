@@ -585,6 +585,13 @@ export type WeekDayColumn = {
 };
 
 export type WeekView = {
+  /**
+   * 時間軸の範囲(分数)。top%/height% の基準であり、UIが日付列内のクリック位置
+   * (0〜1の比率)を時刻へ戻すのに使う(timeFromTimelineRatio)。
+   * 週内に営業日も予約もなければタイムライン自体を描かないため null。
+   * 形は DayTimeline.axis と同じ(日/週で同じ配線が使える)。
+   */
+  axis: TimelineAxis | null;
   /** 週内の営業時間の最小開店〜最大閉店に合わせた1時間刻みの目盛り */
   ticks: string[];
   /** 目盛りの位置付き(グリッド線の描画用。ラベルは ticks と同一) */
@@ -720,6 +727,7 @@ export function buildWeekView(params: {
 
   const marks = hasAxis ? hourTickMarks(openMinutes, closeMinutes) : [];
   return {
+    axis: hasAxis ? { openMinutes, closeMinutes } : null,
     ticks: marks.map((mark) => mark.label),
     tickMarks: marks,
     days,

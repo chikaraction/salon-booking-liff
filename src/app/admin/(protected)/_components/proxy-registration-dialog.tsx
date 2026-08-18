@@ -36,7 +36,13 @@ const INITIAL_TOP = 72;
 const DESKTOP_QUERY = "(min-width: 768px)";
 
 export type ProxyRegistrationTarget = {
-  staffId: string;
+  /**
+   * 担当スタッフ。日表示は列=スタッフなのでクリックで決まるが、週表示は
+   * 列=日付で全スタッフが同じ列に並ぶため決まらない。省略した場合は
+   * スタッフ未選択でフォームを開き、ダイアログ内のスタッフ選択で確定させる
+   * (未選択のままの登録は validateProxyRegistration がフィールドエラーで弾く)
+   */
+  staffId?: string;
   /** JSTの暦日 "YYYY-MM-DD" */
   date: string;
   /** 壁時計時刻 "HH:MM" */
@@ -229,7 +235,9 @@ export function ProxyRegistrationDialog({
           defaultDate={target.date}
           initial={{
             menuIds: [],
-            staffId: target.staffId,
+            // 週表示など担当が決まらないクリックでは空文字 = 未選択で開く
+            // (フォームの select は value="" が「選択してください」)
+            staffId: target.staffId ?? "",
             date: target.date,
             time: target.time,
             note: "",
