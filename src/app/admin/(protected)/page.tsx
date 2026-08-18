@@ -21,9 +21,11 @@ import {
 } from "@/lib/availability";
 import { createAdminAuthClient } from "@/server/admin-auth";
 import {
+  fetchActiveMenus,
   fetchAdminBusinessHours,
   fetchAdminCalendarItems,
   fetchAdminStaff,
+  fetchSlotIntervalMinutes,
   fetchStaffWorkingHoursForWeekday,
 } from "@/server/admin-data";
 
@@ -32,6 +34,7 @@ import { CalendarView } from "./_components/calendar-view";
 // 空の初期値(表示していない側の入力に渡す。CalendarView は view で分岐する)
 const EMPTY_TIMELINE: DayTimeline = {
   isClosed: false,
+  axis: null,
   ticks: [],
   tickMarks: [],
   columns: [],
@@ -54,9 +57,13 @@ export default async function AdminCalendarPage({
       : todayDate;
 
   const supabase = await createAdminAuthClient();
-  const [staff, businessHours] = await Promise.all([
+  // 刻み・メニューは日表示の代行登録ダイアログ(空き枠クリック)に渡す。
+  // 刻みは salon_settings 由来(ADR-007: 30分などをコードに書かない)
+  const [staff, businessHours, slotIntervalMinutes, menus] = await Promise.all([
     fetchAdminStaff(supabase),
     fetchAdminBusinessHours(supabase),
+    fetchSlotIntervalMinutes(supabase),
+    fetchActiveMenus(supabase),
   ]);
 
   let timeline: DayTimeline = EMPTY_TIMELINE;
@@ -106,6 +113,8 @@ export default async function AdminCalendarPage({
       timeline={timeline}
       listItems={listItems}
       weekView={weekView}
+      slotIntervalMinutes={slotIntervalMinutes}
+      menus={menus}
     />
   );
 }

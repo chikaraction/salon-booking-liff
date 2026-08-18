@@ -12,17 +12,24 @@ import { useState } from "react";
 import {
   dayNavLabel,
   moveDay,
+  timeFromTimelineRatio,
   weekNavLabel,
   weekStartOf,
   weekdayLabel,
   type AdminStaff,
   type DayTimeline,
   type ReservationListItem,
+  type TimelineAxis,
   type WeekView,
 } from "@/lib/admin-calendar";
 import { isCalendarDate } from "@/lib/availability";
 import { cn } from "@/lib/utils";
+import type { ActiveMenu } from "@/server/admin-data";
 
+import {
+  ProxyRegistrationDialog,
+  type ProxyRegistrationTarget,
+} from "./proxy-registration-dialog";
 import { ReservationDetailDialog } from "./reservation-detail-dialog";
 import { staffColor } from "./staff-colors";
 import {
@@ -42,6 +49,10 @@ type Props = {
   listItems: ReservationListItem[];
   // 週表示の入力(日表示のときは未使用)
   weekView: WeekView;
+  /** 空き枠クリック時の時刻の刻み(salon_settings 由来。ADR-007) */
+  slotIntervalMinutes: number;
+  /** 代行登録ダイアログのメニュー選択に渡す有効メニュー */
+  menus: ActiveMenu[];
 };
 
 export function CalendarView({
@@ -52,11 +63,38 @@ export function CalendarView({
   timeline,
   listItems,
   weekView,
+  slotIntervalMinutes,
+  menus,
 }: Props) {
   const router = useRouter();
 
   // 選択中の予約ID(カレンダーの予約カードをクリックすると詳細ダイアログを開く)
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // 空き枠クリックで開く代行登録ダイアログの対象(スタッフ・日付・時刻)
+  const [createTarget, setCreateTarget] =
+    useState<ProxyRegistrationTarget | null>(null);
+
+  /**
+   * 日表示のスタッフ列で押された位置(列内の縦比率)から代行登録を開く。
+   * 時刻への変換は純粋関数(timeFromTimelineRatio)に任せる。
+   * 定休日・過去の時間でもここでは開く(登録可否はフォームとサーバーの
+   * 既存ガードが「定休日は登録できません」「過去の時間は登録できません」で示す)。
+   * 既にダイアログが開いているときは無視する: 非モーダルで背後のカレンダーを
+   * 操作できるため、入力途中のクリックでフォームを作り直すと入力が消える。
+   * 時刻の変更はフォームの時間欄・空き時間一覧で行う。
+   */
+  const openCreateAt = (staffId: string, ratio: number, axis: TimelineAxis) => {
+    if (createTarget !== null) return;
+    setCreateTarget({
+      staffId,
+      date,
+      time: timeFromTimelineRatio({
+        ratio,
+        ...axis,
+        intervalMinutes: slotIntervalMinutes,
+      }),
+    });
+  };
 
   const go = (nextView: "day" | "week", nextDate: string) => {
     router.push(`/admin?view=${nextView}&date=${nextDate}`);
@@ -181,8 +219,11 @@ export function CalendarView({
             timeline={timeline}
             listItems={listItems}
             onSelect={setSelectedId}
+            onCreateAt={openCreateAt}
           />
         ) : (
+          // 週表示のセルは1日単位でスタッフが定まらないため、空き枠クリックは
+          // 日表示だけの機能にしている(週は従来どおり予約カードのみクリック可)
           <WeekGrid
             staff={staff}
             weekView={weekView}
@@ -198,6 +239,20 @@ export function CalendarView({
           onClose={() => setSelectedId(null)}
         />
       )}
+
+      {createTarget !== null && (
+        <ProxyRegistrationDialog
+          staff={staff}
+          menus={menus}
+          target={createTarget}
+          onClose={() => setCreateTarget(null)}
+          onSuccess={() => {
+            // 遷移せずカレンダーを取り直す = 登録した予約がその場で現れる
+            setCreateTarget(null);
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -206,16 +261,31 @@ export function CalendarView({
 // 日表示
 // ---------------------------------------------------------------------------
 
+/**
+ * スタッフ列(relative なコンテナ)の中で押された縦位置を 0〜1 の比率にする。
+ * DOM計測はUI層の責務。比率→時刻の変換は純粋関数に任せる。
+ */
+function columnClickRatio(event: React.MouseEvent<HTMLElement>): number {
+  const rect = event.currentTarget.getBoundingClientRect();
+  if (rect.height <= 0) return 0;
+  return (event.clientY - rect.top) / rect.height;
+}
+
+/** 空き枠クリックの共通スタイル(押せることが分かる程度の軽い視覚フィードバック) */
+const emptySlotClass = "cursor-pointer transition-colors hover:bg-muted/40";
+
 function DayView({
   staff,
   timeline,
   listItems,
   onSelect,
+  onCreateAt,
 }: {
   staff: AdminStaff[];
   timeline: DayTimeline;
   listItems: ReservationListItem[];
   onSelect: (id: string) => void;
+  onCreateAt: (staffId: string, ratio: number, axis: TimelineAxis) => void;
 }) {
   // スマホ幅のみ「タイムライン / リスト」を切り替える(モックH・I)
   const [mobileMode, setMobileMode] = useState<"timeline" | "list">("timeline");
@@ -236,6 +306,7 @@ function DayView({
           staff={staff}
           timeline={timeline}
           onSelect={onSelect}
+          onCreateAt={onCreateAt}
         />
       </div>
 
@@ -260,7 +331,11 @@ function DayView({
           ))}
         </div>
         {mobileMode === "timeline" ? (
-          <MobileTimeline timeline={timeline} onSelect={onSelect} />
+          <MobileTimeline
+            timeline={timeline}
+            onSelect={onSelect}
+            onCreateAt={onCreateAt}
+          />
         ) : (
           <ReservationList listItems={listItems} onSelect={onSelect} />
         )}
@@ -291,11 +366,14 @@ function DayTimelineGrid({
   staff,
   timeline,
   onSelect,
+  onCreateAt,
 }: {
   staff: AdminStaff[];
   timeline: DayTimeline;
   onSelect: (id: string) => void;
+  onCreateAt: (staffId: string, ratio: number, axis: TimelineAxis) => void;
 }) {
+  const axis = timeline.axis;
   const height = timelineHeight(timeline.tickMarks);
   const gridColumns = `repeat(${timeline.columns.length}, minmax(0, 1fr))`;
   const colorByStaffId = new Map(
@@ -334,9 +412,28 @@ function DayTimelineGrid({
             style={{ gridTemplateColumns: gridColumns }}
           >
             {timeline.columns.map((column) => (
+              // 列の空き領域クリックで代行登録ダイアログを開く(電話を受けながら
+              // 空きを押してその場で登録するための導線)。予約カードは
+              // stopPropagation するので、カード上は従来どおり予約詳細が開く。
+              // 休憩・予約不可の上は登録ダイアログでよい(店側は休憩を削って
+              // 受けられる)。キーボード操作の導線はサイドバーの「代行登録」
+              // ページが担うため、ここはポインタ操作の近道として置く
               <div
                 key={column.staffId}
-                className="relative border-l border-border"
+                onClick={
+                  axis === null
+                    ? undefined
+                    : (event) =>
+                        onCreateAt(
+                          column.staffId,
+                          columnClickRatio(event),
+                          axis,
+                        )
+                }
+                className={cn(
+                  "relative border-l border-border",
+                  axis !== null && emptySlotClass,
+                )}
               >
                 <TimelineBlocks
                   blocks={column.blocks}
@@ -358,13 +455,16 @@ function DayTimelineGrid({
 function MobileTimeline({
   timeline,
   onSelect,
+  onCreateAt,
 }: {
   timeline: DayTimeline;
   onSelect: (id: string) => void;
+  onCreateAt: (staffId: string, ratio: number, axis: TimelineAxis) => void;
 }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const height = timelineHeight(timeline.tickMarks);
   const column = timeline.columns[selectedIndex];
+  const axis = timeline.axis;
 
   if (timeline.columns.length === 0 || column === undefined) {
     return (
@@ -400,7 +500,19 @@ function MobileTimeline({
         <div className="relative w-12 shrink-0">
           <TimeGutter tickMarks={timeline.tickMarks} />
         </div>
-        <div className="relative flex-1 border-l border-border">
+        {/* 空きをタップすると代行登録ダイアログ(スタッフは上のセグメントで選択中の1名) */}
+        <div
+          onClick={
+            axis === null
+              ? undefined
+              : (event) =>
+                  onCreateAt(column.staffId, columnClickRatio(event), axis)
+          }
+          className={cn(
+            "relative flex-1 border-l border-border",
+            axis !== null && emptySlotClass,
+          )}
+        >
           <HourLines tickMarks={timeline.tickMarks} />
           <TimelineBlocks
             blocks={column.blocks}

@@ -59,6 +59,16 @@ type Props = {
   initial?: ReservationFormInitial;
   /** 変更モードで固定表示する顧客名(顧客は変更不可) */
   fixedCustomerName?: string;
+  /**
+   * 描画のしかた。
+   * - "page"(既定): 独立したページ(見出し・カード枠・中央寄せ)。登録後は
+   *   対象日のカレンダーへ遷移する
+   * - "dialog": カレンダー上のダイアログに埋め込む(見出し・カード枠は
+   *   ダイアログ側が持つ)。登録後は遷移せず onSuccess を呼ぶ
+   */
+  variant?: "page" | "dialog";
+  /** variant="dialog" の登録成功時に呼ばれる(閉じる・再取得は呼び出し側) */
+  onSuccess?: () => void;
 };
 
 export function ProxyRegistrationForm({
@@ -69,9 +79,12 @@ export function ProxyRegistrationForm({
   reservationId,
   initial,
   fixedCustomerName,
+  variant = "page",
+  onSuccess,
 }: Props) {
   const router = useRouter();
   const isEdit = mode === "edit";
+  const isDialog = variant === "dialog";
 
   // 顧客(検索型): 選択済み既存顧客 or 検索クエリ(=新規客名)。
   // 変更モードでは顧客は固定のため使わない
@@ -249,6 +262,13 @@ export function ProxyRegistrationForm({
               note,
             });
       if (result.ok) {
+        if (isDialog) {
+          // ダイアログ表示: カレンダーの上に居るので遷移しない。閉じて
+          // router.refresh() でカレンダーを取り直すのは呼び出し側の責務。
+          // (push と refresh の併用は遷移がハングした経緯があるため使わない)
+          onSuccess?.();
+          return;
+        }
         // 登録・変更した日付のカレンダーへ(反映を確認できるように)。
         // push は別URL(search param)なのでサーバーコンポーネントが最新データを
         // 取り直す。router.refresh() と併用すると遷移がハングして送信状態が
@@ -296,20 +316,34 @@ export function ProxyRegistrationForm({
   };
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6 md:px-8 md:py-10">
-      <div className="rounded-2xl border border-border bg-card p-6 md:p-8">
-        <h1 className="text-2xl font-bold">
-          {isEdit ? "予約の変更" : "電話予約の代行登録"}
-        </h1>
-        <p className="mt-1 text-base text-muted-foreground">
-          {isEdit
-            ? "メニュー・スタッフ・日時・メモを変更できます"
-            : "オーナーが電話で受けた予約を登録します"}
-        </p>
+    // ダイアログ表示では外側の余白・カード枠・見出しをダイアログ側が持つため、
+    // フォームは中身だけを描く(見出しの二重表示を避ける)
+    <div
+      className={cn(
+        !isDialog && "mx-auto max-w-2xl px-4 py-6 md:px-8 md:py-10",
+      )}
+    >
+      <div
+        className={cn(
+          !isDialog && "rounded-2xl border border-border bg-card p-6 md:p-8",
+        )}
+      >
+        {!isDialog && (
+          <>
+            <h1 className="text-2xl font-bold">
+              {isEdit ? "予約の変更" : "電話予約の代行登録"}
+            </h1>
+            <p className="mt-1 text-base text-muted-foreground">
+              {isEdit
+                ? "メニュー・スタッフ・日時・メモを変更できます"
+                : "オーナーが電話で受けた予約を登録します"}
+            </p>
+          </>
+        )}
 
         <form
           onSubmit={handleSubmit}
-          className="mt-8 flex flex-col gap-6"
+          className={cn("flex flex-col gap-6", !isDialog && "mt-8")}
           noValidate
         >
           {/* お客様(変更モードは固定表示。作成モードは既存顧客を検索) */}

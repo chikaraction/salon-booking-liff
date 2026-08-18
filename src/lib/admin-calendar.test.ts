@@ -8,12 +8,14 @@ import {
   buildReservationDetailLabels,
   buildReservationListItems,
   buildWeekView,
+  clampDialogPosition,
   dayNavLabel,
   isClosedByBusinessHours,
   isJstToday,
   moveDay,
   moveWeek,
   slotAvailabilityMessage,
+  timeFromTimelineRatio,
   weekNavLabel,
   weekStartOf,
   weekdayLabel,
@@ -1144,5 +1146,155 @@ describe("buildProxySlotOptions", () => {
     const before = slots.map((s) => s.startISO);
     buildProxySlotOptions(slots);
     expect(slots.map((s) => s.startISO)).toEqual(before);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 7. 空き枠クリック(日表示)→ 代行登録ダイアログ
+// ---------------------------------------------------------------------------
+
+describe("buildDayTimeline: 時間軸の分数(axis)", () => {
+  const base = {
+    date: "2026-07-18",
+    businessDay,
+    staff,
+    workingHours,
+  };
+
+  it("営業日は営業時間の開店・閉店を分数で返す(クリック位置→時刻の変換に使う)", () => {
+    const timeline = buildDayTimeline({ ...base, items: [] });
+    expect(timeline.axis).toEqual({ openMinutes: 540, closeMinutes: 1140 });
+  });
+
+  it("休業日でも予約があれば予約の範囲から組んだ軸を返す", () => {
+    const timeline = buildDayTimeline({
+      ...base,
+      businessDay: { isOpen: false, openTime: null, closeTime: null },
+      items: [
+        booking({
+          id: "b1",
+          staffId: "tanaka",
+          start: "09:30",
+          end: "10:30",
+          customerName: "佐々木",
+          menus: [cut],
+        }),
+      ],
+    });
+    // 9:30〜10:30 → 軸は 9:00〜11:00(正時に丸め)
+    expect(timeline.axis).toEqual({ openMinutes: 540, closeMinutes: 660 });
+  });
+
+  it("予約のない休業日は軸なし(null。タイムラインを描かないのでクリックもできない)", () => {
+    const timeline = buildDayTimeline({
+      ...base,
+      businessDay: { isOpen: false, openTime: null, closeTime: null },
+      items: [],
+    });
+    expect(timeline.axis).toBeNull();
+  });
+});
+
+describe("timeFromTimelineRatio: クリック位置から枠の開始時刻を求める", () => {
+  // 営業 9:00〜19:00(540〜1140分)を30分刻みで割る想定
+  const axis = { openMinutes: 540, closeMinutes: 1140, intervalMinutes: 30 };
+
+  it("先頭(0%)は開店時刻(ゼロ埋めの HH:MM)", () => {
+    expect(timeFromTimelineRatio({ ...axis, ratio: 0 })).toBe("09:00");
+  });
+
+  it("中間(50%)は軸の中央の枠", () => {
+    // 540 + 0.5*600 = 840分 = 14:00
+    expect(timeFromTimelineRatio({ ...axis, ratio: 0.5 })).toBe("14:00");
+  });
+
+  it("末尾(100%)でも閉店時刻を超えない", () => {
+    expect(timeFromTimelineRatio({ ...axis, ratio: 1 })).toBe("19:00");
+  });
+
+  it("刻みの途中を押したら切り下げる(10:29相当 → 10:00)", () => {
+    // 629分 = 10:29 → (629-540)/600 = 0.148333…
+    expect(timeFromTimelineRatio({ ...axis, ratio: (629 - 540) / 600 })).toBe(
+      "10:00",
+    );
+    // 630分 = 10:30 はちょうど刻みの境界
+    expect(timeFromTimelineRatio({ ...axis, ratio: (630 - 540) / 600 })).toBe(
+      "10:30",
+    );
+  });
+
+  it("刻みは開店時刻を基準にする(availability.ts の空き枠と同じ基準)", () => {
+    // 開店 9:15 の 30分刻み → 9:15, 9:45, …(正時基準ではない)
+    expect(
+      timeFromTimelineRatio({
+        ratio: 0.5,
+        openMinutes: 555, // 9:15
+        closeMinutes: 615, // 10:15
+        intervalMinutes: 30,
+      }),
+    ).toBe("09:45");
+  });
+
+  it("刻みが15分なら15分単位で返す(店舗設定に従う。30分を前提にしない)", () => {
+    // 555分 = 9:15
+    expect(
+      timeFromTimelineRatio({ ...axis, ratio: 0.025, intervalMinutes: 15 }),
+    ).toBe("09:15");
+  });
+
+  it("範囲外の比率はクランプする(負は開店、1超は閉店側)", () => {
+    expect(timeFromTimelineRatio({ ...axis, ratio: -0.5 })).toBe("09:00");
+    expect(timeFromTimelineRatio({ ...axis, ratio: 3 })).toBe("19:00");
+  });
+
+  it("軸の長さが0以下なら開店時刻を返す(0除算を避ける)", () => {
+    expect(
+      timeFromTimelineRatio({
+        ratio: 0.5,
+        openMinutes: 540,
+        closeMinutes: 540,
+        intervalMinutes: 30,
+      }),
+    ).toBe("09:00");
+  });
+});
+
+describe("clampDialogPosition: ダイアログ位置をビューポート内に留める", () => {
+  const size = { width: 400, height: 500 };
+  const viewport = { viewportWidth: 1280, viewportHeight: 800 };
+  const margin = 16;
+
+  it("収まる位置はそのまま返す", () => {
+    expect(
+      clampDialogPosition({ x: 300, y: 200, ...size, ...viewport, margin }),
+    ).toEqual({ x: 300, y: 200 });
+  });
+
+  it("左上へはみ出したら余白の位置まで戻す", () => {
+    expect(
+      clampDialogPosition({ x: -120, y: -80, ...size, ...viewport, margin }),
+    ).toEqual({ x: 16, y: 16 });
+  });
+
+  it("右下へはみ出したら画面内に収まる位置まで戻す", () => {
+    expect(
+      clampDialogPosition({ x: 2000, y: 2000, ...size, ...viewport, margin }),
+    ).toEqual({
+      x: 1280 - 400 - 16, // 864
+      y: 800 - 500 - 16, // 284
+    });
+  });
+
+  it("ダイアログが画面より大きくても破綻しない(余白の位置を優先する)", () => {
+    expect(
+      clampDialogPosition({
+        x: 500,
+        y: 500,
+        width: 2000,
+        height: 2000,
+        ...viewport,
+        margin,
+      }),
+    ).toEqual({ x: 16, y: 16 });
   });
 });

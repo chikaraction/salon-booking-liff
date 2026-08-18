@@ -111,7 +111,12 @@ export function TimelineBlocks({
               type="button"
               className={className}
               style={style}
-              onClick={() => onSelect(block.id as string)}
+              // 列の空き枠クリック(代行登録ダイアログ)へ伝播させない。
+              // 予約カードの上では従来どおり予約詳細ダイアログを開く
+              onClick={(event) => {
+                event.stopPropagation();
+                onSelect(block.id as string);
+              }}
             >
               {content}
             </button>

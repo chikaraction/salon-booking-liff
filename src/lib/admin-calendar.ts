@@ -155,6 +155,12 @@ export type DayColumn = {
   blocks: PlacedBlock[];
 };
 
+/** 時間軸の範囲(0時からの分数)。top%/height% の基準そのもの */
+export type TimelineAxis = {
+  openMinutes: number;
+  closeMinutes: number;
+};
+
 export type DayTimeline = {
   /**
    * 休業日(定休)なら true。UIの定休日バッジ判断に使う。
@@ -162,6 +168,12 @@ export type DayTimeline = {
    * まま予約の範囲で軸・列を組む(定休日の既存予約を隠さない)。
    */
   isClosed: boolean;
+  /**
+   * 時間軸の範囲(分数)。top%/height% の基準であり、UIが列内のクリック位置
+   * (0〜1の比率)を時刻へ戻すのに使う(timeFromTimelineRatio)。
+   * 予約のない休業日はタイムライン自体を描かないため null。
+   */
+  axis: TimelineAxis | null;
   /** 1時間刻みの目盛り(「9:00」〜「19:00」) */
   ticks: string[];
   /** 目盛りの位置付き(グリッド線の描画用。ラベルは ticks と同一) */
@@ -307,6 +319,7 @@ export function buildDayTimeline(params: {
   if (axis === null) {
     return {
       isClosed: true,
+      axis: null,
       ticks: [],
       tickMarks: [],
       columns: staff.map((member) => ({
@@ -340,9 +353,63 @@ export function buildDayTimeline(params: {
   const marks = hourTickMarks(openMinutes, closeMinutes);
   return {
     isClosed,
+    axis: { openMinutes, closeMinutes },
     ticks: marks.map((mark) => mark.label),
     tickMarks: marks,
     columns,
+  };
+}
+
+/**
+ * 日表示のスタッフ列でクリックされた位置(列内の縦比率)を、代行登録の
+ * 開始時刻 "HH:MM"(ゼロ埋め。<input type="time"> にそのまま入る形式)にする。
+ * - ratio は 0〜1(列の上端=0・下端=1)。範囲外はクランプする
+ * - 刻みは店舗設定(salon_settings.slot_interval_minutes)に従い、
+ *   開店時刻を基準に切り下げる(availability.ts の空き枠と同じ基準。ADR-007の
+ *   とおり30分などの値をここに書かない)
+ * - 切り下げるため結果が closeMinutes を超えることはない
+ */
+export function timeFromTimelineRatio(params: {
+  ratio: number;
+  openMinutes: number;
+  closeMinutes: number;
+  intervalMinutes: number;
+}): string {
+  const { openMinutes, closeMinutes } = params;
+  // 刻みが不正(0以下)でも落ちないよう1分刻みに倒す
+  const interval = params.intervalMinutes > 0 ? params.intervalMinutes : 1;
+  const total = closeMinutes - openMinutes;
+  const ratio = Math.min(Math.max(params.ratio, 0), 1);
+  // 軸の長さが0以下(0除算・逆転)なら開店時刻に倒す
+  const offset =
+    total > 0 ? Math.floor((ratio * total) / interval) * interval : 0;
+  const minutes = openMinutes + offset;
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(
+    minutes % 60,
+  ).padStart(2, "0")}`;
+}
+
+/**
+ * フローティングダイアログの位置をビューポート内に留める(ドラッグ・リサイズ用)。
+ * 上下左右に margin を残す。ダイアログがビューポートより大きい場合は
+ * 上端・左端(margin の位置)を優先し、右下がはみ出したままでも破綻させない
+ * (パネル内スクロールで中身は読める)。
+ */
+export function clampDialogPosition(params: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  viewportWidth: number;
+  viewportHeight: number;
+  margin: number;
+}): { x: number; y: number } {
+  const { x, y, width, height, viewportWidth, viewportHeight, margin } = params;
+  const maxX = Math.max(margin, viewportWidth - width - margin);
+  const maxY = Math.max(margin, viewportHeight - height - margin);
+  return {
+    x: Math.min(Math.max(x, margin), maxX),
+    y: Math.min(Math.max(y, margin), maxY),
   };
 }
 

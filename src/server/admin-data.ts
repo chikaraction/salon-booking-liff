@@ -54,6 +54,27 @@ export async function fetchSalonName(
 }
 
 /**
+ * 空き枠の刻み(salon_settings.slot_interval_minutes・分)を取得する。
+ * カレンダーの空き枠クリック → 開始時刻の丸めに使う(ADR-007: 30分などの
+ * 店舗固有値をコードに書かない)。
+ */
+export async function fetchSlotIntervalMinutes(
+  supabase: SupabaseClient,
+): Promise<number> {
+  const result = await supabase
+    .from("salon_settings")
+    .select("slot_interval_minutes")
+    .single();
+  if (result.error !== null || result.data === null) {
+    throw new Error(
+      `店舗設定の取得に失敗しました: ${result.error?.message ?? "データがありません"}`,
+    );
+  }
+  return (result.data as { slot_interval_minutes: number })
+    .slot_interval_minutes;
+}
+
+/**
  * ログイン画面用の店名取得。
  * ログイン画面は未認証で表示されるため authenticated クライアントでは読めず、
  * anon にはRLSポリシーが無い(全拒否)。店名は客側予約画面でも公開している
