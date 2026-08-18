@@ -497,7 +497,8 @@ function WeekGrid({
                 key={day.date}
                 className={cn(
                   "border-l border-border px-2 py-2 text-center text-sm font-bold",
-                  day.isClosed && "text-muted-foreground",
+                  // 定休日は本体セルと同じ下地を敷き、列全体が休みだと一目で分かるようにする
+                  day.isClosed && "bg-secondary text-muted-foreground",
                 )}
               >
                 {day.dayNumber} {day.weekdayLabel}
@@ -519,21 +520,19 @@ function WeekGrid({
                   key={day.date}
                   className={cn(
                     "relative border-l border-border",
-                    // 定休日: 淡い下地 + 斜線ハッチング。実機で見分けがつかなかった
-                    // ため、線を --color-muted-foreground に変え、間隔を詰めた
-                    // (日表示の「予約不可」は --color-border の 6px/7px なので区別できる)。
-                    // 色はトークンのみ。予約ブロックは不透明な下地を持つので上に重ねても読める
-                    day.isClosed &&
-                      "bg-muted/50 bg-[repeating-linear-gradient(45deg,transparent,transparent_4px,var(--color-muted-foreground)_4px,var(--color-muted-foreground)_5px)]",
+                    // 定休日: 斜線ハッチングは実機で見分けがつきにくかったため、
+                    // べた塗りの背景色に変更。--secondary はページ背景(--background)
+                    // に対してライト 0.93/0.965、ダーク 0.269/0.145 と明度差があり、
+                    // 不透明度を下げずに敷くことで一目で休みだと分かる。色はトークンのみ
+                    day.isClosed && "bg-secondary",
                   )}
                 >
-                  {/* 定休日はハッチング背景+ラベルを残しつつ、予約があれば重ねて描画。
-                      定休日への新規登録はブロックするが、過去・別経路の予約は隠さない */}
+                  {/* 背景色だけでは意味が伝わらないのでラベルは残す。予約があれば
+                      その上に重ねて描画する(定休日への新規登録はブロックするが、
+                      過去・別経路の予約は隠さない) */}
                   {day.isClosed && (
-                    <p className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 text-center">
-                      <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-bold text-muted-foreground">
-                        定休日
-                      </span>
+                    <p className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-xs font-bold text-secondary-foreground">
+                      定休日
                     </p>
                   )}
                   {day.items.map((item) => {
@@ -545,7 +544,9 @@ function WeekGrid({
                         type="button"
                         onClick={() => onSelect(item.id)}
                         className={cn(
-                          "absolute inset-x-0.5 overflow-hidden rounded-md border-l-4 px-1.5 py-1 text-left transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                          // ring は定休日の下地(bg-secondary)と同色のカード
+                          // (staff-colors の3人目)でも輪郭が消えないようにする
+                          "absolute inset-x-0.5 overflow-hidden rounded-md border-l-4 px-1.5 py-1 text-left ring-1 ring-border transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                           staffColor(colorIndex).card,
                         )}
                         style={{

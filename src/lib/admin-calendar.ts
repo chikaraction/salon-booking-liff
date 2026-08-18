@@ -366,7 +366,7 @@ export type WeekDayColumn = {
   date: string; // "YYYY-MM-DD"
   dayNumber: number; // 13
   weekdayLabel: string; // "日"
-  /** 定休日(斜線ハッチング表示)。判定は入力の isClosedDay に従う */
+  /** 定休日(背景色で区別して表示)。判定は入力の isClosedDay に従う */
   isClosed: boolean;
   items: WeekItem[];
 };
