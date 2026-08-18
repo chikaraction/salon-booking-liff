@@ -9,18 +9,22 @@ export type StaffColor = {
   card: string;
 };
 
+// 下地(bg-staff-N-surface)は休憩(bg-muted)・予約不可/定休日(bg-secondary)の
+// どれとも重ならない専用トークン。以前は accent / muted / secondary を流用して
+// いたため、スタッフ列で「休憩と予約」「予約不可と予約」が同色になっていた。
+// 左ボーダーと凡例は同じ staff-N を使い、対応が取れるようにする。
 const STAFF_COLORS: StaffColor[] = [
   {
-    legend: "bg-primary",
-    card: "border-l-primary bg-accent text-accent-foreground",
+    legend: "bg-staff-1",
+    card: "border-l-staff-1 bg-staff-1-surface text-foreground",
   },
   {
-    legend: "bg-chart-2",
-    card: "border-l-chart-2 bg-muted text-foreground",
+    legend: "bg-staff-2",
+    card: "border-l-staff-2 bg-staff-2-surface text-foreground",
   },
   {
-    legend: "bg-chart-3",
-    card: "border-l-chart-3 bg-secondary text-secondary-foreground",
+    legend: "bg-staff-3",
+    card: "border-l-staff-3 bg-staff-3-surface text-foreground",
   },
 ];
 

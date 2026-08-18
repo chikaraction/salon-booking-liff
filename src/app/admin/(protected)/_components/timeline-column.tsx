@@ -44,9 +44,9 @@ export function HourLines({ tickMarks }: { tickMarks: TickMark[] }) {
 
 /**
  * 配置済みブロック(予約・休憩・予約不可)を1列分描画する。
- * - 予約: 淡色カード+左ボーダー(bookingCardClass でスタッフ色分け)
- * - 休憩: さらに淡いブロック
- * - ブロック(kind=block): 斜線ハッチング+「予約不可」ラベル
+ * - 予約: スタッフ色の下地+左ボーダー+実線の輪郭(bookingCardClass)
+ * - 休憩: bg-muted + 破線の枠(予約カードと違う「枠の形」で区別する)
+ * - ブロック(kind=block): 斜線ハッチング+実線の輪郭+「予約不可」ラベル
  * onSelect が渡され、かつ予約(type="booking"で id あり)のときだけ
  * クリック可能にして予約詳細ダイアログを開く。休憩・ブロックは非クリック。
  */
@@ -91,9 +91,14 @@ export function TimelineBlocks({
           </>
         );
         const className = cn(
+          // ブロック同士が上下で接したときに切れ目が見えるよう、共通で細い輪郭を
+          // 内側に引く(ring-inset。外側に出すと隣のブロックに重なる)。
+          // 休憩だけは破線の枠にして「予約ではない」ことを形でも示す
           "absolute inset-x-1 overflow-hidden rounded-lg px-2 py-1.5 text-left",
+          block.type !== "break" && "ring-1 ring-inset ring-border",
           block.type === "booking" && cn("border-l-4", bookingCardClass),
-          block.type === "break" && "bg-muted text-muted-foreground",
+          block.type === "break" &&
+            "border border-dashed border-muted-foreground/50 bg-muted text-muted-foreground",
           block.type === "block" &&
             "bg-secondary bg-[repeating-linear-gradient(45deg,transparent,transparent_6px,var(--color-border)_6px,var(--color-border)_7px)] text-secondary-foreground",
           clickable &&

@@ -75,24 +75,30 @@ export function CalendarView({
     useState<ProxyRegistrationTarget | null>(null);
 
   /**
-   * 日表示のスタッフ列で押された位置(列内の縦比率)から代行登録を開く。
-   * 時刻への変換は純粋関数(timeFromTimelineRatio)に任せる。
+   * 日表示のスタッフ列で押された位置から代行登録を開く。
+   * 縦比率→時刻の変換は純粋関数(timeFromTimelineRatio)に任せる。
+   * 列の中心Xも一緒に持たせ、ダイアログを押した列の反対側に出す(dialogInitialX)。
    * 定休日・過去の時間でもここでは開く(登録可否はフォームとサーバーの
    * 既存ガードが「定休日は登録できません」「過去の時間は登録できません」で示す)。
    * 既にダイアログが開いているときは無視する: 非モーダルで背後のカレンダーを
    * 操作できるため、入力途中のクリックでフォームを作り直すと入力が消える。
    * 時刻の変更はフォームの時間欄・空き時間一覧で行う。
    */
-  const openCreateAt = (staffId: string, ratio: number, axis: TimelineAxis) => {
+  const openCreateAt = (
+    staffId: string,
+    point: { ratio: number; columnCenterX: number },
+    axis: TimelineAxis,
+  ) => {
     if (createTarget !== null) return;
     setCreateTarget({
       staffId,
       date,
       time: timeFromTimelineRatio({
-        ratio,
+        ratio: point.ratio,
         ...axis,
         intervalMinutes: slotIntervalMinutes,
       }),
+      columnCenterX: point.columnCenterX,
     });
   };
 
@@ -262,13 +268,20 @@ export function CalendarView({
 // ---------------------------------------------------------------------------
 
 /**
- * スタッフ列(relative なコンテナ)の中で押された縦位置を 0〜1 の比率にする。
- * DOM計測はUI層の責務。比率→時刻の変換は純粋関数に任せる。
+ * スタッフ列(relative なコンテナ)の中で押された位置を計測する。
+ * - ratio: 列内の縦位置 0〜1(→ 時刻への変換は純粋関数 timeFromTimelineRatio)
+ * - columnCenterX: 列の中心X(→ ダイアログの初期位置は純粋関数 dialogInitialX)
+ * DOM計測はUI層の責務。判断は純粋関数に任せる。
  */
-function columnClickRatio(event: React.MouseEvent<HTMLElement>): number {
+function columnClickPoint(event: React.MouseEvent<HTMLElement>): {
+  ratio: number;
+  columnCenterX: number;
+} {
   const rect = event.currentTarget.getBoundingClientRect();
-  if (rect.height <= 0) return 0;
-  return (event.clientY - rect.top) / rect.height;
+  return {
+    ratio: rect.height <= 0 ? 0 : (event.clientY - rect.top) / rect.height,
+    columnCenterX: rect.left + rect.width / 2,
+  };
 }
 
 /** 空き枠クリックの共通スタイル(押せることが分かる程度の軽い視覚フィードバック) */
@@ -285,7 +298,11 @@ function DayView({
   timeline: DayTimeline;
   listItems: ReservationListItem[];
   onSelect: (id: string) => void;
-  onCreateAt: (staffId: string, ratio: number, axis: TimelineAxis) => void;
+  onCreateAt: (
+    staffId: string,
+    point: { ratio: number; columnCenterX: number },
+    axis: TimelineAxis,
+  ) => void;
 }) {
   // スマホ幅のみ「タイムライン / リスト」を切り替える(モックH・I)
   const [mobileMode, setMobileMode] = useState<"timeline" | "list">("timeline");
@@ -371,7 +388,11 @@ function DayTimelineGrid({
   staff: AdminStaff[];
   timeline: DayTimeline;
   onSelect: (id: string) => void;
-  onCreateAt: (staffId: string, ratio: number, axis: TimelineAxis) => void;
+  onCreateAt: (
+    staffId: string,
+    point: { ratio: number; columnCenterX: number },
+    axis: TimelineAxis,
+  ) => void;
 }) {
   const axis = timeline.axis;
   const height = timelineHeight(timeline.tickMarks);
@@ -426,7 +447,7 @@ function DayTimelineGrid({
                     : (event) =>
                         onCreateAt(
                           column.staffId,
-                          columnClickRatio(event),
+                          columnClickPoint(event),
                           axis,
                         )
                 }
@@ -459,7 +480,11 @@ function MobileTimeline({
 }: {
   timeline: DayTimeline;
   onSelect: (id: string) => void;
-  onCreateAt: (staffId: string, ratio: number, axis: TimelineAxis) => void;
+  onCreateAt: (
+    staffId: string,
+    point: { ratio: number; columnCenterX: number },
+    axis: TimelineAxis,
+  ) => void;
 }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const height = timelineHeight(timeline.tickMarks);
@@ -506,7 +531,7 @@ function MobileTimeline({
             axis === null
               ? undefined
               : (event) =>
-                  onCreateAt(column.staffId, columnClickRatio(event), axis)
+                  onCreateAt(column.staffId, columnClickPoint(event), axis)
           }
           className={cn(
             "relative flex-1 border-l border-border",

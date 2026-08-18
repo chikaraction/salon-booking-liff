@@ -413,6 +413,27 @@ export function clampDialogPosition(params: {
   };
 }
 
+/**
+ * 代行登録ダイアログの初期X座標(px)。クリックしたスタッフ列とは反対側に出す。
+ * 非モーダルで「背後のカレンダーを見ながら入力する」ダイアログなので、
+ * いま押した列の空き状況がダイアログで隠れると目的を果たせない。
+ * - 列の中心が画面の左半分 → 右寄せ / 右半分 → 左寄せ
+ * - 中央ちょうどは右寄せ(左端の時間目盛りを隠さない側を選ぶ)
+ * - 画面がダイアログより狭い場合は左余白に倒す(clampDialogPosition と同じ扱い)
+ */
+export function dialogInitialX(params: {
+  /** クリックした列の中心X(ビューポート座標のpx) */
+  columnCenterX: number;
+  viewportWidth: number;
+  dialogWidth: number;
+  margin: number;
+}): number {
+  const { columnCenterX, viewportWidth, dialogWidth, margin } = params;
+  const rightX = Math.max(margin, viewportWidth - dialogWidth - margin);
+  const clickedRightHalf = columnCenterX > viewportWidth / 2;
+  return clickedRightHalf ? margin : rightX;
+}
+
 // ---------------------------------------------------------------------------
 // 2. 週表示への集約
 // ---------------------------------------------------------------------------

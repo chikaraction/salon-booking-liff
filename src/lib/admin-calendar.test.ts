@@ -10,6 +10,7 @@ import {
   buildWeekView,
   clampDialogPosition,
   dayNavLabel,
+  dialogInitialX,
   isClosedByBusinessHours,
   isJstToday,
   moveDay,
@@ -1296,5 +1297,44 @@ describe("clampDialogPosition: ダイアログ位置をビューポート内に�
         margin,
       }),
     ).toEqual({ x: 16, y: 16 });
+  });
+});
+
+describe("dialogInitialX: 代行登録ダイアログをクリックした列の反対側に出す", () => {
+  const base = { viewportWidth: 1280, dialogWidth: 416, margin: 16 };
+  /** 画面右端に寄せたときのX(1280 - 416 - 16) */
+  const rightX = 848;
+
+  it("画面左半分の列をクリックしたら右寄せにする", () => {
+    expect(dialogInitialX({ columnCenterX: 300, ...base })).toBe(rightX);
+  });
+
+  it("画面右半分の列をクリックしたら左寄せにする", () => {
+    expect(dialogInitialX({ columnCenterX: 1000, ...base })).toBe(16);
+  });
+
+  it("ちょうど中央の列は右寄せにする(左側の時間軸を隠さない)", () => {
+    expect(dialogInitialX({ columnCenterX: 640, ...base })).toBe(rightX);
+  });
+
+  it("スタッフ1人で列が画面全幅でも、中心は中央なので右寄せになる", () => {
+    // 列中心 = 画面中央。境界の扱いが決まっていれば1人でも破綻しない
+    expect(dialogInitialX({ columnCenterX: 640, ...base })).toBe(rightX);
+  });
+
+  it("画面がダイアログより狭いときは左余白までクランプする", () => {
+    expect(
+      dialogInitialX({
+        columnCenterX: 100,
+        viewportWidth: 400,
+        dialogWidth: 416,
+        margin: 16,
+      }),
+    ).toBe(16);
+  });
+
+  it("列の中心が画面外(負・右端超え)でも余白の内側に収まる", () => {
+    expect(dialogInitialX({ columnCenterX: -500, ...base })).toBe(rightX);
+    expect(dialogInitialX({ columnCenterX: 9999, ...base })).toBe(16);
   });
 });

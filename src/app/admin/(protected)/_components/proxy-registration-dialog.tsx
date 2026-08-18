@@ -11,7 +11,11 @@ import { GripHorizontal, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ProxyRegistrationForm } from "@/app/admin/(protected)/reservations/new/_components/proxy-registration-form";
-import { clampDialogPosition, type AdminStaff } from "@/lib/admin-calendar";
+import {
+  clampDialogPosition,
+  dialogInitialX,
+  type AdminStaff,
+} from "@/lib/admin-calendar";
 import type { ActiveMenu } from "@/server/admin-data";
 
 /**
@@ -37,6 +41,11 @@ export type ProxyRegistrationTarget = {
   date: string;
   /** 壁時計時刻 "HH:MM" */
   time: string;
+  /**
+   * クリックしたスタッフ列の中心X(ビューポート座標のpx)。
+   * その列を隠さない側にダイアログを出すために使う(dialogInitialX)
+   */
+  columnCenterX: number;
 };
 
 type Props = {
@@ -65,11 +74,16 @@ export function ProxyRegistrationDialog({
     () => window.matchMedia(DESKTOP_QUERY).matches,
   );
 
-  // パネルの位置(fixed の left/top)。初期値は画面の右寄り
-  // = カレンダー左側(時間軸と先頭スタッフ列)が見えたまま入力できる位置
+  // パネルの位置(fixed の left/top)。初期の左右はクリックしたスタッフ列の
+  // 反対側(dialogInitialX)= いま見たい列の空き状況を隠さない位置から始める
   const [position, setPosition] = useState<{ x: number; y: number }>(() =>
     clampDialogPosition({
-      x: window.innerWidth - PANEL_WIDTH - VIEWPORT_MARGIN,
+      x: dialogInitialX({
+        columnCenterX: target.columnCenterX,
+        viewportWidth: window.innerWidth,
+        dialogWidth: PANEL_WIDTH,
+        margin: VIEWPORT_MARGIN,
+      }),
       y: INITIAL_TOP,
       width: PANEL_WIDTH,
       // 初回は未描画で実寸が測れない。高さ0で扱うと上端(margin〜)には
