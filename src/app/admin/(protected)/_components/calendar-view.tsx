@@ -106,9 +106,10 @@ export function CalendarView({
             className="h-9 w-[9.5rem] rounded-lg border border-border bg-card px-2 text-sm font-medium text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
           />
 
-          {/* ネイティブの日付入力は曜日を出さない。定休日の判断に要るので添える */}
+          {/* 日表示: ネイティブの日付入力は曜日を出さない。定休日の判断に要るので添える。
+              週表示: 曜日ではなく ‹ › が動かす単位(週)を示す */}
           <span className="text-sm text-muted-foreground">
-            ({weekdayLabel(date)})
+            {view === "day" ? `(${weekdayLabel(date)})` : "週"}
           </span>
 
           <button
@@ -134,13 +135,6 @@ export function CalendarView({
         >
           今日
         </button>
-
-        {/* 週表示の期間ラベル(1点を指すピッカーとは別情報なので併記する) */}
-        {view === "week" && (
-          <p aria-hidden="true" className="text-base font-bold">
-            {weekNavLabel(weekStartOf(date))}
-          </p>
-        )}
 
         {/* 週表示のスタッフ色分け凡例 */}
         {view === "week" && (
