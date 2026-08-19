@@ -9,6 +9,7 @@
 import {
   addCalendarDays,
   calendarWeekday,
+  isCalendarDate,
   isWithinBookingWindow,
   jstCalendarDate,
   jstClockTime,
@@ -847,6 +848,30 @@ export function moveWeek(weekStart: string, delta: number): string {
 /** 「今日」チップの判定(JSTの暦日で比較する) */
 export function isJstToday(date: string, now: Date): boolean {
   return jstCalendarDate(now) === date;
+}
+
+/**
+ * 登録・変更ダイアログのフォームで日付が変わったとき、背後のカレンダーを
+ * その日付へ動かすべきかを判定する(非モーダルなので背後を見ながら操作する)。
+ * 動かさなくてよいのは「すでに見えている」場合:
+ * - 日表示: 同じ日付を表示している
+ * - 週表示: 同じ週(日曜始まり)を表示している = その日付の列がすでに見えている
+ * <input type="date"> は入力途中に空文字・不完全な値になるため、不正な日付では
+ * 追従しない。表示中の日付が不正な場合は、正しい日付へ動かす。
+ */
+export function shouldFollowDate(params: {
+  view: "day" | "week";
+  /** 背後のカレンダーが表示中のJST暦日 */
+  currentDate: string;
+  /** フォームで選ばれたJST暦日 */
+  nextDate: string;
+}): boolean {
+  const { view, currentDate, nextDate } = params;
+  if (!isCalendarDate(nextDate)) return false;
+  if (!isCalendarDate(currentDate)) return true;
+  return view === "day"
+    ? nextDate !== currentDate
+    : weekStartOf(nextDate) !== weekStartOf(currentDate);
 }
 
 // ---------------------------------------------------------------------------

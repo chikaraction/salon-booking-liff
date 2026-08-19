@@ -12,6 +12,7 @@ import { useState } from "react";
 import {
   dayNavLabel,
   moveDay,
+  shouldFollowDate,
   timeFromTimelineRatio,
   weekItemTooltip,
   weekNavLabel,
@@ -182,6 +183,31 @@ export function CalendarView({
 
   const go = (nextView: "day" | "week", nextDate: string) => {
     router.push(`/admin?view=${nextView}&date=${nextDate}`);
+  };
+
+  /**
+   * フォームの日付が変わったら、背後のカレンダーをその日付へ追従させる
+   * (非モーダルの狙い = 背後を見ながら操作する、が「変更先の日が背後に
+   * 出ていない」と成立しないため)。表示種別(日/週)は変えない = 週表示なら
+   * その日付を含む週になる(週の起点は page.tsx / ラベルの weekStartOf が決める)。
+   * すでに見えている(日表示で同じ日・週表示で同じ週)なら何もしない。
+   * 手動の日付移動(‹ › ・日付ピッカー・日/週トグル)は従来どおり go() のまま。
+   *
+   * push ではなく replace:
+   * - 追従は利用者が意図した「移動」ではないので、戻るボタンの履歴に
+   *   1文字入力ごとの日付を積みたくない
+   * scroll: false:
+   * - 時間軸のスクロール位置(見ていた時間帯)を保ったまま日付だけ差し替える
+   *
+   * ダイアログの入力が消えないのは、これが同一ルート(/admin)のクエリだけの
+   * 遷移だから: サーバーコンポーネントは再実行されるが、返す要素は常に
+   * <CalendarView>(型・位置・key とも不変)なので、この CalendarView は
+   * 再マウントされず createTarget / editTarget / ダイアログ位置を保つ。
+   * ダイアログとフォームの key も自前の state 由来で遷移では変わらない。
+   */
+  const followFormDate = (nextDate: string) => {
+    if (!shouldFollowDate({ view, currentDate: date, nextDate })) return;
+    router.replace(`/admin?view=${view}&date=${nextDate}`, { scroll: false });
   };
 
   const isToday =
@@ -359,6 +385,7 @@ export function CalendarView({
           menus={menus}
           target={formTarget}
           onClose={closeFormDialog}
+          onDateChange={followFormDate}
           onSuccess={() => {
             // 遷移せずカレンダーを取り直す = 登録・変更の結果がその場で現れる
             closeFormDialog();

@@ -21,6 +21,7 @@ import {
   updateAdminReservation,
 } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
+import { isCalendarDate } from "@/lib/availability";
 import type { ProxyRegistrationErrors } from "@/lib/admin-reservation-form";
 import { formatYen, summarizeSelectedMenus } from "@/lib/booking";
 import {
@@ -78,6 +79,14 @@ type Props = {
    */
   onBack?: () => void;
   /**
+   * variant="dialog" で日付欄が有効な日付に変わったときに呼ばれる。
+   * 非モーダルのダイアログは背後のカレンダーを見ながら操作するため、
+   * 呼び出し側(CalendarView)が背後の表示をその日付へ追従させる。
+   * 入力途中の不正な日付では呼ばない。連打・キー入力ごとの遷移を避けるため
+   * デバウンスして呼ぶ(顧客検索・空き判定と同じ作法)
+   */
+  onDateChange?: (date: string) => void;
+  /**
    * variant="page" のときにフォーム上部へ出す戻り先(例 "/admin?date=2026-08-19")。
    * ページ版は直URLで開くとカレンダーへ戻る導線がサイドバーしかなく行き止まりに
    * 見える(実機フィードバック)。ダイアログ版では使わない
@@ -96,6 +105,7 @@ export function ProxyRegistrationForm({
   variant = "page",
   onSuccess,
   onBack,
+  onDateChange,
   backHref,
 }: Props) {
   const router = useRouter();
@@ -225,6 +235,25 @@ export function ProxyRegistrationForm({
       clearTimeout(timer);
     };
   }, [staffId, date, menuIds, isEdit, reservationId]);
+
+  // --- 日付の変更を呼び出し側へ通知(背後のカレンダーの追従) ---------------
+  // ダイアログ版だけの配線。追従するかどうかの判断は呼び出し側
+  // (CalendarView + shouldFollowDate)が持つ。ここは「有効な日付になった」
+  // ことをデバウンスして伝えるだけ。
+  // コールバックは ref 経由で読む: 依存に入れると、呼び出し側が再描画で
+  // 関数を作り直すたびにタイマーが張り直され、いつまでも発火しなくなる。
+  const onDateChangeRef = useRef(onDateChange);
+  useEffect(() => {
+    onDateChangeRef.current = onDateChange;
+  });
+  useEffect(() => {
+    // <input type="date"> は入力途中に空文字・不完全な値になる。その間は通知しない
+    if (!isCalendarDate(date)) return;
+    const timer = setTimeout(() => {
+      onDateChangeRef.current?.(date);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [date]);
 
   const slotOptions =
     daySlots === null ? null : buildProxySlotOptions(daySlots);

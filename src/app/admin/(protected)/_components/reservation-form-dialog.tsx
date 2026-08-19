@@ -100,6 +100,12 @@ type Props = {
    * ボタンはフォームの送信ボタンの下に出る(ProxyRegistrationForm 側)。
    */
   onBack?: () => void;
+  /**
+   * フォームの日付が有効な日付に変わったときの通知(中継するだけ)。
+   * 背後のカレンダーをその日付へ動かすかどうかは CalendarView が決める
+   * (非モーダルなので、変更したい日が背後に出ていないと見比べられない)
+   */
+  onDateChange?: (date: string) => void;
 };
 
 export function ReservationFormDialog({
@@ -109,6 +115,7 @@ export function ReservationFormDialog({
   onClose,
   onSuccess,
   onBack,
+  onDateChange,
 }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const isEdit = target.mode === "edit";
@@ -304,6 +311,7 @@ export function ReservationFormDialog({
           }
           onSuccess={onSuccess}
           onBack={onBack}
+          onDateChange={onDateChange}
         />
       </div>
     </div>

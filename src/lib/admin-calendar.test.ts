@@ -17,6 +17,7 @@ import {
   isJstToday,
   moveDay,
   moveWeek,
+  shouldFollowDate,
   timeFromTimelineRatio,
   weekItemTooltip,
   weekNavLabel,
@@ -1083,6 +1084,84 @@ describe("日付ナビゲーション", () => {
     expect(isJstToday("2026-07-17", new Date("2026-07-17T15:00:00Z"))).toBe(
       false,
     );
+  });
+});
+
+describe("shouldFollowDate: フォームの日付に背後のカレンダーを追従させるか", () => {
+  it("日表示: 表示中と同じ日付なら追従しない", () => {
+    expect(
+      shouldFollowDate({
+        view: "day",
+        currentDate: "2026-07-18",
+        nextDate: "2026-07-18",
+      }),
+    ).toBe(false);
+  });
+
+  it("日表示: 別の日付なら追従する(同じ週の中でも)", () => {
+    // 2026-07-18(土)と 2026-07-15(水)は同じ週だが、日表示では別の画面
+    expect(
+      shouldFollowDate({
+        view: "day",
+        currentDate: "2026-07-18",
+        nextDate: "2026-07-15",
+      }),
+    ).toBe(true);
+  });
+
+  it("週表示: 同じ週の別の日付なら追従しない(すでに見えている)", () => {
+    // どちらも週の始まりは 2026-07-12(日)
+    expect(
+      shouldFollowDate({
+        view: "week",
+        currentDate: "2026-07-18",
+        nextDate: "2026-07-15",
+      }),
+    ).toBe(false);
+  });
+
+  it("週表示: 別の週なら追従する", () => {
+    // 2026-07-18 の週(7/12〜)→ 2026-07-19 の週(7/19〜)。1日違いでも週境界を跨ぐ
+    expect(
+      shouldFollowDate({
+        view: "week",
+        currentDate: "2026-07-18",
+        nextDate: "2026-07-19",
+      }),
+    ).toBe(true);
+  });
+
+  it("週表示: 月をまたいでも同じ週なら追従しない", () => {
+    // 2026-07-26(日)〜 2026-08-01(土)は同じ週
+    expect(
+      shouldFollowDate({
+        view: "week",
+        currentDate: "2026-07-26",
+        nextDate: "2026-08-01",
+      }),
+    ).toBe(false);
+  });
+
+  it("不正な日付では追従しない(日付入力は入力途中に空文字・不完全な値になる)", () => {
+    for (const nextDate of ["", "2026-07", "2026-7-18", "2026-02-30"]) {
+      expect(
+        shouldFollowDate({
+          view: "day",
+          currentDate: "2026-07-18",
+          nextDate,
+        }),
+      ).toBe(false);
+    }
+  });
+
+  it("表示中の日付が不正でも、正しい日付へは追従する", () => {
+    expect(
+      shouldFollowDate({
+        view: "day",
+        currentDate: "",
+        nextDate: "2026-07-18",
+      }),
+    ).toBe(true);
   });
 });
 
