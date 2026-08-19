@@ -6,8 +6,8 @@
 // - セッションcookieの読み書きは createAdminAuthClient(@supabase/ssr)が行う
 
 import {
+  describeSlotAvailability,
   isClosedByBusinessHours,
-  slotAvailabilityMessage,
   type ProxyDaySlot,
   type SlotAvailability,
 } from "@/lib/admin-calendar";
@@ -129,8 +129,9 @@ export type CheckProxySlotInput = {
 /**
  * 代行登録・店側変更フォームの空き表示(モックD)を返す。
  * 対象スタッフ・日付・時間・メニューが揃ったときに呼ぶ。
- * getDayAvailability(サーバーで所要時間を再計算)の対象スタッフの枠から、
- * 純粋関数 slotAvailabilityMessage が2状態のメッセージを導出する。
+ * getDayAvailability(サーバーで所要時間を再計算)が返す枠の計算材料
+ * (営業時間・勤務パターン・埋まり区間・ポリシー)を、純粋関数
+ * describeSlotAvailability に渡して状態・理由・メッセージを導出する。
  * 変更モードでは excludeReservationId で自分の旧予約を空き計算から除く。
  */
 export async function checkProxySlot(
@@ -158,16 +159,20 @@ export async function checkProxySlot(
         message: "メニューの指定が正しくありません",
       };
     }
-    const entry = day.perStaff.find(
+    const context = day.perStaffContext.find(
       (candidate) => candidate.staffId === input.staffId,
     );
-    return slotAvailabilityMessage({
-      slots: entry?.slots ?? [],
+    return describeSlotAvailability({
       start: jstDateTime(input.date, input.time),
-      totalDurationMinutes: day.summary.totalDurationMinutes,
-      now,
+      durationMinutes: day.summary.totalDurationMinutes,
+      businessDay: day.businessDay,
       // 定休日は登録不可(getDayAvailability が business_hours から判定)
-      isClosed: day.isClosed,
+      isClosedDay: day.isClosed,
+      working: context?.working ?? null,
+      busy: context?.busy ?? [],
+      policy: day.policy,
+      now,
+      staffName: day.staff.find((member) => member.id === input.staffId)?.name,
     });
   } catch (error) {
     console.error("checkProxySlot failed", error);

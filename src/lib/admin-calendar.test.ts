@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { jstDateTime, type Slot } from "./availability";
+import { jstDateTime, type BusyRange } from "./availability";
 
 import {
   buildDayTimeline,
@@ -10,12 +10,12 @@ import {
   buildWeekView,
   clampDialogPosition,
   dayNavLabel,
+  describeSlotAvailability,
   dialogInitialX,
   isClosedByBusinessHours,
   isJstToday,
   moveDay,
   moveWeek,
-  slotAvailabilityMessage,
   timeFromTimelineRatio,
   weekItemTooltip,
   weekNavLabel,
@@ -1089,136 +1089,484 @@ describe("日付ナビゲーション", () => {
 // 4. 代行登録の空き判定メッセージ
 // ---------------------------------------------------------------------------
 
-describe("slotAvailabilityMessage: 代行登録の空き判定メッセージ", () => {
-  const slots: Slot[] = [
-    { start: jstDateTime("2026-07-18", "11:00"), status: "available" },
-    { start: jstDateTime("2026-07-18", "14:00"), status: "taken" },
-  ];
-  // すべての枠より前(=過去判定に引っかからない)基準時刻
-  const before = jstDateTime("2026-07-18", "08:00");
+describe("describeSlotAvailability: 代行登録の空き判定メッセージ", () => {
+  // 営業 9:00〜18:00 / スタッフは 10:00〜18:00 勤務・13:00〜14:00 休憩 /
+  // 30分刻み・30日先まで・60分前締切(値はすべて引数から差し込む)
+  const businessDay = {
+    isOpen: true,
+    openTime: "09:00:00",
+    closeTime: "18:00:00",
+  };
+  const working = {
+    startTime: "10:00:00",
+    endTime: "18:00:00",
+    breakStart: "13:00:00",
+    breakEnd: "14:00:00",
+  };
+  const policy = {
+    slotIntervalMinutes: 30,
+    bookingWindowDays: 30,
+    minLeadMinutes: 60,
+  };
+  // 対象日(2026-07-18 土)より前の基準時刻(過去・直前締切に引っかからない)
+  const now = jstDateTime("2026-07-17", "10:00");
+  const at = (time: string) => jstDateTime("2026-07-18", time);
+  const base = {
+    durationMinutes: 60,
+    businessDay,
+    isClosedDay: false,
+    working,
+    busy: [] as BusyRange[],
+    policy,
+    now,
+    staffName: "田中",
+  };
 
-  it("空いている枠は available・canRegister:true・確保分数入りメッセージ", () => {
-    expect(
-      slotAvailabilityMessage({
-        slots,
-        start: jstDateTime("2026-07-18", "11:00"),
-        totalDurationMinutes: 150,
-        now: before,
-        isClosed: false,
-      }),
-    ).toEqual({
-      status: "available",
-      canRegister: true,
-      message: "この枠は空いています。150分確保できます。",
+  describe("空いている枠", () => {
+    it("available・canRegister:true・確保分数入りメッセージ(理由は付かない)", () => {
+      expect(describeSlotAvailability({ ...base, start: at("10:00") })).toEqual(
+        {
+          status: "available",
+          canRegister: true,
+          message: "この枠は空いています。60分確保できます。",
+        },
+      );
+    });
+
+    it("確保できる分数は選択メニューの合計所要分", () => {
+      expect(
+        describeSlotAvailability({
+          ...base,
+          start: at("15:30"),
+          durationMinutes: 150,
+        }).message,
+      ).toBe("この枠は空いています。150分確保できます。");
     });
   });
 
-  it("確保できる分数は選択メニューの合計所要分", () => {
-    expect(
-      slotAvailabilityMessage({
-        slots,
-        start: jstDateTime("2026-07-18", "11:00"),
-        totalDurationMinutes: 60,
-        now: before,
-        isClosed: false,
-      }).message,
-    ).toBe("この枠は空いています。60分確保できます。");
-  });
+  describe("1. past: 過去の時間(登録不可)", () => {
+    it("開始が現在より前(厳密に過去)なら past・canRegister:false", () => {
+      expect(
+        describeSlotAvailability({
+          ...base,
+          start: at("10:00"),
+          now: at("10:01"),
+        }),
+      ).toEqual({
+        status: "past",
+        reason: "past",
+        canRegister: false,
+        message: "過去の時間は登録できません",
+      });
+    });
 
-  it("開始が現在より前(厳密に過去)なら past・canRegister:false・登録不可メッセージ", () => {
-    expect(
-      slotAvailabilityMessage({
-        slots,
-        start: jstDateTime("2026-07-18", "11:00"),
-        totalDurationMinutes: 150,
-        now: jstDateTime("2026-07-18", "11:01"),
-        isClosed: false,
-      }),
-    ).toEqual({
-      status: "past",
-      canRegister: false,
-      message: "過去の時間は登録できません",
+    it("開始ちょうど(start===now)は過去扱いしない", () => {
+      expect(
+        describeSlotAvailability({
+          ...base,
+          start: at("10:00"),
+          now: at("10:00"),
+        }).status,
+      ).not.toBe("past");
+    });
+
+    it("過去は定休日より優先する", () => {
+      expect(
+        describeSlotAvailability({
+          ...base,
+          start: at("10:00"),
+          now: at("10:01"),
+          isClosedDay: true,
+        }).status,
+      ).toBe("past");
     });
   });
 
-  it("開始ちょうど(start===now)は過去扱いせず、空きなら available", () => {
-    expect(
-      slotAvailabilityMessage({
-        slots,
-        start: jstDateTime("2026-07-18", "11:00"),
-        totalDurationMinutes: 150,
-        now: jstDateTime("2026-07-18", "11:00"),
-        isClosed: false,
-      }).status,
-    ).toBe("available");
-  });
+  describe("2. closed: 定休日(登録不可)", () => {
+    it("休業日ルール(isClosedDay)なら closed・canRegister:false", () => {
+      expect(
+        describeSlotAvailability({
+          ...base,
+          start: at("10:00"),
+          isClosedDay: true,
+        }),
+      ).toEqual({
+        status: "closed",
+        reason: "closed",
+        canRegister: false,
+        message: "定休日は登録できません",
+      });
+    });
 
-  it("定休日(isClosed)は closed・canRegister:false・登録不可メッセージ(過去の次に優先)", () => {
-    expect(
-      slotAvailabilityMessage({
-        slots,
-        start: jstDateTime("2026-07-18", "11:00"),
-        totalDurationMinutes: 150,
-        now: before,
-        isClosed: true,
-      }),
-    ).toEqual({
-      status: "closed",
-      canRegister: false,
-      message: "定休日は登録できません",
+    it("営業時間の行が休業(is_open=false)でも closed", () => {
+      expect(
+        describeSlotAvailability({
+          ...base,
+          start: at("10:00"),
+          businessDay: { isOpen: false, openTime: null, closeTime: null },
+        }).status,
+      ).toBe("closed");
+    });
+
+    it("定休日は勤務が無くても closed を優先する", () => {
+      expect(
+        describeSlotAvailability({
+          ...base,
+          start: at("10:00"),
+          isClosedDay: true,
+          working: null,
+        }).reason,
+      ).toBe("closed");
     });
   });
 
-  it("過去は定休日より優先する(start<now なら isClosed でも past)", () => {
-    expect(
-      slotAvailabilityMessage({
-        slots,
-        start: jstDateTime("2026-07-18", "11:00"),
-        totalDurationMinutes: 150,
-        now: jstDateTime("2026-07-18", "11:01"),
-        isClosed: true,
-      }).status,
-    ).toBe("past");
-  });
-
-  it("定休日は空き枠(available候補)であっても closed を優先する", () => {
-    // 11:00 は available 枠だが、定休日なら登録させない
-    expect(
-      slotAvailabilityMessage({
-        slots,
-        start: jstDateTime("2026-07-18", "11:00"),
-        totalDurationMinutes: 150,
-        now: before,
-        isClosed: true,
-      }).status,
-    ).toBe("closed");
-  });
-
-  it("既存予約と重なる枠(taken)は unavailable だが canRegister:true(最終判定はEXCLUDE制約)", () => {
-    const result = slotAvailabilityMessage({
-      slots,
-      start: jstDateTime("2026-07-18", "14:00"),
-      totalDurationMinutes: 150,
-      now: before,
-      isClosed: false,
+  describe("3. no_working_day: その日の勤務がない", () => {
+    it("スタッフ名があれば「◯◯さんはこの日の勤務がありません」", () => {
+      expect(
+        describeSlotAvailability({
+          ...base,
+          start: at("10:00"),
+          working: null,
+        }),
+      ).toEqual({
+        status: "unavailable",
+        reason: "no_working_day",
+        canRegister: true,
+        message: "田中さんはこの日の勤務がありません",
+      });
     });
-    expect(result.status).toBe("unavailable");
-    expect(result.canRegister).toBe(true);
-    expect(result.message).not.toBe("この枠は埋まっています");
+
+    it("スタッフ名が無ければ「この日は勤務がありません」", () => {
+      expect(
+        describeSlotAvailability({
+          ...base,
+          start: at("10:00"),
+          working: null,
+          staffName: undefined,
+        }).message,
+      ).toBe("この日は勤務がありません");
+    });
   });
 
-  it("候補にない時刻(休憩・勤務外・閉店までに収まらない=slot無し)は unavailable・canRegister:true(上書き可)", () => {
-    const result = slotAvailabilityMessage({
-      slots,
-      start: jstDateTime("2026-07-18", "18:30"),
-      totalDurationMinutes: 150,
-      now: before,
-      isClosed: false,
+  describe("4. outside_booking_window: 受付期間外", () => {
+    it("受付期間の日数を差し込んだメッセージを返す", () => {
+      // 基準日 2026-07-17 + 30日 = 2026-08-16 まで。8/17 は期間外
+      expect(
+        describeSlotAvailability({
+          ...base,
+          start: jstDateTime("2026-08-17", "10:00"),
+        }),
+      ).toEqual({
+        status: "unavailable",
+        reason: "outside_booking_window",
+        canRegister: true,
+        message: "受付期間(30日先まで)を超えています",
+      });
     });
-    expect(result.status).toBe("unavailable");
-    expect(result.canRegister).toBe(true);
-    // 「埋まっています」と断定しない(休憩・勤務時間外の上書き登録を許すため)
-    expect(result.message).not.toBe("この枠は埋まっています");
+
+    it("受付期間の最終日(ちょうど30日先)は期間内として扱う", () => {
+      expect(
+        describeSlotAvailability({
+          ...base,
+          start: jstDateTime("2026-08-16", "10:00"),
+        }).status,
+      ).toBe("available");
+    });
+
+    it("日数は店舗設定の値をそのまま出す(7日先までの店舗)", () => {
+      expect(
+        describeSlotAvailability({
+          ...base,
+          start: jstDateTime("2026-08-16", "10:00"),
+          policy: { ...policy, bookingWindowDays: 7 },
+        }).message,
+      ).toBe("受付期間(7日先まで)を超えています");
+    });
+  });
+
+  describe("5. too_soon: 直前締切", () => {
+    it("締切分数を差し込んだメッセージを返す", () => {
+      expect(
+        describeSlotAvailability({
+          ...base,
+          start: at("10:00"),
+          now: at("09:30"), // 締切60分前 → 10:30 以降しか受け付けない
+        }),
+      ).toEqual({
+        status: "unavailable",
+        reason: "too_soon",
+        canRegister: true,
+        message: "直前すぎます(60分前までに受付)",
+      });
+    });
+
+    it("締切ちょうど(start === now + 締切分)は直前すぎない", () => {
+      expect(
+        describeSlotAvailability({
+          ...base,
+          start: at("10:00"),
+          now: at("09:00"),
+        }).status,
+      ).toBe("available");
+    });
+
+    it("分数は店舗設定の値をそのまま出す(120分前締切の店舗)", () => {
+      expect(
+        describeSlotAvailability({
+          ...base,
+          start: at("10:00"),
+          now: at("09:30"),
+          policy: { ...policy, minLeadMinutes: 120 },
+        }).message,
+      ).toBe("直前すぎます(120分前までに受付)");
+    });
+  });
+
+  describe("6. duration_not_fit: 閉店までに所要時間が収まらない", () => {
+    it("閉店時刻と所要分を差し込んだメッセージを返す", () => {
+      expect(
+        describeSlotAvailability({
+          ...base,
+          start: at("16:00"),
+          durationMinutes: 150,
+        }),
+      ).toEqual({
+        status: "unavailable",
+        reason: "duration_not_fit",
+        canRegister: true,
+        message: "18:00の閉店までに150分は確保できません",
+      });
+    });
+
+    it("閉店ちょうどに終わる(t + 所要分 === 閉店)なら収まる", () => {
+      expect(
+        describeSlotAvailability({
+          ...base,
+          start: at("15:30"),
+          durationMinutes: 150,
+        }).status,
+      ).toBe("available");
+    });
+
+    it("閉店時刻は営業時間の値をそのまま出す(19:30 閉店の店舗)", () => {
+      expect(
+        describeSlotAvailability({
+          ...base,
+          start: at("19:00"),
+          durationMinutes: 60,
+          businessDay: { ...businessDay, closeTime: "19:30:00" },
+        }).message,
+      ).toBe("19:30の閉店までに60分は確保できません");
+    });
+  });
+
+  describe("7. during_break: 休憩と重なる", () => {
+    it("休憩の開始・終了を差し込んだメッセージを返す", () => {
+      expect(describeSlotAvailability({ ...base, start: at("13:00") })).toEqual(
+        {
+          status: "unavailable",
+          reason: "during_break",
+          canRegister: true,
+          message: "休憩時間です(13:00〜14:00)",
+        },
+      );
+    });
+
+    it("休憩にまたがる(終了が休憩に食い込む)場合も during_break", () => {
+      expect(
+        describeSlotAvailability({ ...base, start: at("12:30") }).reason,
+      ).toBe("during_break");
+    });
+
+    it("休憩の直前に終わる(終了 === 休憩開始)は重なりではない", () => {
+      expect(
+        describeSlotAvailability({ ...base, start: at("12:00") }).status,
+      ).toBe("available");
+    });
+
+    it("休憩明けちょうど(開始 === 休憩終了)は重なりではない", () => {
+      expect(
+        describeSlotAvailability({ ...base, start: at("14:00") }).status,
+      ).toBe("available");
+    });
+
+    it("休憩と勤務時間外の両方に当たるときは休憩を優先する", () => {
+      // 勤務 14:00〜18:00・休憩 13:00〜14:00 のスタッフの 13:00
+      expect(
+        describeSlotAvailability({
+          ...base,
+          start: at("13:00"),
+          working: { ...working, startTime: "14:00:00" },
+        }).reason,
+      ).toBe("during_break");
+    });
+  });
+
+  describe("8. outside_working_hours: 勤務時間外", () => {
+    it("勤務区間(営業時間と勤務時間の重なり)を差し込んだメッセージを返す", () => {
+      expect(describeSlotAvailability({ ...base, start: at("09:00") })).toEqual(
+        {
+          status: "unavailable",
+          reason: "outside_working_hours",
+          canRegister: true,
+          message: "勤務時間外です(10:00〜18:00)",
+        },
+      );
+    });
+
+    it("勤務開始ちょうどは勤務時間内", () => {
+      expect(
+        describeSlotAvailability({ ...base, start: at("10:00") }).status,
+      ).toBe("available");
+    });
+
+    it("勤務終了をまたぐ(終了 > 勤務終了)なら勤務時間外", () => {
+      // 勤務 10:00〜17:00 のスタッフが 16:30 から60分
+      expect(
+        describeSlotAvailability({
+          ...base,
+          start: at("16:30"),
+          working: { ...working, endTime: "17:00:00" },
+        }),
+      ).toEqual({
+        status: "unavailable",
+        reason: "outside_working_hours",
+        canRegister: true,
+        message: "勤務時間外です(10:00〜17:00)",
+      });
+    });
+
+    it("勤務区間は営業時間で切り詰めた範囲を出す(勤務 8:00〜19:00・営業 9:00〜18:00)", () => {
+      expect(
+        describeSlotAvailability({
+          ...base,
+          start: at("08:00"),
+          working: {
+            ...working,
+            startTime: "08:00:00",
+            endTime: "19:00:00",
+          },
+        }).message,
+      ).toBe("勤務時間外です(9:00〜18:00)");
+    });
+  });
+
+  describe("9. overlaps_reservation: 既存の予約・ブロックと重なる", () => {
+    const busy: BusyRange[] = [{ start: at("11:00"), end: at("12:00") }];
+
+    it("重なる時間は overlaps_reservation・canRegister:true(最終判定はEXCLUDE制約)", () => {
+      expect(
+        describeSlotAvailability({ ...base, start: at("11:00"), busy }),
+      ).toEqual({
+        status: "unavailable",
+        reason: "overlaps_reservation",
+        canRegister: true,
+        message: "この時間は他の予約と重なっています",
+      });
+    });
+
+    it("既存予約の終了ちょうどから始まるのは重なりではない(半開区間)", () => {
+      expect(
+        describeSlotAvailability({ ...base, start: at("12:00"), busy }).status,
+      ).toBe("available");
+    });
+
+    it("既存予約の開始ちょうどに終わるのは重なりではない(半開区間)", () => {
+      expect(
+        describeSlotAvailability({ ...base, start: at("10:00"), busy }).status,
+      ).toBe("available");
+    });
+
+    it("勤務時間外の重なりは勤務時間外を優先する(判定順)", () => {
+      expect(
+        describeSlotAvailability({
+          ...base,
+          start: at("09:00"),
+          busy: [{ start: at("09:00"), end: at("10:00") }],
+        }).reason,
+      ).toBe("outside_working_hours");
+    });
+  });
+
+  describe("10. off_grid: 枠の刻みに合わない", () => {
+    it("刻みの分数を差し込んだメッセージを返す", () => {
+      expect(describeSlotAvailability({ ...base, start: at("10:15") })).toEqual(
+        {
+          status: "unavailable",
+          reason: "off_grid",
+          canRegister: true,
+          message: "開始時刻が30分刻みに合っていません",
+        },
+      );
+    });
+
+    it("刻みは店舗設定の値をそのまま出す(15分刻みの店舗なら 10:15 は空き)", () => {
+      expect(
+        describeSlotAvailability({
+          ...base,
+          start: at("10:15"),
+          policy: { ...policy, slotIntervalMinutes: 15 },
+        }).status,
+      ).toBe("available");
+    });
+
+    it("刻みの基準は開店時刻(9:15 開店なら 10:00 は刻みに合わない)", () => {
+      expect(
+        describeSlotAvailability({
+          ...base,
+          start: at("10:00"),
+          businessDay: { ...businessDay, openTime: "09:15:00" },
+        }),
+      ).toEqual({
+        status: "unavailable",
+        reason: "off_grid",
+        canRegister: true,
+        message: "開始時刻が30分刻みに合っていません",
+      });
+    });
+  });
+
+  describe("登録の可否", () => {
+    it("canRegister が false なのは past と closed だけ(他は店側の上書きを許す)", () => {
+      const cases = [
+        describeSlotAvailability({
+          ...base,
+          start: at("10:00"),
+          now: at("10:01"),
+        }), // past
+        describeSlotAvailability({
+          ...base,
+          start: at("10:00"),
+          isClosedDay: true,
+        }), // closed
+        describeSlotAvailability({
+          ...base,
+          start: at("10:00"),
+          working: null,
+        }), // no_working_day
+        describeSlotAvailability({ ...base, start: at("13:00") }), // during_break
+        describeSlotAvailability({ ...base, start: at("09:00") }), // outside_working_hours
+        describeSlotAvailability({ ...base, start: at("10:15") }), // off_grid
+      ];
+      expect(cases.map((result) => result.canRegister)).toEqual([
+        false,
+        false,
+        true,
+        true,
+        true,
+        true,
+      ]);
+    });
+
+    it("「埋まっています」と断定しない(店側は上書き登録できる)", () => {
+      const messages = [
+        describeSlotAvailability({ ...base, start: at("13:00") }).message,
+        describeSlotAvailability({ ...base, start: at("09:00") }).message,
+      ];
+      for (const message of messages) {
+        expect(message).not.toBe("この枠は埋まっています");
+      }
+    });
   });
 });
 
@@ -1533,6 +1881,83 @@ describe("buildWeekView: 時間軸の分数(axis)", () => {
       isClosedDay,
     });
     expect(view.axis).toEqual({ openMinutes: 480, closeMinutes: 1200 });
+  });
+
+  it("予約で広げた軸は正時に丸める(開店側は切り下げ・閉店側は切り上げ)", () => {
+    const view = buildWeekView({
+      weekStart,
+      businessHours,
+      items: [
+        // 8:45 開始 → 8:00 まで切り下げ
+        booking({
+          id: "early",
+          staffId: "tanaka",
+          date: "2026-07-13",
+          start: "08:45",
+          end: "09:15",
+          customerName: "早朝",
+          menus: [cut],
+        }),
+        // 19:45 終了 → 20:00 まで切り上げ
+        booking({
+          id: "late",
+          staffId: "sato",
+          date: "2026-07-14",
+          start: "19:15",
+          end: "19:45",
+          customerName: "夜間",
+          menus: [cut],
+        }),
+      ],
+      isClosedDay,
+    });
+    expect(view.axis).toEqual({ openMinutes: 480, closeMinutes: 1200 });
+  });
+
+  it("半端な時刻の予約が営業時間の中に収まるなら軸は営業時間のまま(クリック位置が枠の格子とずれない)", () => {
+    const view = buildWeekView({
+      weekStart,
+      businessHours,
+      items: [
+        booking({
+          id: "odd",
+          staffId: "tanaka",
+          date: "2026-07-14",
+          start: "10:15",
+          end: "11:15",
+          customerName: "半端",
+          menus: [cut],
+        }),
+      ],
+      isClosedDay,
+    });
+    // 土曜 9:00〜19:00 のまま(9:15 始まりの軸にならない)
+    expect(view.axis).toEqual({ openMinutes: 540, closeMinutes: 1140 });
+    // 軸が正時なら、クリック位置から求まる時刻も枠の格子(9:00・9:30…)に乗る
+    expect(
+      timeFromTimelineRatio({
+        ratio: 0,
+        openMinutes: view.axis?.openMinutes ?? -1,
+        closeMinutes: view.axis?.closeMinutes ?? -1,
+        intervalMinutes: 30,
+      }),
+    ).toBe("09:00");
+  });
+
+  it("営業時間そのものが正時でなければ丸めない(目盛り生成と同じ基準)", () => {
+    const view = buildWeekView({
+      weekStart,
+      businessHours: businessHours.map((day) =>
+        day.isOpen
+          ? { ...day, openTime: "09:30:00", closeTime: "18:30:00" }
+          : day,
+      ),
+      items: [],
+      isClosedDay,
+    });
+    expect(view.axis).toEqual({ openMinutes: 570, closeMinutes: 1110 });
+    // hourTickMarks と同じく、最初の目盛りは開店の次の正時
+    expect(view.ticks[0]).toBe("10:00");
   });
 
   it("目盛りの先頭・末尾は軸の開店・閉店と同じ時刻を指す(top%の基準が一致する)", () => {

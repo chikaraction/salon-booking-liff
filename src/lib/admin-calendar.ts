@@ -9,12 +9,13 @@
 import {
   addCalendarDays,
   calendarWeekday,
+  isWithinBookingWindow,
   jstCalendarDate,
   jstClockTime,
   jstDateTime,
+  type BookingPolicy,
   type BusinessDay,
   type BusyRange,
-  type Slot,
   type SlotStatus,
   type StaffWorkingDay,
 } from "./availability";
@@ -652,17 +653,31 @@ export function buildWeekView(params: {
     openMinutes = Math.min(openMinutes, timeToMinutes(day.openTime));
     closeMinutes = Math.max(closeMinutes, timeToMinutes(day.closeTime));
   }
+  // 予約で軸を広げるときは正時に丸める(日表示の itemsAxis と同じ扱い)。
+  // 丸めないと 9:15 開始の予約1件で軸が 9:15 始まりになり、クリック位置から
+  // 求まる時刻(timeFromTimelineRatio は開店基準で刻む)が空き枠の格子から
+  // 常にずれてしまう。営業時間そのものは丸めない(正時でない店舗もあるため。
+  // hourTickMarks が開店位置より下から目盛りを打つ既存の挙動に合わせる)。
+  let itemsOpenMinutes = Number.POSITIVE_INFINITY;
+  let itemsCloseMinutes = Number.NEGATIVE_INFINITY;
   for (const [date, list] of bookingsByDate) {
     for (const item of list) {
-      openMinutes = Math.min(
-        openMinutes,
+      itemsOpenMinutes = Math.min(
+        itemsOpenMinutes,
         jstMinutesOfDay(date, item.during.start),
       );
-      closeMinutes = Math.max(
-        closeMinutes,
+      itemsCloseMinutes = Math.max(
+        itemsCloseMinutes,
         jstMinutesOfDay(date, item.during.end),
       );
     }
+  }
+  if (itemsOpenMinutes < itemsCloseMinutes) {
+    openMinutes = Math.min(openMinutes, Math.floor(itemsOpenMinutes / 60) * 60);
+    closeMinutes = Math.max(
+      closeMinutes,
+      Math.ceil(itemsCloseMinutes / 60) * 60,
+    );
   }
   const hasAxis = openMinutes < closeMinutes;
 
@@ -809,69 +824,201 @@ export function isJstToday(date: string, now: Date): boolean {
 export type SlotAvailabilityStatus =
   "past" | "closed" | "available" | "unavailable";
 
+/**
+ * 空き枠が生成されなかった理由。computeStaffDaySlots(availability.ts)が
+ * 候補から外す条件と1対1で対応する(同じ順序・同じ境界で判定する)。
+ * - past / closed: 登録不可(status も同名)
+ * - no_working_day: その日の勤務パターンが無い(週の勤務外)
+ * - outside_booking_window: 受付期間(booking_window_days)の外
+ * - too_soon: 直前締切(min_lead_minutes)を過ぎている
+ * - duration_not_fit: 閉店までに所要時間が収まらない
+ * - during_break: 勤務パターンの休憩と重なる
+ * - outside_working_hours: 勤務区間(営業時間 ∩ 勤務時間)に収まらない
+ * - overlaps_reservation: 既存の予約・ブロックと重なる
+ * - off_grid: 上のどれでもないが、開始時刻が枠の刻みに乗っていない
+ */
+export type SlotUnavailableReason =
+  | "past"
+  | "closed"
+  | "no_working_day"
+  | "outside_booking_window"
+  | "too_soon"
+  | "duration_not_fit"
+  | "outside_working_hours"
+  | "during_break"
+  | "overlaps_reservation"
+  | "off_grid";
+
 export type SlotAvailability = {
   status: SlotAvailabilityStatus;
-  /** このメッセージ状態で登録操作を許すか(過去のみ false) */
+  /** 空き枠でない理由(available では付かない)。UIの色分けには使わない */
+  reason?: SlotUnavailableReason;
+  /** このメッセージ状態で登録操作を許すか(past / closed のみ false) */
   canRegister: boolean;
   message: string;
 };
 
+/** 上書き登録は許す状態(past / closed 以外)の組み立て */
+function unavailable(
+  reason: SlotUnavailableReason,
+  message: string,
+): SlotAvailability {
+  return { status: "unavailable", reason, canRegister: true, message };
+}
+
 /**
  * 代行登録フォームの空き判定メッセージ(モックD準拠)。
- * slots は対象スタッフの computeStaffDaySlots(availability.ts)の結果。
- * - 開始が現在(now)より厳密に過去なら past(start===now は過去扱いしない)
- * - 対象日が定休日なら closed(過去の次に優先。登録不可)
- * - 対象枠が空いていれば available
- * - それ以外(休憩・勤務時間外・他予約と重なり=slot が無い/taken)は unavailable。
- *   店側の上書き登録を許すため canRegister は true のまま。「埋まっています」と
- *   断定せず、最終判定はDBのEXCLUDE制約(ADR-004)に委ねる。
+ * 「空き枠ではありません」で終わらせず、枠が生成されなかった理由まで返す
+ * (実機フィードバック: 勤務が無いのか・休憩なのか・予約が入っているのかを
+ * 区別できず、店側が「予約が入っているのか?」と誤解した)。
+ *
+ * 判定順・境界は computeStaffDaySlots(availability.ts)の除外条件と揃える:
+ * past → closed → 勤務なし → 受付期間 → 直前締切 → 閉店に収まるか →
+ * 休憩 → 勤務区間 → 既存予約との重なり(半開区間)→ 刻み → 空き。
+ *
+ * 登録可否は past / closed のみ false。休憩・勤務時間外・他予約との重なりは
+ * 店側が事情を知って上書きできるため canRegister は true のままにし、
+ * 最終判定はDBのEXCLUDE制約(ADR-004)に委ねる。
+ *
+ * メッセージ中の時刻・分数・日数はすべて引数(DB由来の営業時間・勤務時間・
+ * salon_settings のポリシー)を差し込む(ADR-007: 店舗固有値を書かない)。
  */
-export function slotAvailabilityMessage(params: {
-  slots: Slot[];
+export function describeSlotAvailability(params: {
   start: Date; // 希望開始時刻(UTC)
-  totalDurationMinutes: number; // 選択メニューの合計所要分
-  now: Date; // 現在時刻(過去判定の基準。サーバーの now を渡す)
-  isClosed: boolean; // 対象日が定休日か(定休日は登録不可)
+  durationMinutes: number; // 選択メニューの合計所要分
+  businessDay: BusinessDay; // その曜日の営業時間
+  isClosedDay: boolean; // 休業日ルール(定休日・臨時休業)
+  working: StaffWorkingDay | null; // 対象スタッフのその曜日の勤務パターン
+  busy: BusyRange[]; // 対象スタッフの確定済み予約・ブロック
+  policy: BookingPolicy;
+  now: Date; // 現在時刻(過去・直前締切の基準。サーバーの now を渡す)
+  staffName?: string; // 分かるならメッセージに入れる(「田中さんは…」)
 }): SlotAvailability {
-  const { slots, start, totalDurationMinutes, now, isClosed } = params;
+  const {
+    start,
+    durationMinutes,
+    businessDay,
+    isClosedDay,
+    working,
+    busy,
+    policy,
+    now,
+    staffName,
+  } = params;
 
-  // 判定順: past(過去)→ closed(定休日)→ available →(taken)→ unavailable。
-  // 過去は定休日より優先する(過去の定休日でも「過去」と表示する)。
+  // 1. 過去(start === now は過去扱いしない)。定休日より優先する
   if (start.getTime() < now.getTime()) {
     return {
       status: "past",
+      reason: "past",
       canRegister: false,
       message: "過去の時間は登録できません",
     };
   }
 
-  if (isClosed) {
+  // 2. 定休日(computeStaffDaySlots の最初の除外条件と同じ)
+  if (
+    isClosedDay ||
+    !businessDay.isOpen ||
+    !businessDay.openTime ||
+    !businessDay.closeTime
+  ) {
     return {
       status: "closed",
+      reason: "closed",
       canRegister: false,
       message: "定休日は登録できません",
     };
   }
 
-  const slot = slots.find((s) => s.start.getTime() === start.getTime());
-  if (slot?.status === "available") {
-    return {
-      status: "available",
-      canRegister: true,
-      message: `この枠は空いています。${totalDurationMinutes}分確保できます。`,
-    };
+  // 3. その日の勤務パターンが無い(週の勤務外)
+  if (working === null) {
+    return unavailable(
+      "no_working_day",
+      staffName !== undefined && staffName !== ""
+        ? `${staffName}さんはこの日の勤務がありません`
+        : "この日は勤務がありません",
+    );
   }
-  if (slot?.status === "taken") {
-    return {
-      status: "unavailable",
-      canRegister: true,
-      message: "この時間は他の予約と重なっています(登録できない場合があります)",
-    };
+
+  const date = jstCalendarDate(start);
+
+  // 4. 受付期間外
+  if (!isWithinBookingWindow(date, policy, now)) {
+    return unavailable(
+      "outside_booking_window",
+      `受付期間(${policy.bookingWindowDays}日先まで)を超えています`,
+    );
   }
+
+  // 5. 直前締切(start < now + min_lead_minutes)
+  if (start.getTime() < now.getTime() + policy.minLeadMinutes * MINUTE_MS) {
+    return unavailable(
+      "too_soon",
+      `直前すぎます(${policy.minLeadMinutes}分前までに受付)`,
+    );
+  }
+
+  const open = timeToMinutes(businessDay.openTime);
+  const close = timeToMinutes(businessDay.closeTime);
+  const startMinutes = jstMinutesOfDay(date, start);
+  const endMinutes = startMinutes + durationMinutes;
+
+  // 6. 閉店までに所要時間が収まらない(ループ条件 t + duration <= close と同じ)
+  if (endMinutes > close) {
+    return unavailable(
+      "duration_not_fit",
+      `${minutesLabel(close)}の閉店までに${durationMinutes}分は確保できません`,
+    );
+  }
+
+  // 勤務区間 = 営業時間 ∩ 勤務時間(computeStaffDaySlots と同じ切り詰め)
+  const workStart = Math.max(open, timeToMinutes(working.startTime));
+  const workEnd = Math.min(close, timeToMinutes(working.endTime));
+
+  // 7. 休憩と重なる(半開区間 [開始, 終了)。勤務時間外より優先する)
+  if (working.breakStart !== null && working.breakEnd !== null) {
+    const breakStart = timeToMinutes(working.breakStart);
+    const breakEnd = timeToMinutes(working.breakEnd);
+    if (startMinutes < breakEnd && breakStart < endMinutes) {
+      return unavailable(
+        "during_break",
+        `休憩時間です(${minutesLabel(breakStart)}〜${minutesLabel(breakEnd)})`,
+      );
+    }
+  }
+
+  // 8. 勤務区間に収まらない
+  if (startMinutes < workStart || endMinutes > workEnd) {
+    return unavailable(
+      "outside_working_hours",
+      `勤務時間外です(${minutesLabel(workStart)}〜${minutesLabel(workEnd)})`,
+    );
+  }
+
+  // 9. 既存の予約・ブロックと重なる(半開区間。EXCLUDE制約と同じ扱い)
+  const end = new Date(start.getTime() + durationMinutes * MINUTE_MS);
+  if (busy.some((range) => start < range.end && range.start < end)) {
+    return unavailable(
+      "overlaps_reservation",
+      "この時間は他の予約と重なっています",
+    );
+  }
+
+  // 10. 刻みに乗っていない(候補は開店時刻を基準に slot_interval_minutes 刻み)
+  const interval =
+    policy.slotIntervalMinutes > 0 ? policy.slotIntervalMinutes : 1;
+  if ((startMinutes - open) % interval !== 0) {
+    return unavailable(
+      "off_grid",
+      `開始時刻が${interval}分刻みに合っていません`,
+    );
+  }
+
   return {
-    status: "unavailable",
+    status: "available",
     canRegister: true,
-    message: "空き枠ではありませんが登録できます(休憩・勤務時間外など)",
+    message: `この枠は空いています。${durationMinutes}分確保できます。`,
   };
 }
 
