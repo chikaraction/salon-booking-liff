@@ -8,7 +8,8 @@
 // - スタッフ・日付・時間が揃うと空き状況を表示する(補助表示。最後の砦は
 //   DBのEXCLUDE制約: ADR-004)
 
-import { Search, X } from "lucide-react";
+import { ChevronLeft, Search, X } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
@@ -69,6 +70,12 @@ type Props = {
   variant?: "page" | "dialog";
   /** variant="dialog" の登録成功時に呼ばれる(閉じる・再取得は呼び出し側) */
   onSuccess?: () => void;
+  /**
+   * variant="page" のときにフォーム上部へ出す戻り先(例 "/admin?date=2026-08-19")。
+   * ページ版は直URLで開くとカレンダーへ戻る導線がサイドバーしかなく行き止まりに
+   * 見える(実機フィードバック)。ダイアログ版では使わない
+   */
+  backHref?: string;
 };
 
 export function ProxyRegistrationForm({
@@ -81,6 +88,7 @@ export function ProxyRegistrationForm({
   fixedCustomerName,
   variant = "page",
   onSuccess,
+  backHref,
 }: Props) {
   const router = useRouter();
   const isEdit = mode === "edit";
@@ -323,6 +331,18 @@ export function ProxyRegistrationForm({
         !isDialog && "mx-auto max-w-2xl px-4 py-6 md:px-8 md:py-10",
       )}
     >
+      {/* カレンダーへ戻る(ページ版のみ)。カード枠の外・見出しの上に置き、
+          「入力をやめて戻る」導線だと分かるようにする */}
+      {!isDialog && backHref !== undefined && (
+        <Link
+          href={backHref}
+          className="mb-4 inline-flex items-center gap-1 text-base font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ChevronLeft aria-hidden="true" className="size-5" />
+          カレンダーに戻る
+        </Link>
+      )}
+
       <div
         className={cn(
           !isDialog && "rounded-2xl border border-border bg-card p-6 md:p-8",

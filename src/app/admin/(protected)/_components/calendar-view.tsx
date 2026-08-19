@@ -23,15 +23,22 @@ import {
   type TimelineAxis,
   type WeekView,
 } from "@/lib/admin-calendar";
-import { isCalendarDate } from "@/lib/availability";
-import { cn } from "@/lib/utils";
-import type { ActiveMenu } from "@/server/admin-data";
-
+import { restoreSelectableMenuIds } from "@/lib/admin-reservation-form";
 import {
-  ProxyRegistrationDialog,
-  type ProxyRegistrationTarget,
-} from "./proxy-registration-dialog";
+  isCalendarDate,
+  jstCalendarDate,
+  jstClockTime,
+} from "@/lib/availability";
+import { cn } from "@/lib/utils";
+import type { ActiveMenu, ReservationDetail } from "@/server/admin-data";
+
 import { ReservationDetailDialog } from "./reservation-detail-dialog";
+import {
+  ReservationFormDialog,
+  type ProxyRegistrationTarget,
+  type ReservationDialogTarget,
+  type ReservationEditTarget,
+} from "./reservation-form-dialog";
 import { staffColor } from "./staff-colors";
 import {
   HourLines,
@@ -69,11 +76,51 @@ export function CalendarView({
 }: Props) {
   const router = useRouter();
 
+  // 開いているダイアログは常に1つだけにする(下の3状態は排他):
+  // - 詳細(selectedId): モーダル。背景を覆うのでカレンダーは操作できない
+  // - 代行登録(createTarget)・変更(editTarget): 非モーダルのフォームダイアログ。
+  //   背後のカレンダーを操作できてしまうため、開いている間は新しく開かせない
+  //   (入力途中のフォームが作り直されて消えるのを防ぐ)
+
   // 選択中の予約ID(カレンダーの予約カードをクリックすると詳細ダイアログを開く)
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // 空き枠クリックで開く代行登録ダイアログの対象(スタッフ・日付・時刻)
   const [createTarget, setCreateTarget] =
     useState<ProxyRegistrationTarget | null>(null);
+  // 詳細の「変更」で開く変更ダイアログの対象(取得済みの詳細から組み立てる)
+  const [editTarget, setEditTarget] = useState<ReservationEditTarget | null>(
+    null,
+  );
+
+  /** 代行登録・変更ダイアログを閉じる(排他なのでまとめて畳む) */
+  const closeFormDialog = () => {
+    setCreateTarget(null);
+    setEditTarget(null);
+  };
+
+  /**
+   * 予約詳細の「変更」→ 変更ダイアログ。詳細ダイアログは閉じる(排他)。
+   * 詳細は取得済みなので再取得しない。開始時刻(UTC)→ JSTの日付・時刻の分解、
+   * 初期選択メニューの復元(無効化されたメニューの除外)は、変更ページ
+   * (/admin/reservations/[id]/edit)と同じ純粋関数に任せる。
+   */
+  const openEdit = (detail: ReservationDetail) => {
+    setSelectedId(null);
+    setCreateTarget(null);
+    setEditTarget({
+      mode: "edit",
+      reservationId: detail.id,
+      customerName: detail.customerName,
+      staffId: detail.staffId,
+      date: jstCalendarDate(detail.start),
+      time: jstClockTime(detail.start),
+      menuIds: restoreSelectableMenuIds(
+        detail.menuIds,
+        menus.map((menu) => menu.id),
+      ),
+      note: detail.requestNote ?? "",
+    });
+  };
 
   /**
    * カレンダーの列で押された位置から代行登録を開く(日表示・週表示で共用)。
@@ -86,9 +133,9 @@ export function CalendarView({
    *   スタッフ選択で確定させる(選んだ時点で空き時間一覧・空き判定が出る)
    * 定休日・過去の時間でもここでは開く(登録可否はフォームとサーバーの
    * 既存ガードが「定休日は登録できません」「過去の時間は登録できません」で示す)。
-   * 既にダイアログが開いているときは無視する: 非モーダルで背後のカレンダーを
-   * 操作できるため、入力途中のクリックでフォームを作り直すと入力が消える。
-   * 時刻の変更はフォームの時間欄・空き時間一覧で行う。
+   * 既に代行登録・変更ダイアログが開いているときは無視する: 非モーダルで背後の
+   * カレンダーを操作できるため、入力途中のクリックでフォームを作り直すと入力が
+   * 消える。時刻の変更はフォームの時間欄・空き時間一覧で行う。
    */
   const openCreateAt = (params: {
     /** 週表示は列=日付でスタッフが定まらないため省略する */
@@ -98,9 +145,10 @@ export function CalendarView({
     point: ColumnClickPoint;
     axis: TimelineAxis;
   }) => {
-    if (createTarget !== null) return;
+    if (createTarget !== null || editTarget !== null) return;
     const { point } = params;
     setCreateTarget({
+      mode: "create",
       staffId: params.staffId,
       date: params.date,
       time: timeFromTimelineRatio({
@@ -108,10 +156,12 @@ export function CalendarView({
         ...params.axis,
         intervalMinutes: slotIntervalMinutes,
       }),
-      columnLeft: point.columnLeft,
-      columnRight: point.columnRight,
-      gridLeft: point.gridLeft,
-      gridRight: point.gridRight,
+      anchor: {
+        columnLeft: point.columnLeft,
+        columnRight: point.columnRight,
+        gridLeft: point.gridLeft,
+        gridRight: point.gridRight,
+      },
     });
   };
 
@@ -126,6 +176,9 @@ export function CalendarView({
 
   const centerLabel =
     view === "day" ? dayNavLabel(date) : weekNavLabel(weekStartOf(date));
+
+  // 描画するフォームダイアログ(排他。変更を優先する)
+  const formTarget: ReservationDialogTarget | null = editTarget ?? createTarget;
 
   const handlePrev = () => go(view, moveDay(date, view === "day" ? -1 : -7));
   const handleNext = () => go(view, moveDay(date, view === "day" ? 1 : 7));
@@ -262,20 +315,37 @@ export function CalendarView({
           key={selectedId}
           reservationId={selectedId}
           onClose={() => setSelectedId(null)}
+          onEdit={openEdit}
         />
       )}
 
-      {createTarget !== null && (
-        <ProxyRegistrationDialog
+      {/* 代行登録・変更は同じフォームダイアログ(非モーダル・ドラッグ可)。
+          排他なので変更を優先して1つだけ描く。key で用途・対象予約が変わったら
+          作り直す(前の入力値が残らないように) */}
+      {formTarget !== null && (
+        <ReservationFormDialog
+          key={
+            editTarget !== null ? `edit-${editTarget.reservationId}` : "create"
+          }
           staff={staff}
           menus={menus}
-          target={createTarget}
-          onClose={() => setCreateTarget(null)}
+          target={formTarget}
+          onClose={closeFormDialog}
           onSuccess={() => {
-            // 遷移せずカレンダーを取り直す = 登録した予約がその場で現れる
-            setCreateTarget(null);
+            // 遷移せずカレンダーを取り直す = 登録・変更の結果がその場で現れる
+            closeFormDialog();
             router.refresh();
           }}
+          onBack={
+            editTarget === null
+              ? undefined
+              : () => {
+                  // 変更をやめて詳細に引き返す(店側キャンセルの「戻る」と同じ体験)
+                  const backTo = editTarget.reservationId;
+                  setEditTarget(null);
+                  setSelectedId(backTo);
+                }
+          }
         />
       )}
     </div>

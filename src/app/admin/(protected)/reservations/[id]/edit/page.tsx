@@ -57,6 +57,10 @@ export default async function EditReservationPage({
       staff={staff}
       menus={menus}
       defaultDate={date}
+      // 直URLで開いたときの戻り先(その予約の日のカレンダー)。カレンダーからの
+      // 「変更」はダイアログ内で完結するのでこのページを経由しないが、
+      // ページ自体は残るため行き止まりにしない
+      backHref={`/admin?date=${date}`}
       fixedCustomerName={detail.customerName}
       initial={{
         menuIds,

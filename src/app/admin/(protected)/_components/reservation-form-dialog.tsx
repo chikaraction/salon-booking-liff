@@ -1,13 +1,18 @@
 "use client";
 
-// カレンダーの空き枠クリックから開く代行登録ダイアログ(非モーダル・ドラッグ可)。
-// 電話を受けながらカレンダーの空きを見て登録する運用のため、
+// カレンダー上に出す予約フォームのダイアログ(非モーダル・ドラッグ可)。
+// 2つの用途を同じ枠で受け持つ:
+// - 代行登録: 空き枠クリック(電話を受けながら空きを見て登録する運用)
+// - 予約の変更: 予約詳細ダイアログの「変更」(ページ遷移すると背後の
+//   カレンダーが見えず、詳細にも引き返せないという実機フィードバックへの対応)
+// どちらも背後のカレンダーを見ながら日時を決めたいので、
 // - 画面を暗くするオーバーレイを敷かない(背後のカレンダーが見えて操作もできる)
 // - ヘッダーをつかんで移動できる(位置のクランプは admin-calendar.ts の純粋関数)
-// 中身は /admin/reservations/new と同じ ProxyRegistrationForm を再利用する。
+// 中身は /admin/reservations/new と同じ ProxyRegistrationForm を再利用する
+// (変更は mode="edit"。ページ版 /admin/reservations/[id]/edit と同じ構成)。
 // 非モーダルなので aria-modal は付けない(付けると背後が読み上げ対象外になる)。
 
-import { GripHorizontal, X } from "lucide-react";
+import { ChevronLeft, GripHorizontal, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ProxyRegistrationForm } from "@/app/admin/(protected)/reservations/new/_components/proxy-registration-form";
@@ -35,7 +40,20 @@ const INITIAL_TOP = 72;
 /** md ブレークポイント(Tailwind と揃える)。未満はドラッグせずシート表示 */
 const DESKTOP_QUERY = "(min-width: 768px)";
 
+/**
+ * クリックした列と、列グリッド全体の左右X(ビューポート座標のpx)。
+ * 押した列以外の領域の中央にダイアログを重ねるために使う(dialogInitialX)。
+ */
+export type ColumnAnchor = {
+  columnLeft: number;
+  columnRight: number;
+  gridLeft: number;
+  gridRight: number;
+};
+
+/** 代行登録(カレンダーの空き枠クリック) */
 export type ProxyRegistrationTarget = {
+  mode: "create";
   /**
    * 担当スタッフ。日表示は列=スタッフなのでクリックで決まるが、週表示は
    * 列=日付で全スタッフが同じ列に並ぶため決まらない。省略した場合は
@@ -47,56 +65,88 @@ export type ProxyRegistrationTarget = {
   date: string;
   /** 壁時計時刻 "HH:MM" */
   time: string;
-  /**
-   * クリックしたスタッフ列と、スタッフ列グリッド全体の左右X
-   * (ビューポート座標のpx)。押した列以外の領域の中央にダイアログを
-   * 重ねるために使う(dialogInitialX)
-   */
-  columnLeft: number;
-  columnRight: number;
-  gridLeft: number;
-  gridRight: number;
+  /** クリックした列(初期位置の決定に使う) */
+  anchor: ColumnAnchor;
 };
+
+/**
+ * 予約の変更(予約詳細ダイアログの「変更」)。詳細ダイアログが取得済みの
+ * ReservationDetail から呼び出し側が組み立てる(ダイアログ内で再取得しない)。
+ */
+export type ReservationEditTarget = {
+  mode: "edit";
+  reservationId: string;
+  /** 変更モードで固定表示する顧客名(顧客は変更できない) */
+  customerName: string;
+  staffId: string;
+  /** JSTの暦日 "YYYY-MM-DD" */
+  date: string;
+  /** 壁時計時刻 "HH:MM" */
+  time: string;
+  /** 現在も有効なメニューだけに絞ったメニューID(restoreSelectableMenuIds) */
+  menuIds: string[];
+  note: string;
+};
+
+export type ReservationDialogTarget =
+  ProxyRegistrationTarget | ReservationEditTarget;
 
 type Props = {
   staff: AdminStaff[];
   menus: ActiveMenu[];
-  target: ProxyRegistrationTarget;
+  target: ReservationDialogTarget;
   onClose: () => void;
-  /** 登録成功(画面遷移はしない。呼び出し側が閉じて router.refresh() する) */
+  /** 登録・変更の成功(画面遷移はしない。呼び出し側が閉じて router.refresh() する) */
   onSuccess: () => void;
+  /**
+   * 変更モードで詳細ダイアログへ引き返す導線(店側キャンセルの「戻る」と同じ体験)。
+   * 省略するとヘッダーに戻るボタンを出さない(代行登録には戻り先が無い)。
+   */
+  onBack?: () => void;
 };
 
-export function ProxyRegistrationDialog({
+export function ReservationFormDialog({
   staff,
   menus,
   target,
   onClose,
   onSuccess,
+  onBack,
 }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const isEdit = target.mode === "edit";
+  const title = isEdit ? "予約の変更" : "電話予約の代行登録";
 
   // md 未満はフローティングをやめ、画面下からのシートにフォールバックする
   // (狭い画面ではドラッグ移動より全幅で入力できることを優先する)。
-  // このダイアログは空き枠クリック後にだけマウントされる = 必ずクライアント側の
-  // 描画なので、初期値を window から読んでもハイドレーション不一致は起きない
+  // このダイアログは空き枠クリック・詳細の「変更」の後にだけマウントされる =
+  // 必ずクライアント側の描画なので、初期値を window から読んでも
+  // ハイドレーション不一致は起きない
   const [isDesktop, setIsDesktop] = useState(
     () => window.matchMedia(DESKTOP_QUERY).matches,
   );
 
-  // パネルの位置(fixed の left/top)。初期の左右はクリックしたスタッフ列
-  // 以外の領域の中央(dialogInitialX)= いま見たい列の空き状況を隠さない位置
+  // パネルの位置(fixed の left/top)。
+  // - 代行登録: 初期の左右はクリックしたスタッフ列以外の領域の中央
+  //   (dialogInitialX)= いま見たい列の空き状況を隠さない位置
+  // - 変更: 画面中央のモーダル(予約詳細ダイアログ)から開くため、押した列の
+  //   座標が無い。画面右端に寄せて左端の時間目盛りと左側の列を残す
+  //   (dialogInitialX が残り領域同幅のときに右側を選ぶのと同じ方針)。
+  //   狙った列が隠れる場合はヘッダーをつかんで動かせる
   const [position, setPosition] = useState<{ x: number; y: number }>(() =>
     clampDialogPosition({
-      x: dialogInitialX({
-        clickedColumnLeft: target.columnLeft,
-        clickedColumnRight: target.columnRight,
-        gridLeft: target.gridLeft,
-        gridRight: target.gridRight,
-        viewportWidth: window.innerWidth,
-        dialogWidth: PANEL_WIDTH,
-        margin: VIEWPORT_MARGIN,
-      }),
+      x:
+        target.mode === "create"
+          ? dialogInitialX({
+              clickedColumnLeft: target.anchor.columnLeft,
+              clickedColumnRight: target.anchor.columnRight,
+              gridLeft: target.anchor.gridLeft,
+              gridRight: target.anchor.gridRight,
+              viewportWidth: window.innerWidth,
+              dialogWidth: PANEL_WIDTH,
+              margin: VIEWPORT_MARGIN,
+            })
+          : window.innerWidth - PANEL_WIDTH - VIEWPORT_MARGIN,
       y: INITIAL_TOP,
       width: PANEL_WIDTH,
       // 初回は未描画で実寸が測れない。高さ0で扱うと上端(margin〜)には
@@ -153,7 +203,7 @@ export function ProxyRegistrationDialog({
   // --- ドラッグ(pointer events + setPointerCapture) -------------------------
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!isDesktop) return;
-    // 閉じるボタンなどヘッダー内のボタン操作はドラッグにしない
+    // 閉じる・戻るなどヘッダー内のボタン操作はドラッグにしない
     if ((event.target as HTMLElement).closest("button") !== null) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     grabOffset.current = {
@@ -183,7 +233,7 @@ export function ProxyRegistrationDialog({
     <div
       ref={panelRef}
       role="dialog"
-      aria-label="電話予約の代行登録"
+      aria-label={title}
       // オーバーレイは敷かない(背後のカレンダーを見ながら操作できることが要件)。
       // md未満: 画面下からのシート / md以上: ドラッグできるフローティングパネル
       className={
@@ -215,12 +265,24 @@ export function ProxyRegistrationDialog({
             className="size-5 text-muted-foreground"
           />
         )}
-        <h2 className="text-base font-bold">電話予約の代行登録</h2>
+        <h2 className="text-base font-bold">{title}</h2>
+        {/* 詳細へ引き返す(変更モードのみ)。閉じる × の隣に置き、
+            「戻る」と「閉じる」を取り違えないようテキストで示す */}
+        {onBack !== undefined && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="ml-auto flex h-8 items-center gap-1 rounded-lg pl-1 pr-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+          >
+            <ChevronLeft aria-hidden="true" className="size-4" />
+            詳細に戻る
+          </button>
+        )}
         <button
           type="button"
           aria-label="閉じる"
           onClick={onClose}
-          className="ml-auto flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+          className={`${onBack === undefined ? "ml-auto " : ""}flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-background hover:text-foreground`}
         >
           <X aria-hidden="true" className="size-5" />
         </button>
@@ -230,18 +292,35 @@ export function ProxyRegistrationDialog({
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         <ProxyRegistrationForm
           variant="dialog"
+          mode={target.mode}
           staff={staff}
           menus={menus}
           defaultDate={target.date}
-          initial={{
-            menuIds: [],
-            // 週表示など担当が決まらないクリックでは空文字 = 未選択で開く
-            // (フォームの select は value="" が「選択してください」)
-            staffId: target.staffId ?? "",
-            date: target.date,
-            time: target.time,
-            note: "",
-          }}
+          reservationId={
+            target.mode === "edit" ? target.reservationId : undefined
+          }
+          fixedCustomerName={
+            target.mode === "edit" ? target.customerName : undefined
+          }
+          initial={
+            target.mode === "edit"
+              ? {
+                  menuIds: target.menuIds,
+                  staffId: target.staffId,
+                  date: target.date,
+                  time: target.time,
+                  note: target.note,
+                }
+              : {
+                  menuIds: [],
+                  // 週表示など担当が決まらないクリックでは空文字 = 未選択で開く
+                  // (フォームの select は value="" が「選択してください」)
+                  staffId: target.staffId ?? "",
+                  date: target.date,
+                  time: target.time,
+                  note: "",
+                }
+          }
           onSuccess={onSuccess}
         />
       </div>

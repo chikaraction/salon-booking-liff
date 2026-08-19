@@ -8,7 +8,6 @@
 //   (src/app/my/_components/cancel-sheet.tsx を参照)
 
 import { X } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -25,9 +24,19 @@ type Props = {
   /** 表示中の予約ID(カレンダーの予約カードから受け取る) */
   reservationId: string;
   onClose: () => void;
+  /**
+   * 「変更」を押したときに呼ばれる。取得済みの詳細をそのまま渡し、
+   * 呼び出し側(カレンダー)が変更ダイアログを開く = ページ遷移しないので
+   * 背後のカレンダーを見ながら日時を調整でき、詳細にも引き返せる
+   */
+  onEdit: (detail: ReservationDetail) => void;
 };
 
-export function ReservationDetailDialog({ reservationId, onClose }: Props) {
+export function ReservationDetailDialog({
+  reservationId,
+  onClose,
+  onEdit,
+}: Props) {
   const router = useRouter();
 
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
@@ -98,7 +107,12 @@ export function ReservationDetailDialog({ reservationId, onClose }: Props) {
         )}
 
         {state === "ready" && detail !== null && (
-          <DetailBody detail={detail} onClose={onClose} router={router} />
+          <DetailBody
+            detail={detail}
+            onClose={onClose}
+            onEdit={onEdit}
+            router={router}
+          />
         )}
       </div>
     </div>
@@ -117,10 +131,12 @@ function Field({ label, value }: { label: string; value: string }) {
 function DetailBody({
   detail,
   onClose,
+  onEdit,
   router,
 }: {
   detail: ReservationDetail;
   onClose: () => void;
+  onEdit: (detail: ReservationDetail) => void;
   router: ReturnType<typeof useRouter>;
 }) {
   const labels = buildReservationDetailLabels({
@@ -295,8 +311,15 @@ function DetailBody({
         </div>
       ) : (
         <div className="flex gap-3">
-          <Button asChild size="lg" className="flex-1 rounded-lg font-bold">
-            <Link href={`/admin/reservations/${detail.id}/edit`}>変更</Link>
+          {/* 変更はページ遷移せず、カレンダー上の変更ダイアログ(非モーダル・
+              ドラッグ可)に切り替える。取得済みの詳細をそのまま渡すので
+              再取得しない(呼び出し側が ReservationFormDialog を開く) */}
+          <Button
+            size="lg"
+            className="flex-1 rounded-lg font-bold"
+            onClick={() => onEdit(detail)}
+          >
+            変更
           </Button>
           <Button
             size="lg"

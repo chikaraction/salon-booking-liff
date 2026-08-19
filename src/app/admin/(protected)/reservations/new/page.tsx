@@ -15,11 +15,15 @@ export default async function ProxyRegistrationPage() {
     fetchActiveMenus(supabase),
   ]);
 
+  const today = jstCalendarDate(new Date());
+
   return (
     <ProxyRegistrationForm
       staff={staff}
       menus={menus}
-      defaultDate={jstCalendarDate(new Date())}
+      defaultDate={today}
+      // 登録をやめてカレンダーへ戻る導線(初期表示の日 = 今日)
+      backHref={`/admin?date=${today}`}
     />
   );
 }
