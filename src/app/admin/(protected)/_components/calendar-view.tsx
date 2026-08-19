@@ -18,6 +18,7 @@ import {
   weekStartOf,
   weekdayLabel,
   type AdminStaff,
+  type ColumnAnchor,
   type DayTimeline,
   type ReservationListItem,
   type TimelineAxis,
@@ -41,6 +42,7 @@ import {
 } from "./reservation-form-dialog";
 import { staffColor } from "./staff-colors";
 import {
+  cardColumnAnchor,
   HourLines,
   TimeGutter,
   TimelineBlocks,
@@ -79,11 +81,16 @@ export function CalendarView({
   // 開いているダイアログは常に1つだけにする(下の3状態は排他):
   // - 詳細(selectedId): モーダル。背景を覆うのでカレンダーは操作できない
   // - 代行登録(createTarget)・変更(editTarget): 非モーダルのフォームダイアログ。
-  //   背後のカレンダーを操作できてしまうため、開いている間は新しく開かせない
-  //   (入力途中のフォームが作り直されて消えるのを防ぐ)
+  //   オーバーレイを敷かない(背後のカレンダーを見ながら操作するのが要件)ので、
+  //   開いている間はカレンダーのクリック配線そのものを外す。下の formOpen を参照
 
   // 選択中の予約ID(カレンダーの予約カードをクリックすると詳細ダイアログを開く)
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // 詳細を開いたきっかけの予約カードが載っていた列(変更ダイアログの初期位置に使う)。
+  // スマホのリスト表示など列が分からない経路では null
+  const [selectedAnchor, setSelectedAnchor] = useState<ColumnAnchor | null>(
+    null,
+  );
   // 空き枠クリックで開く代行登録ダイアログの対象(スタッフ・日付・時刻)
   const [createTarget, setCreateTarget] =
     useState<ProxyRegistrationTarget | null>(null);
@@ -98,16 +105,25 @@ export function CalendarView({
     setEditTarget(null);
   };
 
+  /** 予約カード・リスト項目のクリック → 詳細ダイアログ(列の座標も覚えておく) */
+  const openDetail = (id: string, anchor: ColumnAnchor | null) => {
+    setSelectedId(id);
+    setSelectedAnchor(anchor);
+  };
+
   /**
    * 予約詳細の「変更」→ 変更ダイアログ。詳細ダイアログは閉じる(排他)。
    * 詳細は取得済みなので再取得しない。開始時刻(UTC)→ JSTの日付・時刻の分解、
    * 初期選択メニューの復元(無効化されたメニューの除外)は、変更ページ
    * (/admin/reservations/[id]/edit)と同じ純粋関数に任せる。
+   * 初期位置は代行登録と同じロジック(押した列以外の領域の中央)にするため、
+   * 詳細を開いたときに測っておいた列の座標(selectedAnchor)を載せる。
    */
   const openEdit = (detail: ReservationDetail) => {
     setSelectedId(null);
     setCreateTarget(null);
     setEditTarget({
+      anchor: selectedAnchor,
       mode: "edit",
       reservationId: detail.id,
       customerName: detail.customerName,
@@ -133,9 +149,9 @@ export function CalendarView({
    *   スタッフ選択で確定させる(選んだ時点で空き時間一覧・空き判定が出る)
    * 定休日・過去の時間でもここでは開く(登録可否はフォームとサーバーの
    * 既存ガードが「定休日は登録できません」「過去の時間は登録できません」で示す)。
-   * 既に代行登録・変更ダイアログが開いているときは無視する: 非モーダルで背後の
-   * カレンダーを操作できるため、入力途中のクリックでフォームを作り直すと入力が
-   * 消える。時刻の変更はフォームの時間欄・空き時間一覧で行う。
+   * フォームダイアログが開いている間はこのハンドラ自体を配線しない(formOpen)
+   * ので、入力途中のクリックでフォームが作り直されて入力が消えることはない。
+   * 時刻の変更はフォームの時間欄・空き時間一覧で行う。
    */
   const openCreateAt = (params: {
     /** 週表示は列=日付でスタッフが定まらないため省略する */
@@ -145,7 +161,6 @@ export function CalendarView({
     point: ColumnClickPoint;
     axis: TimelineAxis;
   }) => {
-    if (createTarget !== null || editTarget !== null) return;
     const { point } = params;
     setCreateTarget({
       mode: "create",
@@ -179,6 +194,13 @@ export function CalendarView({
 
   // 描画するフォームダイアログ(排他。変更を優先する)
   const formTarget: ReservationDialogTarget | null = editTarget ?? createTarget;
+
+  // フォームダイアログを開いている間は、背後のカレンダーのクリック配線を外す。
+  // 全面の透明オーバーレイは使わない: 背後のスクロール・日付移動まで塞いでしまい、
+  // 「背後のカレンダーを見ながら操作する」という非モーダルの設計意図が壊れるため。
+  // ヘッダーの ‹ › ・日付ピッカー・日/週トグル・スクロールは引き続き使える。
+  // ハンドラを渡さないことで、押せる見た目(cursor-pointer・ホバー)も消える
+  const formOpen = formTarget !== null;
 
   const handlePrev = () => go(view, moveDay(date, view === "day" ? -1 : -7));
   const handleNext = () => go(view, moveDay(date, view === "day" ? 1 : 7));
@@ -290,9 +312,12 @@ export function CalendarView({
             staff={staff}
             timeline={timeline}
             listItems={listItems}
-            onSelect={setSelectedId}
-            onCreateAt={(staffId, point, axis) =>
-              openCreateAt({ staffId, date, point, axis })
+            onSelect={formOpen ? undefined : openDetail}
+            onCreateAt={
+              formOpen
+                ? undefined
+                : (staffId, point, axis) =>
+                    openCreateAt({ staffId, date, point, axis })
             }
           />
         ) : (
@@ -302,9 +327,12 @@ export function CalendarView({
           <WeekGrid
             staff={staff}
             weekView={weekView}
-            onSelect={setSelectedId}
-            onCreateAt={(dayDate, point, axis) =>
-              openCreateAt({ date: dayDate, point, axis })
+            onSelect={formOpen ? undefined : openDetail}
+            onCreateAt={
+              formOpen
+                ? undefined
+                : (dayDate, point, axis) =>
+                    openCreateAt({ date: dayDate, point, axis })
             }
           />
         )}
@@ -406,8 +434,10 @@ function DayView({
   staff: AdminStaff[];
   timeline: DayTimeline;
   listItems: ReservationListItem[];
-  onSelect: (id: string) => void;
-  onCreateAt: (
+  /** 省略 = フォームダイアログが開いている間。予約カードを押せなくする */
+  onSelect?: (id: string, anchor: ColumnAnchor | null) => void;
+  /** 省略 = フォームダイアログが開いている間。空き枠を押せなくする */
+  onCreateAt?: (
     staffId: string,
     point: ColumnClickPoint,
     axis: TimelineAxis,
@@ -496,8 +526,8 @@ function DayTimelineGrid({
 }: {
   staff: AdminStaff[];
   timeline: DayTimeline;
-  onSelect: (id: string) => void;
-  onCreateAt: (
+  onSelect?: (id: string, anchor: ColumnAnchor | null) => void;
+  onCreateAt?: (
     staffId: string,
     point: ColumnClickPoint,
     axis: TimelineAxis,
@@ -551,7 +581,7 @@ function DayTimelineGrid({
               <div
                 key={column.staffId}
                 onClick={
-                  axis === null
+                  axis === null || onCreateAt === undefined
                     ? undefined
                     : (event) =>
                         onCreateAt(
@@ -562,7 +592,7 @@ function DayTimelineGrid({
                 }
                 className={cn(
                   "relative border-l border-border",
-                  axis !== null && emptySlotClass,
+                  axis !== null && onCreateAt !== undefined && emptySlotClass,
                 )}
               >
                 <TimelineBlocks
@@ -588,8 +618,8 @@ function MobileTimeline({
   onCreateAt,
 }: {
   timeline: DayTimeline;
-  onSelect: (id: string) => void;
-  onCreateAt: (
+  onSelect?: (id: string, anchor: ColumnAnchor | null) => void;
+  onCreateAt?: (
     staffId: string,
     point: ColumnClickPoint,
     axis: TimelineAxis,
@@ -637,14 +667,14 @@ function MobileTimeline({
         {/* 空きをタップすると代行登録ダイアログ(スタッフは上のセグメントで選択中の1名) */}
         <div
           onClick={
-            axis === null
+            axis === null || onCreateAt === undefined
               ? undefined
               : (event) =>
                   onCreateAt(column.staffId, columnClickPoint(event), axis)
           }
           className={cn(
             "relative flex-1 border-l border-border",
-            axis !== null && emptySlotClass,
+            axis !== null && onCreateAt !== undefined && emptySlotClass,
           )}
         >
           <HourLines tickMarks={timeline.tickMarks} />
@@ -665,7 +695,8 @@ function ReservationList({
   onSelect,
 }: {
   listItems: ReservationListItem[];
-  onSelect: (id: string) => void;
+  /** 省略 = フォームダイアログが開いている間。項目を押せなくする */
+  onSelect?: (id: string, anchor: ColumnAnchor | null) => void;
 }) {
   if (listItems.length === 0) {
     return (
@@ -681,8 +712,18 @@ function ReservationList({
         <li key={item.id}>
           <button
             type="button"
-            onClick={() => onSelect(item.id)}
-            className="flex w-full items-start gap-4 rounded-xl border border-border bg-card p-4 text-left transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            // リスト表示は列の座標が無いので anchor は null(変更ダイアログは
+            // 右寄せにフォールバックする)。ダイアログを開いている間は
+            // onSelect が渡らないので押せない
+            disabled={onSelect === undefined}
+            onClick={
+              onSelect === undefined ? undefined : () => onSelect(item.id, null)
+            }
+            className={cn(
+              "flex w-full items-start gap-4 rounded-xl border border-border bg-card p-4 text-left",
+              onSelect !== undefined &&
+                "transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            )}
           >
             <span className="w-14 shrink-0 text-base font-bold text-primary">
               {item.timeLabel}
@@ -712,9 +753,13 @@ function WeekGrid({
 }: {
   staff: AdminStaff[];
   weekView: WeekView;
-  onSelect: (id: string) => void;
-  /** 日付列の空き領域クリック(スタッフはダイアログ内で選ぶので渡さない) */
-  onCreateAt: (
+  /** 省略 = フォームダイアログが開いている間。予約カードを押せなくする */
+  onSelect?: (id: string, anchor: ColumnAnchor | null) => void;
+  /**
+   * 日付列の空き領域クリック(スタッフはダイアログ内で選ぶので渡さない)。
+   * 省略 = フォームダイアログが開いている間。空き枠を押せなくする
+   */
+  onCreateAt?: (
     date: string,
     point: ColumnClickPoint,
     axis: TimelineAxis,
@@ -785,7 +830,7 @@ function WeekGrid({
                 <div
                   key={day.date}
                   onClick={
-                    axis === null
+                    axis === null || onCreateAt === undefined
                       ? undefined
                       : (event) =>
                           onCreateAt(day.date, columnClickPoint(event), axis)
@@ -797,7 +842,7 @@ function WeekGrid({
                     // に対してライト 0.93/0.965、ダーク 0.269/0.145 と明度差があり、
                     // 不透明度を下げずに敷くことで一目で休みだと分かる。色はトークンのみ
                     day.isClosed && "bg-secondary",
-                    axis !== null && emptySlotClass,
+                    axis !== null && onCreateAt !== undefined && emptySlotClass,
                   )}
                 >
                   {/* 背景色だけでは意味が伝わらないのでラベルは残す。予約があれば
@@ -811,39 +856,34 @@ function WeekGrid({
                   {day.items.map((item) => {
                     const colorIndex =
                       colorIndexByStaffId.get(item.staffId) ?? 0;
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        // 日付列の空き領域クリック(代行登録ダイアログ)へ
-                        // 伝播させない。カードの上は従来どおり予約詳細を開く
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onSelect(item.id);
-                        }}
-                        // 重なりで幅が狭くなると文字が切れるため、完全な情報を
-                        // ネイティブのツールチップで補う(クリックの詳細ダイアログは従来どおり)
-                        title={weekItemTooltip(
-                          item,
-                          staffNameById.get(item.staffId),
-                        )}
-                        className={cn(
-                          // ring は定休日の下地(bg-secondary)と同色のカード
-                          // (staff-colors の3人目)でも輪郭が消えないようにする
-                          "absolute overflow-hidden rounded-md border-l-4 px-1.5 py-1 text-left ring-1 ring-border transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                          staffColor(colorIndex).card,
-                        )}
-                        // 横位置は重なりのレーン分割(admin-calendar.ts)が決める。
-                        // 左右2pxずつ削るのは従来の inset-x-0.5 と同じ見た目にするためで、
-                        // 幅を分け合ったときは隣との間に4pxの間隔ができる
-                        // (加えて ring-1 ring-border で輪郭が分かる)
-                        style={{
-                          top: `${item.topPercent}%`,
-                          height: `${item.heightPercent}%`,
-                          left: `calc(${item.leftPercent}% + 2px)`,
-                          width: `calc(${item.widthPercent}% - 4px)`,
-                        }}
-                      >
+                    const className = cn(
+                      // ring は定休日の下地(bg-secondary)と同色のカード
+                      // (staff-colors の3人目)でも輪郭が消えないようにする
+                      "absolute overflow-hidden rounded-md border-l-4 px-1.5 py-1 text-left ring-1 ring-border",
+                      staffColor(colorIndex).card,
+                      // 押せるときだけホバー・フォーカスの見た目を出す
+                      // (フォームダイアログを開いている間は押せない)
+                      onSelect !== undefined &&
+                        "transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    );
+                    // 横位置は重なりのレーン分割(admin-calendar.ts)が決める。
+                    // 左右2pxずつ削るのは従来の inset-x-0.5 と同じ見た目にするためで、
+                    // 幅を分け合ったときは隣との間に4pxの間隔ができる
+                    // (加えて ring-1 ring-border で輪郭が分かる)
+                    const style = {
+                      top: `${item.topPercent}%`,
+                      height: `${item.heightPercent}%`,
+                      left: `calc(${item.leftPercent}% + 2px)`,
+                      width: `calc(${item.widthPercent}% - 4px)`,
+                    };
+                    // 重なりで幅が狭くなると文字が切れるため、完全な情報を
+                    // ネイティブのツールチップで補う(押せないときも読める)
+                    const tooltip = weekItemTooltip(
+                      item,
+                      staffNameById.get(item.staffId),
+                    );
+                    const content = (
+                      <>
                         <p className="truncate text-xs font-bold">
                           {item.titleLabel}
                         </p>
@@ -854,6 +894,40 @@ function WeekGrid({
                             {item.menuLabel}
                           </p>
                         )}
+                      </>
+                    );
+
+                    // 押せないときは button ではなく div にする(日表示の
+                    // TimelineBlocks と同じ作法。フォーカスも当たらない)
+                    if (onSelect === undefined) {
+                      return (
+                        <div
+                          key={item.id}
+                          title={tooltip}
+                          className={className}
+                          style={style}
+                        >
+                          {content}
+                        </div>
+                      );
+                    }
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        // 日付列の空き領域クリック(代行登録ダイアログ)へ
+                        // 伝播させない。カードの上は従来どおり予約詳細を開く。
+                        // 列とグリッドの座標も渡し、変更ダイアログを代行登録と
+                        // 同じ位置(押した列以外の領域の中央)に出せるようにする
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onSelect(item.id, cardColumnAnchor(event));
+                        }}
+                        title={tooltip}
+                        className={className}
+                        style={style}
+                      >
+                        {content}
                       </button>
                     );
                   })}

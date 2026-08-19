@@ -423,6 +423,48 @@ export function clampDialogPosition(params: {
 }
 
 /**
+ * クリックした列と、その列が属する列グリッド全体の左右X(ビューポート座標のpx)。
+ * 空き枠クリック(代行登録)でも予約カードのクリック(変更)でも、押した要素から
+ * 同じ形で計測して渡す。DOM計測はUI層の責務で、位置の判断はここの純粋関数が持つ。
+ */
+export type ColumnAnchor = {
+  columnLeft: number;
+  columnRight: number;
+  gridLeft: number;
+  gridRight: number;
+};
+
+/**
+ * フォームダイアログ(代行登録・変更で共通)の初期X座標(px)。
+ * - 押した列が分かるとき(anchor あり)は dialogInitialX と同じ位置ロジック
+ *   = 押した列以外の広い領域の中央。代行登録も変更も同じ体験にする
+ * - 押した列が分からないとき(anchor なし。スマホのリスト表示から詳細→変更など)は
+ *   右端に寄せて左端の時間目盛りと左側の列を残す(dialogInitialX が残り領域
+ *   同幅のときに右側を選ぶのと同じ方針)
+ */
+export function formDialogInitialX(params: {
+  anchor: ColumnAnchor | null;
+  viewportWidth: number;
+  dialogWidth: number;
+  margin: number;
+}): number {
+  const { anchor, viewportWidth, dialogWidth, margin } = params;
+  if (anchor !== null) {
+    return dialogInitialX({
+      clickedColumnLeft: anchor.columnLeft,
+      clickedColumnRight: anchor.columnRight,
+      gridLeft: anchor.gridLeft,
+      gridRight: anchor.gridRight,
+      viewportWidth,
+      dialogWidth,
+      margin,
+    });
+  }
+  // 画面がダイアログより狭ければ左余白に倒す(clampDialogPosition と同じ扱い)
+  return Math.max(margin, viewportWidth - dialogWidth - margin);
+}
+
+/**
  * 代行登録ダイアログの初期X座標(px)。クリックしたスタッフ列「以外」の領域の
  * 中央にダイアログを重ねる。非モーダルで「背後のカレンダーを見ながら入力する」
  * ダイアログなので、いま押した列の空き状況が隠れると目的を果たせない。

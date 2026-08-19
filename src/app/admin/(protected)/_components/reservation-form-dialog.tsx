@@ -12,14 +12,15 @@
 // (変更は mode="edit"。ページ版 /admin/reservations/[id]/edit と同じ構成)。
 // 非モーダルなので aria-modal は付けない(付けると背後が読み上げ対象外になる)。
 
-import { ChevronLeft, GripHorizontal, X } from "lucide-react";
+import { GripHorizontal, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ProxyRegistrationForm } from "@/app/admin/(protected)/reservations/new/_components/proxy-registration-form";
 import {
   clampDialogPosition,
-  dialogInitialX,
+  formDialogInitialX,
   type AdminStaff,
+  type ColumnAnchor,
 } from "@/lib/admin-calendar";
 import type { ActiveMenu } from "@/server/admin-data";
 
@@ -40,17 +41,6 @@ const INITIAL_TOP = 72;
 /** md ブレークポイント(Tailwind と揃える)。未満はドラッグせずシート表示 */
 const DESKTOP_QUERY = "(min-width: 768px)";
 
-/**
- * クリックした列と、列グリッド全体の左右X(ビューポート座標のpx)。
- * 押した列以外の領域の中央にダイアログを重ねるために使う(dialogInitialX)。
- */
-export type ColumnAnchor = {
-  columnLeft: number;
-  columnRight: number;
-  gridLeft: number;
-  gridRight: number;
-};
-
 /** 代行登録(カレンダーの空き枠クリック) */
 export type ProxyRegistrationTarget = {
   mode: "create";
@@ -66,7 +56,7 @@ export type ProxyRegistrationTarget = {
   /** 壁時計時刻 "HH:MM" */
   time: string;
   /** クリックした列(初期位置の決定に使う) */
-  anchor: ColumnAnchor;
+  anchor: ColumnAnchor | null;
 };
 
 /**
@@ -86,6 +76,12 @@ export type ReservationEditTarget = {
   /** 現在も有効なメニューだけに絞ったメニューID(restoreSelectableMenuIds) */
   menuIds: string[];
   note: string;
+  /**
+   * 詳細を開いたきっかけになった予約カードが載っていた列。代行登録と同じ
+   * 位置ロジックでダイアログを出すために持ち回る。スマホのリスト表示など
+   * 列が分からない経路では null(右寄せにフォールバックする)
+   */
+  anchor: ColumnAnchor | null;
 };
 
 export type ReservationDialogTarget =
@@ -100,7 +96,8 @@ type Props = {
   onSuccess: () => void;
   /**
    * 変更モードで詳細ダイアログへ引き返す導線(店側キャンセルの「戻る」と同じ体験)。
-   * 省略するとヘッダーに戻るボタンを出さない(代行登録には戻り先が無い)。
+   * 省略すると戻るボタンを出さない(代行登録には戻り先が無い)。
+   * ボタンはフォームの送信ボタンの下に出る(ProxyRegistrationForm 側)。
    */
   onBack?: () => void;
 };
@@ -126,27 +123,20 @@ export function ReservationFormDialog({
     () => window.matchMedia(DESKTOP_QUERY).matches,
   );
 
-  // パネルの位置(fixed の left/top)。
-  // - 代行登録: 初期の左右はクリックしたスタッフ列以外の領域の中央
-  //   (dialogInitialX)= いま見たい列の空き状況を隠さない位置
-  // - 変更: 画面中央のモーダル(予約詳細ダイアログ)から開くため、押した列の
-  //   座標が無い。画面右端に寄せて左端の時間目盛りと左側の列を残す
-  //   (dialogInitialX が残り領域同幅のときに右側を選ぶのと同じ方針)。
-  //   狙った列が隠れる場合はヘッダーをつかんで動かせる
+  // パネルの位置(fixed の left/top)。初期の左右は代行登録・変更とも同じ
+  // 経路(formDialogInitialX)で決める = 押した列以外の領域の中央に出るので、
+  // いま見たい列の空き状況が隠れない。変更は予約カードのクリック時に測った
+  // 列の座標(anchor)を持ち回る。列が分からない経路(スマホのリスト表示など)は
+  // anchor が null で右寄せにフォールバックする。
+  // 狙った列が隠れる場合はヘッダーをつかんで動かせる
   const [position, setPosition] = useState<{ x: number; y: number }>(() =>
     clampDialogPosition({
-      x:
-        target.mode === "create"
-          ? dialogInitialX({
-              clickedColumnLeft: target.anchor.columnLeft,
-              clickedColumnRight: target.anchor.columnRight,
-              gridLeft: target.anchor.gridLeft,
-              gridRight: target.anchor.gridRight,
-              viewportWidth: window.innerWidth,
-              dialogWidth: PANEL_WIDTH,
-              margin: VIEWPORT_MARGIN,
-            })
-          : window.innerWidth - PANEL_WIDTH - VIEWPORT_MARGIN,
+      x: formDialogInitialX({
+        anchor: target.anchor,
+        viewportWidth: window.innerWidth,
+        dialogWidth: PANEL_WIDTH,
+        margin: VIEWPORT_MARGIN,
+      }),
       y: INITIAL_TOP,
       width: PANEL_WIDTH,
       // 初回は未描画で実寸が測れない。高さ0で扱うと上端(margin〜)には
@@ -266,23 +256,14 @@ export function ReservationFormDialog({
           />
         )}
         <h2 className="text-base font-bold">{title}</h2>
-        {/* 詳細へ引き返す(変更モードのみ)。閉じる × の隣に置き、
-            「戻る」と「閉じる」を取り違えないようテキストで示す */}
-        {onBack !== undefined && (
-          <button
-            type="button"
-            onClick={onBack}
-            className="ml-auto flex h-8 items-center gap-1 rounded-lg pl-1 pr-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
-          >
-            <ChevronLeft aria-hidden="true" className="size-4" />
-            詳細に戻る
-          </button>
-        )}
+        {/* 「詳細に戻る」はタイトルバーだと気づかれないという実機フィードバックを
+            受けて、フォームの送信ボタンの下へ移した(キャンセル確認の
+            「キャンセルする / 戻る」と同じ並び)。ここには置かない */}
         <button
           type="button"
           aria-label="閉じる"
           onClick={onClose}
-          className={`${onBack === undefined ? "ml-auto " : ""}flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-background hover:text-foreground`}
+          className="ml-auto flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
         >
           <X aria-hidden="true" className="size-5" />
         </button>
@@ -322,6 +303,7 @@ export function ReservationFormDialog({
                 }
           }
           onSuccess={onSuccess}
+          onBack={onBack}
         />
       </div>
     </div>

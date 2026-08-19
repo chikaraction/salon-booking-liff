@@ -12,6 +12,7 @@ import {
   dayNavLabel,
   describeSlotAvailability,
   dialogInitialX,
+  formDialogInitialX,
   isClosedByBusinessHours,
   isJstToday,
   moveDay,
@@ -2187,5 +2188,46 @@ describe("dialogInitialX: 代行登録ダイアログをクリックした列以
     });
     expect(x).toBeGreaterThanOrEqual(16);
     expect(x).toBeLessThanOrEqual(1280 - DIALOG_WIDTH - 16);
+  });
+});
+
+describe("formDialogInitialX: 代行登録・変更で同じ初期位置ロジックを使う", () => {
+  const DIALOG_WIDTH = 416;
+  const base = { viewportWidth: 1280, dialogWidth: DIALOG_WIDTH, margin: 16 };
+  /** 時間目盛り(w-14 = 56px)の右からスタッフ列グリッドが始まる想定 */
+  const anchor = {
+    columnLeft: 56,
+    columnRight: 668,
+    gridLeft: 56,
+    gridRight: 1280,
+  };
+
+  it("列の情報があるときは dialogInitialX と同じ位置を返す(登録・変更で同じ)", () => {
+    expect(formDialogInitialX({ anchor, ...base })).toBe(
+      dialogInitialX({
+        clickedColumnLeft: anchor.columnLeft,
+        clickedColumnRight: anchor.columnRight,
+        gridLeft: anchor.gridLeft,
+        gridRight: anchor.gridRight,
+        ...base,
+      }),
+    );
+  });
+
+  it("列の情報が無いとき(リストからの選択など)は右端に寄せる", () => {
+    expect(formDialogInitialX({ anchor: null, ...base })).toBe(
+      1280 - DIALOG_WIDTH - 16, // 848
+    );
+  });
+
+  it("列の情報が無く、画面がダイアログより狭いときは左余白に倒す", () => {
+    expect(
+      formDialogInitialX({
+        anchor: null,
+        viewportWidth: 300,
+        dialogWidth: DIALOG_WIDTH,
+        margin: 16,
+      }),
+    ).toBe(16);
   });
 });

@@ -1,8 +1,31 @@
 // 時間軸グリッドの部品(日表示PC・スマホ・週表示で共用する薄い描画層)。
 // 配置(top%・height%・ラベル)の計算は src/lib/admin-calendar.ts が済ませている。
 
-import type { PlacedBlock, TickMark } from "@/lib/admin-calendar";
+import type { ColumnAnchor, PlacedBlock, TickMark } from "@/lib/admin-calendar";
 import { cn } from "@/lib/utils";
+
+/**
+ * 予約カードから、そのカードが載っている列とグリッド全体の左右Xを測る。
+ * カード(absolute)の親 = 列(relative なコンテナ)、その親 = 列グリッド、
+ * という構造は日表示(DayTimelineGrid)・週表示(WeekGrid)で共通。
+ * 変更ダイアログを空き枠クリックの代行登録と同じ位置に出すために使う
+ * (位置の判断は純粋関数 formDialogInitialX。ここは計測だけ)。
+ * 親が取れない場合は null を返し、呼び出し側でフォールバック(右寄せ)にする。
+ */
+export function cardColumnAnchor(
+  event: React.MouseEvent<HTMLElement>,
+): ColumnAnchor | null {
+  const column = event.currentTarget.parentElement;
+  if (column === null) return null;
+  const columnRect = column.getBoundingClientRect();
+  const gridRect = column.parentElement?.getBoundingClientRect() ?? columnRect;
+  return {
+    columnLeft: columnRect.left,
+    columnRight: columnRect.right,
+    gridLeft: gridRect.left,
+    gridRight: gridRect.right,
+  };
+}
 
 /** 時間軸の表示高さ。目盛りの数から1時間 ≒ 4rem で概算する */
 export function timelineHeight(tickMarks: TickMark[]): string {
@@ -64,6 +87,8 @@ export function HourLines({ tickMarks }: { tickMarks: TickMark[] }) {
  * - ブロック(kind=block): 斜線ハッチング+実線の輪郭+「予約不可」ラベル
  * onSelect が渡され、かつ予約(type="booking"で id あり)のときだけ
  * クリック可能にして予約詳細ダイアログを開く。休憩・ブロックは非クリック。
+ * フォームダイアログを開いている間は onSelect を渡さない = カードは押せず、
+ * 押せる見た目(cursor-pointer・ホバー)も出ない。
  */
 export function TimelineBlocks({
   blocks,
@@ -72,7 +97,8 @@ export function TimelineBlocks({
 }: {
   blocks: PlacedBlock[];
   bookingCardClass: string;
-  onSelect?: (id: string) => void;
+  /** 第2引数はカードが載っている列の座標(変更ダイアログの初期位置に使う) */
+  onSelect?: (id: string, anchor: ColumnAnchor | null) => void;
 }) {
   return (
     <>
@@ -139,7 +165,7 @@ export function TimelineBlocks({
               // 予約カードの上では従来どおり予約詳細ダイアログを開く
               onClick={(event) => {
                 event.stopPropagation();
-                onSelect(block.id as string);
+                onSelect(block.id as string, cardColumnAnchor(event));
               }}
             >
               {content}

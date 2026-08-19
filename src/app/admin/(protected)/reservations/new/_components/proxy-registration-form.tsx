@@ -71,6 +71,13 @@ type Props = {
   /** variant="dialog" の登録成功時に呼ばれる(閉じる・再取得は呼び出し側) */
   onSuccess?: () => void;
   /**
+   * variant="dialog" かつ mode="edit" のときに送信ボタンの下へ出す「詳細に戻る」。
+   * タイトルバーに置くと気づかれないという実機フィードバックを受け、
+   * 決定ボタンの並び(キャンセル確認の「キャンセルする / 戻る」)に合わせる。
+   * ページ版には「カレンダーに戻る」(backHref)があるので出さない
+   */
+  onBack?: () => void;
+  /**
    * variant="page" のときにフォーム上部へ出す戻り先(例 "/admin?date=2026-08-19")。
    * ページ版は直URLで開くとカレンダーへ戻る導線がサイドバーしかなく行き止まりに
    * 見える(実機フィードバック)。ダイアログ版では使わない
@@ -88,6 +95,7 @@ export function ProxyRegistrationForm({
   fixedCustomerName,
   variant = "page",
   onSuccess,
+  onBack,
   backHref,
 }: Props) {
   const router = useRouter();
@@ -702,24 +710,45 @@ export function ProxyRegistrationForm({
             </p>
           )}
 
-          <Button
-            type="submit"
-            size="lg"
-            disabled={
-              isSubmitting ||
-              availability?.status === "past" ||
-              availability?.status === "closed"
-            }
-            className="h-12 w-full rounded-xl text-base font-bold"
-          >
-            {isEdit
-              ? isSubmitting
-                ? "変更中…"
-                : "この内容で変更"
-              : isSubmitting
-                ? "登録中…"
-                : "この内容で登録"}
-          </Button>
+          {/* 決定と「戻る」を縦に並べる(キャンセル確認の「キャンセルする / 戻る」
+              と同じ発想)。タイトルバーの戻る導線は気づかれなかったため、
+              押すことになるボタンのすぐ下に置く */}
+          <div className="flex flex-col gap-2">
+            <Button
+              type="submit"
+              size="lg"
+              disabled={
+                isSubmitting ||
+                availability?.status === "past" ||
+                availability?.status === "closed"
+              }
+              className="h-12 w-full rounded-xl text-base font-bold"
+            >
+              {isEdit
+                ? isSubmitting
+                  ? "変更中…"
+                  : "この内容で変更"
+                : isSubmitting
+                  ? "登録中…"
+                  : "この内容で登録"}
+            </Button>
+
+            {/* ダイアログの変更モードだけ。閉じる(×・Escape)と区別できるよう
+                「詳細に戻る」と書き、送信中は押させない */}
+            {isDialog && isEdit && onBack !== undefined && (
+              <Button
+                type="button"
+                size="lg"
+                variant="outline"
+                disabled={isSubmitting}
+                onClick={onBack}
+                className="h-12 w-full rounded-xl text-base font-bold"
+              >
+                <ChevronLeft aria-hidden="true" className="size-5" />
+                詳細に戻る
+              </Button>
+            )}
+          </div>
         </form>
       </div>
     </div>
