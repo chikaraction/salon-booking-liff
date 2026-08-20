@@ -140,6 +140,12 @@ export function TimelineBlocks({
           // 内側に引く(ring-inset。外側に出すと隣のブロックに重なる)。
           // 休憩だけは破線の枠にして「予約ではない」ことを形でも示す
           "absolute inset-x-1 overflow-hidden rounded-lg px-2 py-1.5 text-left",
+          // button はブラウザ既定で中身を上下中央・横中央に寄せるため、同じ
+          // クラスでも div と縦位置が食い違っていた(押せる/押せないで動く)。
+          // flex-col + justify-start で上詰め、items-stretch で子を横幅いっぱいに
+          // (truncate を効かせる)して、button でも div でも同じ見た目にする。
+          // モック(02-予約カレンダー)のとおり常に上詰めが正
+          "flex flex-col items-stretch justify-start",
           block.type !== "break" && "ring-1 ring-inset ring-border",
           block.type === "booking" && cn("border-l-4", bookingCardClass),
           block.type === "break" &&

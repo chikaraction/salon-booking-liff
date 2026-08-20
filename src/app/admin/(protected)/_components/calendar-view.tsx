@@ -887,6 +887,9 @@ function WeekGrid({
                       // ring は定休日の下地(bg-secondary)と同色のカード
                       // (staff-colors の3人目)でも輪郭が消えないようにする
                       "absolute overflow-hidden rounded-md border-l-4 px-1.5 py-1 text-left ring-1 ring-border",
+                      // 日表示のカード(timeline-column.tsx)と同じ理由で、
+                      // button 既定の上下中央寄せを打ち消して常に上詰めにする
+                      "flex flex-col items-stretch justify-start",
                       staffColor(colorIndex).card,
                       // 押せるときだけホバー・フォーカスの見た目を出す
                       // (フォームダイアログを開いている間は押せない)
