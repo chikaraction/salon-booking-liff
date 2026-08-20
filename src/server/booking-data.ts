@@ -203,9 +203,23 @@ export type DayAvailability =
   | { kind: "invalid_menus" }
   | {
       kind: "ok";
-      /** 有効スタッフ(display_order順)。perStaff も同順 */
+      /** 対象日が定休日(business_hours.is_open=false / 行なし)か */
+      isClosed: boolean;
+      /** 有効スタッフ(display_order順)。perStaff / perStaffContext も同順 */
       staff: Array<{ id: string; name: string }>;
       perStaff: StaffSlots[];
+      /**
+       * 枠の計算に使った素材(店側の「なぜ空き枠が無いのか」の説明に使う。
+       * describeSlotAvailability が computeStaffDaySlots と同じ入力で判定できるよう
+       * 加算的に返す。客側は参照しない)
+       */
+      businessDay: BusinessDay;
+      policy: BookingPolicy;
+      perStaffContext: Array<{
+        staffId: string;
+        working: StaffWorkingDay | null;
+        busy: BusyRange[];
+      }>;
       /** 選択メニュー(所要時間・金額の根拠) */
       menus: Array<{
         id: string;
@@ -342,22 +356,38 @@ export async function getDayAvailability(
   const summary = summarizeSelectedMenus(selectedMenus);
   const policy = toPolicy(settings);
 
-  const perStaff: StaffSlots[] = staff.map((member) => ({
+  const perStaffContext = staff.map((member) => ({
     staffId: member.id,
+    working: workingByStaff.get(member.id) ?? null,
+    busy: busyByStaff.get(member.id) ?? [],
+  }));
+
+  const perStaff: StaffSlots[] = perStaffContext.map((context) => ({
+    staffId: context.staffId,
     slots: computeStaffDaySlots({
       date,
       durationMinutes: summary.totalDurationMinutes,
       businessDay,
       // M2の休業日判定は毎週の定休(business_hours.is_open)のみ。
       // 第◯曜日・祝日・指定日ルール(M4)は isClosedDay に載せる
-      working: workingByStaff.get(member.id) ?? null,
-      busy: busyByStaff.get(member.id) ?? [],
+      working: context.working,
+      busy: context.busy,
       policy,
       now,
     }),
   }));
 
-  return { kind: "ok", staff, perStaff, menus: selectedMenus, summary };
+  return {
+    kind: "ok",
+    isClosed: !businessDay.isOpen,
+    staff,
+    perStaff,
+    businessDay,
+    policy,
+    perStaffContext,
+    menus: selectedMenus,
+    summary,
+  };
 }
 
 // ---------------------------------------------------------------------------

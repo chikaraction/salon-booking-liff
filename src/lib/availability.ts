@@ -60,6 +60,18 @@ export function jstCalendarDate(at: Date): string {
   return new Date(at.getTime() + JST_OFFSET_MS).toISOString().slice(0, 10);
 }
 
+/**
+ * UTCのDateをJSTの壁時計時刻 "HH:MM"(24時間・時も分もゼロ埋め)にする。
+ * <input type="time"> の value や isWallClockTime が受け付ける形式で、
+ * 店側変更の初期時刻を既存予約の開始時刻から復元するのに使う。
+ */
+export function jstClockTime(at: Date): string {
+  const jst = new Date(at.getTime() + JST_OFFSET_MS);
+  const hours = String(jst.getUTCHours()).padStart(2, "0");
+  const minutes = String(jst.getUTCMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
 /** JSTの暦日にn日を加算する */
 export function addCalendarDays(date: string, days: number): string {
   const d = new Date(`${date}T00:00:00Z`);

@@ -30,6 +30,26 @@ npx supabase db push
 ローカルでDockerが使える環境なら `npx supabase db reset` で
 マイグレーション+seed(開発用ダミーデータ)が投入できる。
 
+### 店側スタッフ(管理画面ユーザー)の登録
+
+管理画面(`/admin`)の認証は Supabase Auth のメール+パスワード。**招待制**で、
+セルフサインアップは使わない(ADR-005)。スタッフ数名の運用なので、ユーザー作成は
+Supabaseダッシュボードで行い、`staff` レコードと手動で紐付ける。
+
+1. Supabaseダッシュボードの **Authentication → Providers** で
+   「Allow new users to sign up」を**無効**にする(招待制の担保)
+2. **Authentication → Users → Add user** でスタッフのメール+パスワードを作成
+3. 作成した auth ユーザーのUUIDを、対応する `staff` 行に紐付ける(SQL Editorで実行):
+
+   ```sql
+   update public.staff
+   set auth_user_id = '<auth.users の id>'
+   where name = '<スタッフ名>';   -- または対象の staff.id で指定
+   ```
+
+紐付けはロール差(オーナー/スタッフ)の実装(M4b)で必要になる。M4時点では
+ログインさえできれば管理画面の全操作が可能(両ロールとも全操作可)。
+
 ## コマンド
 
 ```sh
