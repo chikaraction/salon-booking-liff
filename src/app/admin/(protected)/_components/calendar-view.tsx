@@ -280,15 +280,25 @@ export function CalendarView({
           </button>
         </div>
 
+        {/* 「今日」は当日以外を表示しているときこそ押したいボタンなので、
+            塗りの有無に関わらず常に枠線付きで出す(塗りが無いときに
+            ただの文字列に見えると、押せることに気づけない)。
+            高さ・角丸・枠線は隣の ‹ › ・日付ピッカー(h-9 / rounded-lg /
+            border-border、ピッカーは bg-card)に揃える。
+            当日を表示中かどうかは塗りと枠線の色で示す:
+            - 当日: --accent の塗り + 「選択状態」の色である --primary の枠線
+              (ダークでは --accent と --muted が同値なので、下の hover と
+              紛れないように枠線でも差を付ける)
+            - 当日以外: ピッカーと同じ bg-card + 通常の文字色、ホバーで淡い下地 */}
         <button
           type="button"
           onClick={() => go(view, todayDate)}
           aria-current={isToday ? "date" : undefined}
           className={cn(
-            "h-8 rounded-lg px-3 text-sm font-medium transition-colors",
+            "h-9 rounded-lg border px-3 text-sm font-medium transition-colors",
             isToday
-              ? "bg-accent text-accent-foreground"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              ? "border-primary bg-accent text-accent-foreground"
+              : "border-border bg-card text-foreground hover:bg-muted",
           )}
         >
           今日
