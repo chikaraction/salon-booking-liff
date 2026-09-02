@@ -191,45 +191,50 @@ function WeeklyHoursSection({
         </p>
         {days.map((day) => (
           <div key={day.weekday} className="flex flex-col gap-1">
-            <div className="flex flex-wrap items-center gap-2">
+            {/* スマホ幅は曜日を上の行に逃がし、開店〜閉店は1行に収める(ADR-005) */}
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
               <span
                 className={cn(
-                  "w-16 shrink-0 text-base",
+                  "shrink-0 text-base sm:w-16",
                   day.isOpen ? "text-foreground" : "text-muted-foreground",
                 )}
               >
                 {weekdayLongLabel(day.weekday)}
               </span>
-              <label className="sr-only" htmlFor={`open-${day.weekday}`}>
-                {weekdayLongLabel(day.weekday)}の開店時刻
-              </label>
-              <input
-                id={`open-${day.weekday}`}
-                type="time"
-                value={day.openTime}
-                disabled={!day.isOpen}
-                onChange={(event) =>
-                  update(day.weekday, { openTime: event.target.value })
-                }
-                className={cn(inputClass, "w-32")}
-              />
-              <span className="text-muted-foreground">〜</span>
-              <label className="sr-only" htmlFor={`close-${day.weekday}`}>
-                {weekdayLongLabel(day.weekday)}の閉店時刻
-              </label>
-              <input
-                id={`close-${day.weekday}`}
-                type="time"
-                value={day.closeTime}
-                disabled={!day.isOpen}
-                onChange={(event) =>
-                  update(day.weekday, { closeTime: event.target.value })
-                }
-                className={cn(inputClass, "w-32")}
-              />
-              {!day.isOpen && (
-                <span className="text-sm text-muted-foreground">定休</span>
-              )}
+              <div className="flex items-center gap-2">
+                <label className="sr-only" htmlFor={`open-${day.weekday}`}>
+                  {weekdayLongLabel(day.weekday)}の開店時刻
+                </label>
+                <input
+                  id={`open-${day.weekday}`}
+                  type="time"
+                  value={day.openTime}
+                  disabled={!day.isOpen}
+                  onChange={(event) =>
+                    update(day.weekday, { openTime: event.target.value })
+                  }
+                  className={cn(inputClass, "w-32 min-w-0 flex-1 sm:flex-none")}
+                />
+                <span className="text-muted-foreground">〜</span>
+                <label className="sr-only" htmlFor={`close-${day.weekday}`}>
+                  {weekdayLongLabel(day.weekday)}の閉店時刻
+                </label>
+                <input
+                  id={`close-${day.weekday}`}
+                  type="time"
+                  value={day.closeTime}
+                  disabled={!day.isOpen}
+                  onChange={(event) =>
+                    update(day.weekday, { closeTime: event.target.value })
+                  }
+                  className={cn(inputClass, "w-32 min-w-0 flex-1 sm:flex-none")}
+                />
+                {!day.isOpen && (
+                  <span className="shrink-0 text-sm text-muted-foreground">
+                    定休
+                  </span>
+                )}
+              </div>
             </div>
             {errors[day.weekday] !== undefined && (
               <p role="alert" className="text-sm text-destructive">
