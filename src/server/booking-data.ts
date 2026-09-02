@@ -26,6 +26,7 @@ import {
 import {
   resolveBusinessDay,
   resolveDayClosure,
+  resolveStaffWorkingDay,
   type ClosureRules,
 } from "@/lib/closures";
 import type { ReservationCardInput } from "@/lib/my-reservations";
@@ -473,9 +474,17 @@ export async function getDayAvailability(
   const summary = summarizeSelectedMenus(selectedMenus);
   const policy = toPolicy(settings);
 
+  // 定休曜日を臨時営業にした日は、その曜日の勤務行が無いスタッフを
+  // 営業時間いっぱいの勤務とみなす(判断は closures.ts の resolveStaffWorkingDay)。
+  // その日に出ないスタッフは臨時休ブロックで塞ぐ運用にする。
   const perStaffContext = staff.map((member) => ({
     staffId: member.id,
-    working: workingByStaff.get(member.id) ?? null,
+    working: resolveStaffWorkingDay({
+      date,
+      weeklyWorking: workingByStaff.get(member.id) ?? null,
+      weeklyBusinessDay,
+      businessDay,
+    }),
     busy: busyByStaff.get(member.id) ?? [],
   }));
 
