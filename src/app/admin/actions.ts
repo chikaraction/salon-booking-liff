@@ -5,6 +5,8 @@
 // - 戻り値は判別可能なResult型でUIが分岐に迷わない形にする
 // - セッションcookieの読み書きは createAdminAuthClient(@supabase/ssr)が行う
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 import {
   describeSlotAvailability,
   type ProxyDaySlot,
@@ -19,9 +21,14 @@ import {
   type ProxyRegistrationErrors,
   type ReservationEditErrors,
 } from "@/lib/admin-reservation-form";
-import { isCalendarDate, jstDateTime } from "@/lib/availability";
+import {
+  calendarWeekday,
+  isCalendarDate,
+  jstDateTime,
+  type BusinessDay,
+} from "@/lib/availability";
 import { isSlotTakenError, isUuid } from "@/lib/booking";
-import { makeIsClosedDay } from "@/lib/closures";
+import { resolveBusinessDay } from "@/lib/closures";
 import { createAdminAuthClient } from "@/server/admin-auth";
 import {
   fetchAdminBusinessHours,
@@ -277,6 +284,24 @@ export type CreateProxyReservationResult =
   | { ok: false; reason: "server_error"; message: string };
 
 /**
+ * 対象日(JSTの暦日)の営業時間を確定する。
+ * 休業日ルール(毎週の定休・第◯曜日・祝日・臨時休業)と臨時営業の営業時間を
+ * 純粋関数 resolveBusinessDay(closures.ts)に渡すだけの配線。
+ * 休業日は isOpen=false になり、時刻付きの臨時営業はその時刻で営業になる。
+ */
+async function resolveAdminBusinessDay(
+  supabase: SupabaseClient,
+  date: string,
+): Promise<BusinessDay> {
+  const businessHours = await fetchAdminBusinessHours(supabase);
+  const closureRules = await fetchClosureRules(supabase, businessHours);
+  const weeklyBusinessDay = businessHours.find(
+    (hours) => hours.weekday === calendarWeekday(date),
+  ) ?? { isOpen: false, openTime: null, closeTime: null };
+  return resolveBusinessDay({ date, weeklyBusinessDay, rules: closureRules });
+}
+
+/**
  * 代行登録を確定する。
  * 入力検証(純粋)→ authenticated クライアントで admin_create_reservation RPC。
  * p_start はメニュー所要時間の合計からRPCが終了時刻を導出する(開始のみ渡す)。
@@ -313,12 +338,12 @@ export async function createProxyReservation(
   try {
     const supabase = await createAdminAuthClient();
 
-    // 休業日ガード(UXでなく本当のガード)。対象日が休業日ならRPC前に止める。
+    // 休業日ガード(UXでなく本当のガード)。対象日に営業時間が無ければRPC前に止める。
     // 判定は authenticated クライアントの休業日ルール + 純粋関数(closures.ts)。
-    // 休憩・勤務時間外の上書きは許すが、休業日だけはブロックする(2026-07-18決定)
-    const businessHours = await fetchAdminBusinessHours(supabase);
-    const closureRules = await fetchClosureRules(supabase, businessHours);
-    if (makeIsClosedDay(closureRules)(value.date)) {
+    // 休憩・勤務時間外の上書きは許すが、休業日だけはブロックする(2026-07-18決定)。
+    // 時刻付きの臨時営業の日は営業になるので、定休曜日でも代行登録できる
+    const businessDay = await resolveAdminBusinessDay(supabase, value.date);
+    if (!businessDay.isOpen) {
       return {
         ok: false,
         reason: "closed",
@@ -454,12 +479,12 @@ export async function updateAdminReservation(
   try {
     const supabase = await createAdminAuthClient();
 
-    // 休業日ガード(UXでなく本当のガード)。対象日が休業日ならRPC前に止める。
+    // 休業日ガード(UXでなく本当のガード)。対象日に営業時間が無ければRPC前に止める。
     // 判定は authenticated クライアントの休業日ルール + 純粋関数(closures.ts)。
-    // 休憩・勤務時間外の上書きは許すが、休業日だけはブロックする(2026-07-18決定)
-    const businessHours = await fetchAdminBusinessHours(supabase);
-    const closureRules = await fetchClosureRules(supabase, businessHours);
-    if (makeIsClosedDay(closureRules)(value.date)) {
+    // 休憩・勤務時間外の上書きは許すが、休業日だけはブロックする(2026-07-18決定)。
+    // 時刻付きの臨時営業の日は営業になるので、定休曜日でも代行登録できる
+    const businessDay = await resolveAdminBusinessDay(supabase, value.date);
+    if (!businessDay.isOpen) {
       return {
         ok: false,
         reason: "closed",

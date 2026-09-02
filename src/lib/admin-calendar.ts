@@ -650,6 +650,8 @@ export type WeekView = {
  * - 休業日判定は入力の isClosedDay に従う(closures.ts の makeIsClosedDay を
  *   渡す。毎週の定休・第◯曜日・祝日・臨時休業が同じ受け口に載る)
  * - 時間軸は週内の営業時間の最小開店〜最大閉店
+ * - 1日だけの臨時営業(date_overrides の open_time/close_time)では軸は広がらない。
+ *   軸は予約の開始・終了でも広がるため実害が小さく、対応は見送っている
  */
 export function buildWeekView(params: {
   weekStart: string; // 日曜のJST暦日(weekStartOf で求める)

@@ -114,6 +114,8 @@ type DateOverrideRow = {
   end_date: string;
   is_open: boolean;
   label: string | null;
+  open_time: string | null; // 臨時営業日の営業時間。time型は "HH:MM:SS"
+  close_time: string | null;
 };
 
 type StaffWorkingHoursRow = {
@@ -185,7 +187,7 @@ export async function fetchClosureRules(
     supabase.from("nth_weekday_closures").select("weekday, nth"),
     supabase
       .from("date_overrides")
-      .select("start_date, end_date, is_open, label")
+      .select("start_date, end_date, is_open, label, open_time, close_time")
       .order("start_date"),
   ]);
   const settings = must(settingsRes, "店舗設定") as {
@@ -206,6 +208,8 @@ export async function fetchClosureRules(
       endDate: row.end_date,
       isOpen: row.is_open,
       label: row.label,
+      openTime: row.open_time,
+      closeTime: row.close_time,
     })),
   };
 }

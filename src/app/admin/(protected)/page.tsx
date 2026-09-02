@@ -18,7 +18,7 @@ import {
   isCalendarDate,
   jstCalendarDate,
 } from "@/lib/availability";
-import { makeIsClosedDay } from "@/lib/closures";
+import { makeIsClosedDay, resolveBusinessDay } from "@/lib/closures";
 import { createAdminAuthClient } from "@/server/admin-auth";
 import {
   fetchActiveMenus,
@@ -72,9 +72,8 @@ export default async function AdminCalendarPage({
     fetchActiveMenus(supabase),
   ]);
   // 休業日判定(毎週の定休・第◯曜日・祝日・臨時休業)は closures.ts に一本化する
-  const isClosedDay = makeIsClosedDay(
-    await fetchClosureRules(supabase, businessHours),
-  );
+  const closureRules = await fetchClosureRules(supabase, businessHours);
+  const isClosedDay = makeIsClosedDay(closureRules);
 
   let timeline: DayTimeline = EMPTY_TIMELINE;
   let listItems: ReservationListItem[] = [];
@@ -87,11 +86,13 @@ export default async function AdminCalendarPage({
       openTime: null,
       closeTime: null,
     };
-    // 第◯曜日・祝日・臨時休業の休業日も日表示で休業として出す
-    // (逆に臨時営業の日は営業時間の行がそのまま効く)
-    const businessDay = isClosedDay(date)
-      ? { isOpen: false, openTime: null, closeTime: null }
-      : weeklyDay;
+    // 第◯曜日・祝日・臨時休業の休業日も日表示で休業として出し、
+    // 時刻付きの臨時営業の日はその時刻を日表示の時間軸にする
+    const businessDay = resolveBusinessDay({
+      date,
+      weeklyBusinessDay: weeklyDay,
+      rules: closureRules,
+    });
     const [items, workingHours] = await Promise.all([
       fetchAdminCalendarItems(supabase, date, addCalendarDays(date, 1)),
       fetchStaffWorkingHoursForWeekday(supabase, weekday),

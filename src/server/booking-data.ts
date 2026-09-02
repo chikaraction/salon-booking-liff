@@ -23,7 +23,11 @@ import {
   type MenuCategoryGroup,
   type MenuSummary,
 } from "@/lib/booking";
-import { makeIsClosedDay, type ClosureRules } from "@/lib/closures";
+import {
+  resolveBusinessDay,
+  resolveDayClosure,
+  type ClosureRules,
+} from "@/lib/closures";
 import type { ReservationCardInput } from "@/lib/my-reservations";
 import { parseTstzrange } from "@/lib/tstzrange";
 import { getServiceRoleClient } from "@/server/supabase";
@@ -57,6 +61,8 @@ type DateOverrideRow = {
   end_date: string;
   is_open: boolean;
   label: string | null;
+  open_time: string | null; // 臨時営業日の営業時間。time型は "HH:MM:SS"
+  close_time: string | null;
 };
 
 type MenuCategoryRow = {
@@ -177,7 +183,7 @@ export async function getBookingPageData(): Promise<BookingPageData> {
     supabase.from("nth_weekday_closures").select("weekday, nth"),
     supabase
       .from("date_overrides")
-      .select("start_date, end_date, is_open, label")
+      .select("start_date, end_date, is_open, label, open_time, close_time")
       .order("start_date"),
   ]);
 
@@ -239,6 +245,8 @@ function toClosureOverrides(
     endDate: row.end_date,
     isOpen: row.is_open,
     label: row.label,
+    openTime: row.open_time,
+    closeTime: row.close_time,
   }));
 }
 
@@ -366,7 +374,7 @@ export async function getDayAvailability(
     supabase.from("nth_weekday_closures").select("weekday, nth"),
     supabase
       .from("date_overrides")
-      .select("start_date, end_date, is_open, label")
+      .select("start_date, end_date, is_open, label, open_time, close_time")
       .lte("start_date", date)
       .gte("end_date", date),
   ]);
@@ -415,25 +423,27 @@ export async function getDayAvailability(
       }
     : { isOpen: false, openTime: null, closeTime: null };
 
-  // 休業日判定(毎週の定休・第◯曜日・祝日・臨時休業)。closures.ts に一本化する。
+  // 休業日ルール(毎週の定休・第◯曜日・祝日・臨時休業)。closures.ts に一本化する。
   // 対象日の曜日だけ引いているので businessHours はその1行だけ渡す
   // (行が無い曜日は空配列 = 休業扱いになり、上の weeklyBusinessDay と一致する)。
-  const isClosedDay = makeIsClosedDay({
+  const closureRules: ClosureRules = {
     businessHours: hoursRow
       ? [{ weekday: hoursRow.weekday, isOpen: hoursRow.is_open }]
       : [],
     nthWeekdayClosures: nthClosures,
     closeOnHolidays: settings.close_on_holidays,
     overrides: toClosureOverrides(overrideRows),
-  });
-  const isClosed = isClosedDay(date);
+  };
+  const isClosed = resolveDayClosure(date, closureRules).isClosed;
 
-  // 休業日なら営業時間そのものを閉じてから枠計算へ渡す(祝日・第◯曜日・臨時休業でも
-  // 客側の予約枠が開かないようにする。モックE-2の説明文どおりの要件)。
-  // 逆に臨時営業(is_open=true)の日は営業時間の行が営業ならそのまま開く。
-  const businessDay: BusinessDay = isClosed
-    ? { isOpen: false, openTime: null, closeTime: null }
-    : weeklyBusinessDay;
+  // その日の営業時間を確定してから枠計算へ渡す。休業日(祝日・第◯曜日・臨時休業を
+  // 含む)は閉じ、客側の予約枠が開かないようにする(モックE-2の説明文どおりの要件)。
+  // 時刻付きの臨時営業はその時刻で開く(定休曜日でも枠が出る)。
+  const businessDay: BusinessDay = resolveBusinessDay({
+    date,
+    weeklyBusinessDay,
+    rules: closureRules,
+  });
 
   const workingByStaff = new Map<string, StaffWorkingDay>(
     workingRows.map((row) => [
