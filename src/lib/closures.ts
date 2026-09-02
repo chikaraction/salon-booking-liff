@@ -17,6 +17,7 @@ import {
   addCalendarDays,
   calendarWeekday,
   type BusinessDay,
+  type StaffWorkingDay,
 } from "./availability";
 import { calendarDateLabel } from "./calendar";
 
@@ -219,6 +220,57 @@ export function resolveBusinessDay(params: {
   }
 
   return weeklyBusinessDay;
+}
+
+/**
+ * その日のスタッフの勤務パターンを確定する。
+ *
+ * 定休曜日には staff_working_hours の行が誰にも無いのが普通なので、
+ * その曜日を臨時営業にしても勤務パターンが無く、枠が1つも開かない
+ * (computeStaffDaySlots の `if (!working) return []`)。
+ * そこで「定休曜日を臨時営業にした日は、その曜日の勤務行が無いスタッフを
+ * 営業時間いっぱい(休憩なし)の勤務とみなす」というルールを入れる。
+ * その日に出ないスタッフは臨時休ブロック(reservations.kind='block')で塞ぐ運用。
+ *
+ *   1. その曜日の勤務行がある                        → そのまま使う(最優先)
+ *   2. 定休曜日(weeklyBusinessDay が休業)が
+ *      時刻付きの臨時営業で開いた                    → 営業時間いっぱいの勤務
+ *   3. それ以外                                      → 勤務なし
+ *
+ * 営業曜日の短縮営業・祝日の打ち消し(時刻なしの臨時営業)は
+ * weeklyBusinessDay.isOpen が true なので条件2に当たらず、
+ * その曜日が休みのスタッフは休みのままになる。
+ */
+export function resolveStaffWorkingDay(params: {
+  date: string;
+  /** その曜日の勤務パターン(staff_working_hours の行。無ければ null) */
+  weeklyWorking: StaffWorkingDay | null;
+  /** その曜日の営業時間(business_hours。臨時営業の上書きを当てる前の値) */
+  weeklyBusinessDay: BusinessDay;
+  /** その日の実効営業時間(resolveBusinessDay の戻り値) */
+  businessDay: BusinessDay;
+}): StaffWorkingDay | null {
+  const { weeklyWorking, weeklyBusinessDay, businessDay } = params;
+
+  // 1. 通常の勤務パターンが最優先(定休曜日に個別の勤務行がある場合も含む)
+  if (weeklyWorking !== null) return weeklyWorking;
+
+  // 2. 定休曜日が臨時営業で開いた日だけ、営業時間いっぱいの勤務とみなす
+  if (
+    !weeklyBusinessDay.isOpen &&
+    businessDay.isOpen &&
+    businessDay.openTime !== null &&
+    businessDay.closeTime !== null
+  ) {
+    return {
+      startTime: businessDay.openTime,
+      endTime: businessDay.closeTime,
+      breakStart: null,
+      breakEnd: null,
+    };
+  }
+
+  return null;
 }
 
 // ---------------------------------------------------------------------------

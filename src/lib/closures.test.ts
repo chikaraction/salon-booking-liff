@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { BusinessDay } from "./availability";
+import type { BusinessDay, StaffWorkingDay } from "./availability";
 import {
   buildClosureListItems,
   japaneseHolidayName,
@@ -8,6 +8,7 @@ import {
   nthWeekdayOfMonth,
   resolveBusinessDay,
   resolveDayClosure,
+  resolveStaffWorkingDay,
   type ClosureRules,
 } from "./closures";
 
@@ -771,5 +772,158 @@ describe("resolveBusinessDay: その日の営業時間を確定する", () => {
       label: "臨時営業",
     });
     expect(makeIsClosedDay(withHours)("2026-07-20")).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 7. 定休曜日を臨時営業にした日の勤務扱い
+// ---------------------------------------------------------------------------
+
+describe("resolveStaffWorkingDay: 臨時営業日のスタッフ勤務パターン", () => {
+  /** 営業曜日の営業時間 */
+  const weeklyOpen: BusinessDay = {
+    isOpen: true,
+    openTime: "10:00:00",
+    closeTime: "18:00:00",
+  };
+  /** 定休曜日(business_hours が休業なので時刻を持たない) */
+  const weeklyClosed: BusinessDay = {
+    isOpen: false,
+    openTime: null,
+    closeTime: null,
+  };
+  /** 時刻付きの臨時営業で開いた日の実効営業時間 */
+  const specialOpen: BusinessDay = {
+    isOpen: true,
+    openTime: "10:00:00",
+    closeTime: "15:00:00",
+  };
+  const closed: BusinessDay = {
+    isOpen: false,
+    openTime: null,
+    closeTime: null,
+  };
+  /** その曜日の勤務パターンを持つスタッフ */
+  const weeklyWorking: StaffWorkingDay = {
+    startTime: "10:00:00",
+    endTime: "18:00:00",
+    breakStart: "13:00:00",
+    breakEnd: "14:00:00",
+  };
+
+  it("その曜日の勤務パターンがあればそれをそのまま返す(通常の営業日)", () => {
+    expect(
+      resolveStaffWorkingDay({
+        date: "2026-07-18",
+        weeklyWorking,
+        weeklyBusinessDay: weeklyOpen,
+        businessDay: weeklyOpen,
+      }),
+    ).toEqual(weeklyWorking);
+  });
+
+  it("その曜日の勤務パターンが無い通常の営業日は勤務なし(null)", () => {
+    expect(
+      resolveStaffWorkingDay({
+        date: "2026-07-18",
+        weeklyWorking: null,
+        weeklyBusinessDay: weeklyOpen,
+        businessDay: weeklyOpen,
+      }),
+    ).toBeNull();
+  });
+
+  it("定休曜日を時刻付きで臨時営業にした日は、勤務行の無いスタッフを営業時間いっぱいの勤務(休憩なし)とみなす", () => {
+    // 毎週月曜が定休の店で、2026-07-20(月)だけ 10:00〜15:00 で臨時営業する。
+    // 月曜の staff_working_hours は誰にも無いので、そのままでは枠が1つも出ない
+    expect(
+      resolveStaffWorkingDay({
+        date: "2026-07-20",
+        weeklyWorking: null,
+        weeklyBusinessDay: weeklyClosed,
+        businessDay: specialOpen,
+      }),
+    ).toEqual({
+      startTime: "10:00:00",
+      endTime: "15:00:00",
+      breakStart: null,
+      breakEnd: null,
+    });
+  });
+
+  it("定休曜日の臨時営業でも、その曜日の勤務行を持つスタッフはその勤務行が優先される", () => {
+    // 月曜が定休でも個人的に月曜の勤務行が入っているスタッフは、
+    // 休憩込みのその勤務パターンで枠が出る
+    expect(
+      resolveStaffWorkingDay({
+        date: "2026-07-20",
+        weeklyWorking,
+        weeklyBusinessDay: weeklyClosed,
+        businessDay: specialOpen,
+      }),
+    ).toEqual(weeklyWorking);
+  });
+
+  it("営業曜日の短縮営業では勤務扱いにしない(その曜日が休みのスタッフは休みのまま)", () => {
+    // 水曜は営業曜日。2026-07-29(水)を 10:00〜15:00 の短縮営業にしても、
+    // 水曜の勤務行が無いスタッフは出勤しない
+    expect(
+      resolveStaffWorkingDay({
+        date: "2026-07-29",
+        weeklyWorking: null,
+        weeklyBusinessDay: weeklyOpen,
+        businessDay: specialOpen,
+      }),
+    ).toBeNull();
+  });
+
+  it("祝日の打ち消し(時刻なしの臨時営業)でも勤務扱いにしない(元から営業曜日のため)", () => {
+    // 2026-07-20(海の日)を「祝日だが営業する」で開けても、
+    // 月曜が営業曜日である以上は通常の勤務パターンに従う
+    expect(
+      resolveStaffWorkingDay({
+        date: "2026-07-20",
+        weeklyWorking: null,
+        weeklyBusinessDay: weeklyOpen,
+        businessDay: weeklyOpen,
+      }),
+    ).toBeNull();
+  });
+
+  it("休業日は勤務なし(null)", () => {
+    expect(
+      resolveStaffWorkingDay({
+        date: "2026-07-20",
+        weeklyWorking: null,
+        weeklyBusinessDay: weeklyClosed,
+        businessDay: closed,
+      }),
+    ).toBeNull();
+  });
+
+  it("休業日は、その曜日の勤務行を持つスタッフでも勤務行をそのまま返す(休業判定は businessDay 側の責務)", () => {
+    // 休業かどうかは computeStaffDaySlots が businessDay で弾く。
+    // ここでは勤務パターンの解決だけを行い、勤務行の有無を書き換えない
+    expect(
+      resolveStaffWorkingDay({
+        date: "2026-07-20",
+        weeklyWorking,
+        weeklyBusinessDay: weeklyClosed,
+        businessDay: closed,
+      }),
+    ).toEqual(weeklyWorking);
+  });
+
+  it("定休曜日が開いていても実効営業時間に時刻が無ければ勤務扱いにしない", () => {
+    // business_hours に時刻が無い定休曜日を、時刻なしの臨時営業で開けた場合。
+    // 営業時間が定まらないので勤務時間も決められない
+    expect(
+      resolveStaffWorkingDay({
+        date: "2026-07-20",
+        weeklyWorking: null,
+        weeklyBusinessDay: weeklyClosed,
+        businessDay: { isOpen: true, openTime: null, closeTime: null },
+      }),
+    ).toBeNull();
   });
 });
