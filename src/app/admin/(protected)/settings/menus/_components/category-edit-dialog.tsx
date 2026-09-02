@@ -160,6 +160,9 @@ export function CategoryEditDialog({ categories, menuCounts, onClose }: Props) {
             </p>
           ) : (
             <DndContext
+              // IDを明示してハイドレーションのずれを避ける(menu-settings-form
+              // と同じ理由。省略すると採番の連番が描画ごとに変わる)
+              id="category-sort"
               sensors={sensors}
               collisionDetection={closestCenter}
               accessibility={{

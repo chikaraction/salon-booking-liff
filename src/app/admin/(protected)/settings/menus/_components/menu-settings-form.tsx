@@ -275,6 +275,10 @@ function CategorySection({
         </p>
       ) : (
         <DndContext
+          // IDを明示する。省略すると @dnd-kit が描画のたびに採番する連番で
+          // aria-describedby を作るため、サーバーとクライアントで値がずれて
+          // ハイドレーションの警告が出る(実物のソースで確認)
+          id={`menu-sort-${group.id}`}
           sensors={sensors}
           collisionDetection={closestCenter}
           accessibility={{
@@ -358,10 +362,10 @@ function MenuRow({
 
         {/* スマホ幅は「名前」の下に料金・所要時間を畳み、PC幅では列にする */}
         <div className="min-w-0 flex-1 md:contents">
-          <p className="truncate text-base font-bold text-foreground md:font-medium">
-            {menu.name}
+          <p className="flex min-w-0 items-center gap-2 text-base font-bold text-foreground md:font-medium">
+            <span className="truncate">{menu.name}</span>
             {!menu.isActive && (
-              <span className="ml-2 rounded-md bg-secondary px-2 py-0.5 text-xs font-normal text-secondary-foreground">
+              <span className="shrink-0 rounded-md bg-secondary px-2 py-0.5 text-xs font-normal text-secondary-foreground">
                 非表示
               </span>
             )}
