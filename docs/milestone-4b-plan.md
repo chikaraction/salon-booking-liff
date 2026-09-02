@@ -125,6 +125,32 @@ create table public.date_overrides (
 この3通りの解決は `src/lib/closures.ts` の `resolveBusinessDay` が担い、
 客側の枠計算・管理画面の日表示・代行登録の休業日ガードが同じ関数を通る。
 
+#### 臨時営業日のスタッフの勤務扱い(2026-09-02追加)
+
+営業時間が開いても、それだけでは枠は出ない。`computeStaffDaySlots` は
+その曜日の勤務パターン(`staff_working_hours`)が無いスタッフを休みとして
+畳む(`if (!working) return []`)が、**定休曜日にはその曜日の勤務行が
+誰にも無いのが普通**だからである。そこで運用ルールを次のように決めた:
+
+- **定休曜日を臨時営業にした日は、その曜日の勤務行が無いスタッフを
+  「営業時間いっぱい勤務(休憩なし)」とみなす**。「毎週月曜が定休の店で
+  10/5(月)だけ 10:00〜15:00 で臨時営業する」と登録すれば、月曜の勤務行を
+  持たないスタッフにも 10:00〜15:00 の枠が出る
+- **その日に出ないスタッフは臨時休ブロック**(スタッフ設定・モックE。
+  `reservations.kind = 'block'`)**で塞ぐ**。ブロックは枠計算の `busy` に
+  載るので、既存の仕組みのまま該当スタッフの枠が消える
+- **営業曜日の短縮営業・祝日の打ち消し(時刻なしの臨時営業)では勤務扱いに
+  しない**。元から営業している曜日なので、通常の勤務パターンに従う
+  (水曜が営業曜日の店で「10/7(水)は10:00〜15:00の短縮営業」にしても、
+  水曜が休みのスタッフは休みのまま)
+
+判定は `src/lib/closures.ts` の `resolveStaffWorkingDay` に置く。
+`weeklyBusinessDay`(`business_hours` の生の値)が休業で、かつ
+`businessDay`(`resolveBusinessDay` の結果)が時刻付きで営業のときだけ
+勤務とみなす、という形で条件を「定休曜日の臨時営業」に厳密に限定している。
+`computeStaffDaySlots` 自体は変更せず、呼び出し側(`getDayAvailability`)が
+渡す `working` を差し替えるだけにする。
+
 ### 3. `salon_settings` に列追加
 
 ```sql
@@ -208,6 +234,10 @@ export function makeIsClosedDay(rules: ClosureRules): (date: string) => boolean;
 export function resolveBusinessDay(params: {                   // その日の営業時間
   date: string; weeklyBusinessDay: BusinessDay; rules: ClosureRules;
 }): BusinessDay;
+export function resolveStaffWorkingDay(params: {               // その日の勤務パターン
+  date: string; weeklyWorking: StaffWorkingDay | null;
+  weeklyBusinessDay: BusinessDay; businessDay: BusinessDay;
+}): StaffWorkingDay | null;
 export function buildClosureListItems(params: {                // E-2下部の混在リスト
   from: string; days: number; rules: ClosureRules;
 }): Array<{ dateRangeLabel: string; label: string; badge: "休業" | "臨時休" | "連休" }>;
@@ -284,6 +314,9 @@ E-2の説明文どおり、休業日は**客側の予約枠が開かない**こ�
 - `src/server/booking-data.ts` が営業日を組み立てる箇所で、`closures.ts` の判定が
   休業なら `businessDay.isOpen = false` として `computeStaffDaySlots` に渡す
   (M2のコメント「第◯曜日・祝日・指定日ルール(M4)は isClosedDay に載せる」を回収)
+- 同じ箇所でスタッフごとの勤務パターンも `resolveStaffWorkingDay` を通す。
+  定休曜日を臨時営業にした日に、その曜日の勤務行が無いスタッフの枠が出る
+  (上記「臨時営業日のスタッフの勤務扱い」)
 - 月カレンダーの日付選択も同じ判定で不可にする(`isSelectableDate`)
 - 管理画面カレンダーの週表示の斜線ハッチングも同じ判定に統一する
 
