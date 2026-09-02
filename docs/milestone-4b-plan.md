@@ -106,6 +106,25 @@ create table public.date_overrides (
 `is_open = true` は「祝日だが営業する」の逃がし口で、祝日ライブラリが特例法に
 追随できないケースを店側の操作で吸収できるようにするためのもの(下記)。
 
+#### 臨時営業日の営業時間(`open_time` / `close_time`。2026-09-02追加)
+
+`is_open = true` が休業を打ち消すだけだと、「毎週水曜が定休の店で今週の水曜だけ
+営業する」ができない。その曜日の `business_hours` には時刻が無いため、休業判定は
+解けても営業時間が定まらず、客側の枠が1つも開かない(押せるのに何も出ない日)。
+そこで臨時営業の日だけ営業時間を持てるようにした(`time` 型・NULL可):
+
+- **`is_open = false`(休業)→ 時刻はNULL**。休業日に営業時間があると矛盾するため
+  DB制約で禁じる(`date_overrides_closed_has_no_times`)
+- **`is_open = true` + 時刻あり → その日はその時刻で営業する**。定休曜日でも営業でき、
+  営業曜日に重ねれば短縮営業になる
+- **`is_open = true` + 時刻なし → その曜日の `business_hours` をそのまま使う**
+  (祝日・第◯曜日の定休を打ち消すだけの従来用途)
+
+片方だけの指定・`open_time >= close_time` はDB制約で拒否する
+(`date_overrides_times_pair` / `date_overrides_times_valid`)。
+この3通りの解決は `src/lib/closures.ts` の `resolveBusinessDay` が担い、
+客側の枠計算・管理画面の日表示・代行登録の休業日ガードが同じ関数を通る。
+
 ### 3. `salon_settings` に列追加
 
 ```sql
@@ -172,6 +191,7 @@ export type ClosureRules = {
   closeOnHolidays: boolean;
   overrides: Array<{
     startDate: string; endDate: string; isOpen: boolean; label: string | null;
+    openTime: string | null; closeTime: string | null; // 臨時営業日の営業時間
   }>;
 };
 export type ClosureReason = "override" | "holiday" | "nth-weekday" | "weekly";
@@ -185,6 +205,9 @@ export function nthWeekdayOfMonth(date: string): number;      // その月の第
 export function japaneseHolidayName(date: string): string | null; // ライブラリのラップ
 export function resolveDayClosure(date: string, rules: ClosureRules): DayClosure;
 export function makeIsClosedDay(rules: ClosureRules): (date: string) => boolean;
+export function resolveBusinessDay(params: {                   // その日の営業時間
+  date: string; weeklyBusinessDay: BusinessDay; rules: ClosureRules;
+}): BusinessDay;
 export function buildClosureListItems(params: {                // E-2下部の混在リスト
   from: string; days: number; rules: ClosureRules;
 }): Array<{ dateRangeLabel: string; label: string; badge: "休業" | "臨時休" | "連休" }>;
