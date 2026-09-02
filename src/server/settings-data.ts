@@ -15,6 +15,7 @@ import {
   type NthWeekdayClosureRow,
   type WeeklyBusinessHoursRow,
 } from "@/lib/business-settings";
+import type { MenuCategoryRecord, MenuRecord } from "@/lib/menu-settings";
 import type { StaffWorkingHoursRow } from "@/lib/staff-settings";
 import { formatTstzrange, parseTstzrange } from "@/lib/tstzrange";
 
@@ -273,4 +274,83 @@ export async function fetchUpcomingStaffBlocks(
       };
     })
     .sort((a, b) => a.start.getTime() - b.start.getTime());
+}
+
+// ---------------------------------------------------------------------------
+// メニュー管理画面(モックF・F詳細)
+// ---------------------------------------------------------------------------
+
+/** メニュー管理画面の初期表示に必要なデータ一式 */
+export type MenuSettings = {
+  /** 表示順のカテゴリ全件 */
+  categories: MenuCategoryRecord[];
+  /**
+   * 非表示(is_active = false)も含むメニュー全件。
+   * 非表示が削除の代わりなので、管理画面では戻せるように必ず出す。
+   * カテゴリの削除可否(所属メニュー数)の判定にも全件が要る。
+   */
+  menus: MenuRecord[];
+};
+
+type MenuCategoryTableRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  display_order: number;
+};
+
+type MenuTableRow = {
+  id: string;
+  name: string;
+  category_id: string;
+  price: number;
+  duration_minutes: number;
+  display_order: number;
+  is_active: boolean;
+};
+
+/**
+ * カテゴリとメニューをまとめて取得する。
+ * 並べ替え・グルーピングの判断は純粋関数(menu-settings.ts)に任せるので、
+ * ここは display_order 順に引いて形を変えるだけにする。
+ */
+export async function fetchMenuSettings(
+  supabase: SupabaseClient,
+): Promise<MenuSettings> {
+  const [categoriesRes, menusRes] = await Promise.all([
+    supabase
+      .from("menu_categories")
+      .select("id, name, description, display_order")
+      .order("display_order"),
+    supabase
+      .from("menus")
+      .select(
+        "id, name, category_id, price, duration_minutes, display_order, is_active",
+      )
+      .order("display_order"),
+  ]);
+
+  const categories: MenuCategoryTableRow[] = must(
+    categoriesRes,
+    "メニューカテゴリ",
+  );
+  const menus: MenuTableRow[] = must(menusRes, "メニュー");
+
+  return {
+    categories: categories.map((row) => ({
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      displayOrder: row.display_order,
+    })),
+    menus: menus.map((row) => ({
+      id: row.id,
+      name: row.name,
+      categoryId: row.category_id,
+      price: row.price,
+      durationMinutes: row.duration_minutes,
+      displayOrder: row.display_order,
+      isActive: row.is_active,
+    })),
+  };
 }

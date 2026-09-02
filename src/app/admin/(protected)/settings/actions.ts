@@ -43,6 +43,15 @@ import {
 } from "@/lib/business-settings";
 import { resolveBusinessDay, resolveStaffWorkingDay } from "@/lib/closures";
 import {
+  diffMenuCategories,
+  findCategoryDeleteViolation,
+  renumberDisplayOrder,
+  validateCategoryDrafts,
+  validateMenuInput,
+  type CategoryDraft,
+  type MenuInput,
+} from "@/lib/menu-settings";
+import {
   BLOCK_CONFLICT_MESSAGE,
   diffStaffWorkingHours,
   findLastOwnerViolation,
@@ -61,7 +70,7 @@ import {
   fetchStaffWorkingHoursForWeekday,
 } from "@/server/admin-data";
 import { createAdminAuthClient, requireOwner } from "@/server/admin-auth";
-import { fetchDateOverrides } from "@/server/settings-data";
+import { fetchDateOverrides, fetchMenuSettings } from "@/server/settings-data";
 
 /** 設定系アクションの戻り値(既存のアクションと同じ判別可能なResult型) */
 export type SettingsActionResult =
@@ -620,19 +629,354 @@ export async function deleteStaffBlock(
 
   try {
     const supabase = await createAdminAuthClient();
-    const { error } = await supabase
+    // 削除できた行を返させて0件を検知する。PostgRESTのDELETEは条件に合う行が
+    // 無くてもエラーにならないので、確かめないと「存在しないID」「予約のID」を
+    // 渡されたときに何も消えていないのに「削除しました」と表示してしまう
+    // (RLSで見えない行も同じく静かに0行になる: ファイル冒頭の注記)
+    const { data, error } = await supabase
       .from("reservations")
       .delete()
       .eq("id", id)
-      .eq("kind", "block");
+      .eq("kind", "block")
+      .select("id");
     if (error !== null) {
       console.error("deleteStaffBlock failed", error);
       return { ok: false, message: "臨時休の削除に失敗しました" };
+    }
+    if (data === null || data.length === 0) {
+      return {
+        ok: false,
+        message:
+          "対象の臨時休が見つかりませんでした。画面を再読み込みしてください",
+      };
     }
     revalidateStaffSettings();
     return { ok: true };
   } catch (error) {
     console.error("deleteStaffBlock failed", error);
     return { ok: false, message: "臨時休の削除に失敗しました" };
+  }
+}
+// ---------------------------------------------------------------------------
+// メニュー管理(モックF・F詳細)
+// ---------------------------------------------------------------------------
+//
+// menus / menu_categories はRLSでもオーナーのみ変更できる(M4bのRLS分割)。
+// ただしファイル冒頭のとおりRLSのUPDATE/DELETEは0行更新で静かに成功するので、
+// アプリ層の requireOwner() が「保存できたように見える」バグを止めている。
+
+/** メニュー管理画面のパス(保存後の再検証に使う) */
+const MENU_SETTINGS_PATH = "/admin/settings/menus";
+
+/**
+ * メニューは客側の予約フロー(メニュー選択)と管理画面の代行登録・予約変更にも
+ * 出るので、設定画面だけでなくメニュー一覧を読む画面をまとめて再検証する。
+ */
+function revalidateMenuSettings(): void {
+  revalidatePath(MENU_SETTINGS_PATH);
+  // 客側の予約フロー(メニュー選択・カテゴリ見出し)
+  revalidatePath("/booking");
+  // 代行登録・予約変更のメニュー複数選択
+  revalidatePath("/admin/reservations/new");
+  revalidatePath("/admin/reservations/[id]/edit", "page");
+}
+
+/** menus の1行(並べ替えのupsertに使う。upsertは全列を送る必要がある) */
+type MenuTableRow = {
+  id: string;
+  name: string;
+  category_id: string;
+  price: number;
+  duration_minutes: number;
+  display_order: number;
+  is_active: boolean;
+};
+
+/**
+ * メニューを1件追加・更新する(id が null なら追加)。
+ *
+ * 物理削除は提供しない。reservation_menus.menu_id が menus を参照しており
+ * (on delete set null)、消すと過去の予約のメニュー名・料金は残る
+ * (スナップショット)ものの、元メニューへの対応が切れる。
+ * 使わなくなったメニューは is_active = false(非表示)で表す
+ * (MENU_HIDE_INSTEAD_OF_DELETE_MESSAGE を画面にも出している)。
+ *
+ * 表示順は新規のときだけ「そのカテゴリの末尾」を採番する。既存メニューの
+ * 表示順はドラッグ&ドロップ(saveMenuOrder)が持つのでここでは触らない。
+ * カテゴリを移したメニューも移動先の末尾へ置く(移動元の並びの穴は
+ * 次の並べ替えで詰まる。display_order に一意制約は無く飛び番でも壊れない)。
+ */
+export async function saveMenu(params: {
+  id: string | null;
+  input: MenuInput;
+}): Promise<SettingsActionResult> {
+  const guard = await requireOwner();
+  if (!guard.ok) return { ok: false, message: guard.message };
+
+  const { id, input } = params;
+  if (id !== null && !isUuid(id)) {
+    return { ok: false, message: "保存対象が正しくありません" };
+  }
+
+  const validated = validateMenuInput(input);
+  if (!validated.ok) {
+    const message =
+      validated.errors.name ??
+      validated.errors.categoryId ??
+      validated.errors.price ??
+      validated.errors.durationMinutes ??
+      validated.message;
+    return { ok: false, message };
+  }
+
+  try {
+    const supabase = await createAdminAuthClient();
+    const value = validated.value;
+
+    // カテゴリの存在は外部キーが最後に見るが、先に確かめて分かる文言にする
+    // (画面が古い・カテゴリが別の操作で消えた場合)
+    const categoryResult = await supabase
+      .from("menu_categories")
+      .select("id")
+      .eq("id", value.categoryId);
+    if (categoryResult.error !== null || categoryResult.data === null) {
+      console.error("saveMenu failed", categoryResult.error);
+      return { ok: false, message: "メニューの保存に失敗しました" };
+    }
+    if (categoryResult.data.length === 0) {
+      return {
+        ok: false,
+        message:
+          "選択したカテゴリが見つかりませんでした。画面を再読み込みしてください",
+      };
+    }
+
+    const row = {
+      name: value.name,
+      category_id: value.categoryId,
+      price: value.price,
+      duration_minutes: value.durationMinutes,
+      is_active: value.isActive,
+    };
+
+    if (id === null) {
+      // 新規はカテゴリの末尾に置く
+      const siblingsResult = await supabase
+        .from("menus")
+        .select("display_order")
+        .eq("category_id", value.categoryId);
+      if (siblingsResult.error !== null || siblingsResult.data === null) {
+        console.error("saveMenu failed", siblingsResult.error);
+        return { ok: false, message: "メニューの保存に失敗しました" };
+      }
+      const siblings = siblingsResult.data as Array<{ display_order: number }>;
+      const displayOrder = siblings.reduce(
+        (max, sibling) => Math.max(max, sibling.display_order + 1),
+        0,
+      );
+
+      const { error } = await supabase
+        .from("menus")
+        .insert({ ...row, display_order: displayOrder });
+      if (error !== null) {
+        console.error("saveMenu failed", error);
+        return { ok: false, message: "メニューの保存に失敗しました" };
+      }
+      revalidateMenuSettings();
+      return { ok: true };
+    }
+
+    // 更新は「何行更新できたか」を確かめる。RLSやWHERE条件で0行になっても
+    // PostgRESTはエラーを返さないため、確かめないと「保存しました」と
+    // 表示したのに何も変わっていない、という状態になる
+    const { data, error } = await supabase
+      .from("menus")
+      .update(row)
+      .eq("id", id)
+      .select("id");
+    if (error !== null) {
+      console.error("saveMenu failed", error);
+      return { ok: false, message: "メニューの保存に失敗しました" };
+    }
+    if (data === null || data.length === 0) {
+      return {
+        ok: false,
+        message:
+          "対象のメニューが見つかりませんでした。画面を再読み込みしてください",
+      };
+    }
+
+    revalidateMenuSettings();
+    return { ok: true };
+  } catch (error) {
+    console.error("saveMenu failed", error);
+    return { ok: false, message: "メニューの保存に失敗しました" };
+  }
+}
+
+/**
+ * カテゴリ内のメニューの表示順を保存する(ドラッグ&ドロップの永続化)。
+ *
+ * 並べ替えはカテゴリ内に限定する(カテゴリの変更はメニュー編集ダイアログ)
+ * という決定に従い、対象カテゴリのメニューだけを読んで再採番する。
+ * 画面から別カテゴリのIDが混ざってきても renumberDisplayOrder が無視するので、
+ * 他のカテゴリの並びは動かない。
+ *
+ * 複数行の display_order 更新はRPCを作らず upsert の配列1回で済ませる
+ * (docs/milestone-4b-plan.md「RPCの追加はしない」)。upsertは
+ * INSERT ... ON CONFLICT DO UPDATE なので、NOT NULL の列を欠くと挿入側の
+ * 検査に引っかかる。だから読んだ行の全列をそのまま送り、
+ * display_order だけを差し替える。
+ */
+export async function saveMenuOrder(params: {
+  categoryId: string;
+  orderedIds: string[];
+}): Promise<SettingsActionResult> {
+  const guard = await requireOwner();
+  if (!guard.ok) return { ok: false, message: guard.message };
+
+  const { categoryId, orderedIds } = params;
+  if (!isUuid(categoryId)) {
+    return { ok: false, message: "並べ替えの対象が正しくありません" };
+  }
+
+  try {
+    const supabase = await createAdminAuthClient();
+    const result = await supabase
+      .from("menus")
+      .select(
+        "id, name, category_id, price, duration_minutes, display_order, is_active",
+      )
+      .eq("category_id", categoryId);
+    if (result.error !== null || result.data === null) {
+      console.error("saveMenuOrder failed", result.error);
+      return { ok: false, message: "表示順の保存に失敗しました" };
+    }
+    const rows = result.data as MenuTableRow[];
+
+    const changes = renumberDisplayOrder(
+      orderedIds,
+      rows.map((row) => ({ id: row.id, displayOrder: row.display_order })),
+    );
+    // 動かさなかった行はUPDATEしない。並びが変わっていなければ何もしない
+    if (changes.length === 0) {
+      return { ok: true };
+    }
+
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const { error } = await supabase.from("menus").upsert(
+      changes.map((change) => ({
+        ...(byId.get(change.id) as MenuTableRow),
+        display_order: change.displayOrder,
+      })),
+      { onConflict: "id" },
+    );
+    if (error !== null) {
+      console.error("saveMenuOrder failed", error);
+      return { ok: false, message: "表示順の保存に失敗しました" };
+    }
+
+    revalidateMenuSettings();
+    return { ok: true };
+  } catch (error) {
+    console.error("saveMenuOrder failed", error);
+    return { ok: false, message: "表示順の保存に失敗しました" };
+  }
+}
+
+/**
+ * カテゴリの追加・名称変更・並べ替え・削除をまとめて保存する(モックF詳細)。
+ *
+ * 差分の振り分けは純粋関数(diffMenuCategories)。削除して良いかの判定も
+ * 純粋関数(findCategoryDeleteViolation)で、所属メニューが1件でもあれば
+ * 拒否する。menus.category_id は NOT NULL なので、消すとメニューの行き先が
+ * 無くなる(外部キーが 23503 で拒否する)。非表示のメニューも参照は残る。
+ *
+ * 判定は画面から渡された一覧ではなくDBの現在値で行う(改ざん・古い画面への備え)。
+ * 更新 → 追加 → 削除の順に流す。削除を最後にしているのは、途中で失敗しても
+ * 「名前の変更だけ入って行が消えている」状態を作らないため。
+ */
+export async function saveMenuCategories(
+  drafts: CategoryDraft[],
+): Promise<SettingsActionResult> {
+  const guard = await requireOwner();
+  if (!guard.ok) return { ok: false, message: guard.message };
+
+  const validated = validateCategoryDrafts(drafts);
+  if (!validated.ok) {
+    return { ok: false, message: validated.message };
+  }
+  if (validated.value.some((draft) => draft.id !== null && !isUuid(draft.id))) {
+    return { ok: false, message: "保存対象が正しくありません" };
+  }
+
+  try {
+    const supabase = await createAdminAuthClient();
+    const current = await fetchMenuSettings(supabase);
+
+    const diff = diffMenuCategories({
+      current: current.categories,
+      drafts: validated.value,
+    });
+
+    const violation = findCategoryDeleteViolation({
+      deleteIds: diff.deleteIds,
+      categories: current.categories,
+      menus: current.menus,
+    });
+    if (violation !== null) {
+      return { ok: false, message: violation };
+    }
+
+    if (diff.updates.length > 0) {
+      // upsertは全列を送る必要がある(NOT NULL の検査は挿入側で走る)。
+      // description はこの画面では編集しないので、読んだ値をそのまま戻して保つ
+      const byId = new Map(
+        current.categories.map((category) => [category.id, category]),
+      );
+      const updateResult = await supabase.from("menu_categories").upsert(
+        diff.updates.map((update) => ({
+          id: update.id,
+          name: update.name,
+          description: byId.get(update.id)?.description ?? null,
+          display_order: update.displayOrder,
+        })),
+        { onConflict: "id" },
+      );
+      if (updateResult.error !== null) {
+        console.error("saveMenuCategories failed", updateResult.error);
+        return { ok: false, message: "カテゴリの保存に失敗しました" };
+      }
+    }
+
+    if (diff.inserts.length > 0) {
+      const insertResult = await supabase.from("menu_categories").insert(
+        diff.inserts.map((insert) => ({
+          name: insert.name,
+          display_order: insert.displayOrder,
+        })),
+      );
+      if (insertResult.error !== null) {
+        console.error("saveMenuCategories failed", insertResult.error);
+        return { ok: false, message: "カテゴリの保存に失敗しました" };
+      }
+    }
+
+    if (diff.deleteIds.length > 0) {
+      const deleteResult = await supabase
+        .from("menu_categories")
+        .delete()
+        .in("id", diff.deleteIds);
+      if (deleteResult.error !== null) {
+        console.error("saveMenuCategories failed", deleteResult.error);
+        return { ok: false, message: "カテゴリの削除に失敗しました" };
+      }
+    }
+
+    revalidateMenuSettings();
+    return { ok: true };
+  } catch (error) {
+    console.error("saveMenuCategories failed", error);
+    return { ok: false, message: "カテゴリの保存に失敗しました" };
   }
 }
