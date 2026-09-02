@@ -48,6 +48,11 @@ insert into public.nth_weekday_closures (weekday, nth) values (0, 3);
 
 update public.salon_settings set close_on_holidays = true;
 
-insert into public.date_overrides (start_date, end_date, is_open, label) values
-  ('2026-08-13', '2026-08-16', false, '夏季休業'),
-  ('2026-09-21', '2026-09-21', true,  '祝日だが営業');
+insert into public.date_overrides
+  (start_date, end_date, is_open, label, open_time, close_time) values
+  -- 連休(休業なので時刻は持たない)
+  ('2026-08-13', '2026-08-16', false, '夏季休業',     null,    null),
+  -- 祝日(火)の打ち消し。営業日なので曜日の営業時間をそのまま使う = 時刻なし
+  ('2026-11-03', '2026-11-03', true,  '祝日だが営業', null,    null),
+  -- 月曜は定休かつ敬老の日。曜日の営業時間が無いので時刻を明示して営業する
+  ('2026-09-21', '2026-09-21', true,  '定休だが営業', '10:00', '15:00');
