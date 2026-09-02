@@ -45,12 +45,6 @@ const inputClass =
 const sectionLabelClass = "text-base font-bold text-muted-foreground";
 const saveButtonClass = "h-11 rounded-xl px-5 text-base font-bold";
 
-/** 一覧の1行(祝日行は overrideId が null = 削除できない) */
-export type ClosureRow = {
-  item: ClosureListItem;
-  overrideId: string | null;
-};
-
 type Props = {
   /** 今日(JSTの暦日)。日付入力の初期値に使う */
   today: string;
@@ -58,7 +52,8 @@ type Props = {
   businessHours: WeeklyHoursInput[];
   nthWeekdayClosures: NthWeekdayClosureRow[];
   closeOnHolidays: boolean;
-  closureRows: ClosureRow[];
+  /** 一覧の行(祝日行は overrideId が null = 自動導出なので削除できない) */
+  closureItems: ClosureListItem[];
 };
 
 /** バッジの見た目。自動導出の祝日(休業)と連休は淡いグレー、臨時休・臨時営業は淡いモーヴ */
@@ -73,7 +68,7 @@ export function BusinessSettingsForm({
   businessHours,
   nthWeekdayClosures,
   closeOnHolidays,
-  closureRows,
+  closureItems,
 }: Props) {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 md:px-8 md:py-10">
@@ -92,7 +87,7 @@ export function BusinessSettingsForm({
           <DateOverrideSection
             today={today}
             businessHours={businessHours}
-            closureRows={closureRows}
+            closureItems={closureItems}
           />
         </div>
       </div>
@@ -502,11 +497,12 @@ function emptyOverrideInput(today: string): DateOverrideInput {
 function DateOverrideSection({
   today,
   businessHours,
-  closureRows,
+  closureItems,
 }: {
   today: string;
   businessHours: WeeklyHoursInput[];
-  closureRows: ClosureRow[];
+  /** 一覧の行(祝日行は overrideId が null = 自動導出なので削除できない) */
+  closureItems: ClosureListItem[];
 }) {
   const router = useRouter();
   const [isAdding, setIsAdding] = useState(false);
@@ -759,40 +755,41 @@ function DateOverrideSection({
         </p>
       )}
 
-      {closureRows.length === 0 ? (
+      {closureItems.length === 0 ? (
         <p className="text-base text-muted-foreground">
           今後の臨時休業・指定日はありません。
         </p>
       ) : (
         <ul className="flex flex-col gap-2">
-          {closureRows.map((row, index) => {
-            const overrideId = row.overrideId;
+          {closureItems.map((item, index) => {
+            // 出どころのIDは closures.ts が行に載せている(表示から逆算しない)
+            const overrideId = item.overrideId;
             return (
               <li
                 key={overrideId ?? `holiday-${index}`}
                 className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-muted px-4 py-3"
               >
                 <span className="text-base font-bold text-foreground">
-                  {row.item.dateRangeLabel}
+                  {item.dateRangeLabel}
                 </span>
-                {row.item.label !== "" && (
+                {item.label !== "" && (
                   <span className="text-sm text-muted-foreground">
-                    {row.item.label}
+                    {item.label}
                   </span>
                 )}
                 <span
                   className={cn(
                     "ml-auto rounded-full px-3 py-1 text-xs font-bold",
-                    badgeClass(row.item.badge),
+                    badgeClass(item.badge),
                   )}
                 >
-                  {row.item.badge}
+                  {item.badge}
                 </span>
                 {/* 祝日行は自動導出なので削除できない(トグルで一括して切り替える) */}
                 {overrideId !== null && (
                   <button
                     type="button"
-                    aria-label={`${row.item.dateRangeLabel}の登録を削除`}
+                    aria-label={`${item.dateRangeLabel}の登録を削除`}
                     disabled={isPending}
                     onClick={() => handleDelete(overrideId)}
                     className="flex size-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-card hover:text-destructive disabled:opacity-50"

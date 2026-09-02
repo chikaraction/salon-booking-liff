@@ -18,7 +18,6 @@ import {
   isCalendarDate,
 } from "./availability";
 import { isSlotTakenError } from "./booking";
-import type { ClosureListItem } from "./closures";
 
 const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
 
@@ -400,7 +399,7 @@ export function isDateRangeOverlapError(error: unknown): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// 4. 臨時休業・指定日リスト(モックE-2下部)の表示期間とIDの対応づけ
+// 4. 臨時休業・指定日リスト(モックE-2下部)の表示期間
 // ---------------------------------------------------------------------------
 
 /** 一覧の既定の表示日数(今日から半年ぶん) */
@@ -435,39 +434,4 @@ export function closureListWindow(params: {
     if (override.endDate > until) until = override.endDate;
   }
   return { from: today, days: diffCalendarDays(today, until) + 1 };
-}
-
-/**
- * buildClosureListItems(closures.ts)の各行に、登録データ(date_overrides)の
- * IDを対応づける。祝日行は自動導出の読み取り専用なので null になり、
- * UIは登録データの行にだけ削除の導線を出せる。
- *
- * 対応づけの根拠: buildClosureListItems は上書きを rules.overrides の順に
- * 積んでから開始日で安定ソートするため、出力に現れる登録データ行の順序は
- * 「期間に掛かる上書きを開始日で安定ソートしたもの」と一致する。
- * バッジ「休業」は祝日行にしか付かない(上書きは臨時休/連休/臨時営業)ので、
- * これを祝日行の判別に使う。
- * overrides には rules.overrides と同じ並びの配列を渡すこと。
- */
-export function attachOverrideIds<
-  T extends { id: string; startDate: string; endDate: string },
->(params: {
-  items: readonly ClosureListItem[];
-  overrides: readonly T[];
-  from: string;
-  days: number;
-}): Array<{ item: ClosureListItem; overrideId: string | null }> {
-  const { items, overrides, from, days } = params;
-  const until = addCalendarDays(from, Math.max(days, 1) - 1);
-  const inWindow = overrides
-    .filter((row) => !(row.endDate < from || until < row.startDate))
-    .sort((a, b) => a.startDate.localeCompare(b.startDate));
-
-  let index = 0;
-  return items.map((item) => {
-    if (item.badge === "休業") return { item, overrideId: null };
-    const override = inWindow[index];
-    index += 1;
-    return { item, overrideId: override?.id ?? null };
-  });
 }

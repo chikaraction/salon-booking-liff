@@ -335,6 +335,7 @@ describe("buildClosureListItems: 臨時休業・祝日の混在リスト", () =>
         dateRangeLabel: "7月29日(水)",
         label: "臨時休業",
         badge: "臨時休",
+        overrideId: null,
       },
     ]);
   });
@@ -362,6 +363,7 @@ describe("buildClosureListItems: 臨時休業・祝日の混在リスト", () =>
         dateRangeLabel: "8月13日(木)〜16日(日)",
         label: "夏季休業",
         badge: "連休",
+        overrideId: null,
       },
     ]);
   });
@@ -439,6 +441,7 @@ describe("buildClosureListItems: 臨時休業・祝日の混在リスト", () =>
         dateRangeLabel: "7月20日(月)",
         label: "海の日・祝日",
         badge: "休業",
+        overrideId: null,
       },
     ]);
   });
@@ -467,6 +470,7 @@ describe("buildClosureListItems: 臨時休業・祝日の混在リスト", () =>
         dateRangeLabel: "7月20日(月)",
         label: "祝日営業",
         badge: "臨時営業",
+        overrideId: null,
       },
     ]);
   });
@@ -547,6 +551,75 @@ describe("buildClosureListItems: 臨時休業・祝日の混在リスト", () =>
     expect(
       buildClosureListItems({ from: "2026-08-17", days: 1, rules: summer }),
     ).toEqual([]);
+  });
+
+  // overrideId は「その行がどの登録データから出たか」を持つ。設定画面の削除は
+  // これだけを見る(バッジ・並び順から突き合わせる推測をしない)
+  it("上書き由来の行には、その上書きのIDが載る", () => {
+    const items = buildClosureListItems({
+      from: "2026-07-01",
+      days: 62,
+      rules: rules({
+        closeOnHolidays: true,
+        overrides: [
+          {
+            id: "summer",
+            startDate: "2026-08-13",
+            endDate: "2026-08-16",
+            isOpen: false,
+            label: "夏季休業",
+            openTime: null,
+            closeTime: null,
+          },
+          {
+            id: "spot",
+            startDate: "2026-07-29",
+            endDate: "2026-07-29",
+            isOpen: false,
+            label: "臨時休業",
+            openTime: null,
+            closeTime: null,
+          },
+        ],
+      }),
+    });
+    // 7/20(海の日)→ 7/29(臨時休)→ 8/11(山の日)→ 8/13〜16(連休)
+    expect(items.map((item) => item.overrideId)).toEqual([
+      null,
+      "spot",
+      null,
+      "summer",
+    ]);
+  });
+
+  it("祝日由来の行は自動導出なので overrideId が null", () => {
+    const [item] = buildClosureListItems({
+      from: "2026-07-01",
+      days: 31,
+      rules: rules({ closeOnHolidays: true }),
+    });
+    expect(item.label).toBe("海の日・祝日");
+    expect(item.overrideId).toBeNull();
+  });
+
+  it("IDを渡さない呼び出し(枠計算・管理画面カレンダー)では overrideId が null", () => {
+    const [item] = buildClosureListItems({
+      from: "2026-07-01",
+      days: 31,
+      rules: rules({
+        overrides: [
+          {
+            startDate: "2026-07-29",
+            endDate: "2026-07-29",
+            isOpen: false,
+            label: "臨時休業",
+            openTime: null,
+            closeTime: null,
+          },
+        ],
+      }),
+    });
+    expect(item.overrideId).toBeNull();
   });
 });
 

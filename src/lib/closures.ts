@@ -30,6 +30,12 @@ export type ClosureRules = {
   closeOnHolidays: boolean;
   /** 臨時休業・臨時営業(両端を含む日付範囲) */
   overrides: Array<{
+    /**
+     * date_overrides.id。設定画面が一覧の行から削除対象をたどるために渡す。
+     * 枠計算(booking-data.ts)や管理画面カレンダー(admin-data.ts)は
+     * IDを必要としないので任意。渡さなければ ClosureListItem.overrideId は null
+     */
+    id?: string;
     startDate: string;
     endDate: string;
     isOpen: boolean;
@@ -63,6 +69,13 @@ export type ClosureListItem = {
   /** 「夏季休業」「海の日・祝日」 */
   label: string;
   badge: "休業" | "臨時休" | "連休" | "臨時営業";
+  /**
+   * この行の出どころ(date_overrides.id)。祝日は自動導出なので null、
+   * 呼び出し側が overrides に id を渡していない場合も null。
+   * 設定画面はこれが非nullの行にだけ削除の導線を出す
+   * (バッジや並び順から推測して突き合わせない)。
+   */
+  overrideId: string | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -331,6 +344,8 @@ export function buildClosureListItems(params: {
         dateRangeLabel: dateRangeLabel(override.startDate, override.endDate),
         label: override.label ?? "",
         badge: overrideBadge(override),
+        // 行の出どころをそのまま持たせる(表示から逆算して突き合わせない)
+        overrideId: override.id ?? null,
       },
     });
   }
@@ -347,6 +362,8 @@ export function buildClosureListItems(params: {
           dateRangeLabel: calendarDateLabel(date),
           label: `${holidayName}・祝日`,
           badge: "休業",
+          // 祝日は自動導出なので登録データの出どころを持たない
+          overrideId: null,
         },
       });
     }

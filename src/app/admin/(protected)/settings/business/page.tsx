@@ -9,11 +9,7 @@
 // 毎週の定休日チップと同じ business_hours の行を編集するので同じ節に置く。
 
 import { jstCalendarDate } from "@/lib/availability";
-import {
-  attachOverrideIds,
-  closureListWindow,
-  normalizeTimeInput,
-} from "@/lib/business-settings";
+import { closureListWindow, normalizeTimeInput } from "@/lib/business-settings";
 import { buildClosureListItems, type ClosureRules } from "@/lib/closures";
 import { createAdminAuthClient } from "@/server/admin-auth";
 import { fetchBusinessSettings } from "@/server/settings-data";
@@ -40,6 +36,8 @@ export default async function BusinessSettingsPage() {
     nthWeekdayClosures: settings.nthWeekdayClosures,
     closeOnHolidays: settings.closeOnHolidays,
     overrides: settings.dateOverrides.map((override) => ({
+      // 一覧の行から削除対象をたどるため、出どころのIDを載せて渡す
+      id: override.id,
       startDate: override.startDate,
       endDate: override.endDate,
       isOpen: override.isOpen,
@@ -49,18 +47,12 @@ export default async function BusinessSettingsPage() {
     })),
   };
 
-  const items = buildClosureListItems({
+  // 祝日行は自動導出の読み取り専用なので overrideId が null になり、
+  // 登録データの行にだけ削除の導線が出る
+  const closureItems = buildClosureListItems({
     from: window.from,
     days: window.days,
     rules,
-  });
-  // 祝日行は自動導出の読み取り専用なので overrideId が null になり、
-  // 登録データの行にだけ削除の導線が出る
-  const closureRows = attachOverrideIds({
-    items,
-    overrides: settings.dateOverrides,
-    from: window.from,
-    days: window.days,
   });
 
   return (
@@ -75,7 +67,7 @@ export default async function BusinessSettingsPage() {
       }))}
       nthWeekdayClosures={settings.nthWeekdayClosures}
       closeOnHolidays={settings.closeOnHolidays}
-      closureRows={closureRows}
+      closureItems={closureItems}
     />
   );
 }

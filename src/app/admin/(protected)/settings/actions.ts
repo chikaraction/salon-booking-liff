@@ -205,23 +205,27 @@ export async function addDateOverride(
     const supabase = await createAdminAuthClient();
 
     // 「定休曜日を含む臨時営業は営業時間必須」の判定に毎週の定休曜日が要る。
-    // 画面から渡された値ではなくDBの現在値で判定する(改ざん・古い画面への備え)
-    const hoursResult = await supabase
-      .from("business_hours")
-      .select("weekday, is_open");
-    if (hoursResult.error !== null || hoursResult.data === null) {
-      console.error("addDateOverride failed", hoursResult.error);
-      return { ok: false, message: "営業時間の取得に失敗しました" };
+    // 画面から渡された値ではなくDBの現在値で判定する(改ざん・古い画面への備え)。
+    // 休業の登録ではこのルールが働かないので問い合わせ自体を省く
+    let closedWeekdays: number[] = [];
+    if (input.isOpen) {
+      const hoursResult = await supabase
+        .from("business_hours")
+        .select("weekday, is_open");
+      if (hoursResult.error !== null || hoursResult.data === null) {
+        console.error("addDateOverride failed", hoursResult.error);
+        return { ok: false, message: "営業時間の取得に失敗しました" };
+      }
+      const hours = hoursResult.data as Array<{
+        weekday: number;
+        is_open: boolean;
+      }>;
+      // business_hours に行が無い曜日も休業(closures.ts の判定と揃える)
+      closedWeekdays = [0, 1, 2, 3, 4, 5, 6].filter(
+        (weekday) =>
+          hours.find((row) => row.weekday === weekday)?.is_open !== true,
+      );
     }
-    const hours = hoursResult.data as Array<{
-      weekday: number;
-      is_open: boolean;
-    }>;
-    // business_hours に行が無い曜日も休業(closures.ts の判定と揃える)
-    const closedWeekdays = [0, 1, 2, 3, 4, 5, 6].filter(
-      (weekday) =>
-        hours.find((row) => row.weekday === weekday)?.is_open !== true,
-    );
 
     const validated = validateDateOverride({ input, closedWeekdays });
     if (!validated.ok) {

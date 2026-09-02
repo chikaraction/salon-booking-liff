@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   DATE_OVERRIDE_OVERLAP_MESSAGE,
-  attachOverrideIds,
   closureListWindow,
   describeNthWeekdayClosures,
   fillWeeklyBusinessHours,
@@ -19,7 +18,6 @@ import {
   type DateOverrideInput,
   type WeeklyHoursInput,
 } from "./business-settings";
-import { buildClosureListItems, type ClosureRules } from "./closures";
 
 // ---------------------------------------------------------------------------
 // 1. 曜日ラベル・時刻の正規化
@@ -539,7 +537,7 @@ describe("DATE_OVERRIDE_OVERLAP_MESSAGE", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 6. 臨時休業・指定日リストの表示期間とIDの対応づけ
+// 6. 臨時休業・指定日リストの表示期間
 // ---------------------------------------------------------------------------
 
 describe("closureListWindow", () => {
@@ -567,80 +565,5 @@ describe("closureListWindow", () => {
         overrides: [{ startDate: "2026-01-01", endDate: "2026-01-03" }],
       }),
     ).toEqual({ from: "2026-07-18", days: 180 });
-  });
-});
-
-describe("attachOverrideIds", () => {
-  const rules: ClosureRules = {
-    businessHours: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
-      weekday,
-      isOpen: true,
-    })),
-    nthWeekdayClosures: [],
-    closeOnHolidays: true,
-    overrides: [
-      {
-        startDate: "2026-07-29",
-        endDate: "2026-07-29",
-        isOpen: false,
-        label: "臨時休業",
-        openTime: null,
-        closeTime: null,
-      },
-      {
-        startDate: "2026-08-13",
-        endDate: "2026-08-16",
-        isOpen: false,
-        label: "夏季休業",
-        openTime: null,
-        closeTime: null,
-      },
-    ],
-  };
-
-  it("登録データの行にはIDが付き、自動導出の祝日行は null になる", () => {
-    const from = "2026-07-18";
-    const days = 40; // 7/21(海の日)・7/29・8/13〜16 が入る
-    const items = buildClosureListItems({ from, days, rules });
-    const rows = attachOverrideIds({
-      items,
-      overrides: [
-        { id: "summer", startDate: "2026-08-13", endDate: "2026-08-16" },
-        { id: "spot", startDate: "2026-07-29", endDate: "2026-07-29" },
-      ],
-      from,
-      days,
-    });
-
-    // 7/21(海の日)→ 7/29(臨時休)→ 8/11(山の日)→ 8/13〜16(連休)の順
-    expect(rows.map((row) => row.overrideId)).toEqual([
-      null,
-      "spot",
-      null,
-      "summer",
-    ]);
-    expect(rows[0].item.label).toBe("海の日・祝日");
-    expect(rows[1].item.badge).toBe("臨時休");
-    expect(rows[2].item.label).toBe("山の日・祝日");
-    expect(rows[3].item.badge).toBe("連休");
-  });
-
-  it("表示期間の外にある登録は対応づけの対象にしない", () => {
-    const from = "2026-07-18";
-    const days = 5; // 7/22まで。どの上書きも掛からない
-    const items = buildClosureListItems({
-      from,
-      days,
-      rules: { ...rules, overrides: [] },
-    });
-    const rows = attachOverrideIds({
-      items,
-      overrides: [
-        { id: "spot", startDate: "2026-07-29", endDate: "2026-07-29" },
-      ],
-      from,
-      days,
-    });
-    expect(rows.every((row) => row.overrideId === null)).toBe(true);
   });
 });
