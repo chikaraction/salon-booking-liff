@@ -66,7 +66,7 @@ const SETTINGS_NAV_ITEMS: readonly SidebarNavItem[] = [
     label: "営業日・営業時間",
     icon: Clock,
     ownerOnly: true,
-    implemented: false,
+    implemented: true,
   },
   {
     href: "/admin/settings/staff",
