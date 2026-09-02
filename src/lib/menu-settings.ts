@@ -383,6 +383,8 @@ export function categoryDeleteBlockedMessage(params: {
 /**
  * 削除しようとしているカテゴリに所属メニューが残っていないか調べる。
  * 残っていればその理由、問題なければ null を返す。
+ * 件数で受け取るのは、一覧を持つサーバー側と件数だけを持つ画面側の
+ * どちらからも同じ判定を通せるようにするため。
  *
  * menus.category_id は NOT NULL なので、カテゴリを消すとメニューの
  * 行き先が無くなる(外部キーが 23503 で拒否する)。非表示のメニューも
@@ -391,12 +393,11 @@ export function categoryDeleteBlockedMessage(params: {
 export function findCategoryDeleteViolation(params: {
   deleteIds: readonly string[];
   categories: readonly MenuCategoryRecord[];
-  menus: ReadonlyArray<{ categoryId: string }>;
+  /** カテゴリID → 所属メニュー数(countMenusByCategory の結果) */
+  menuCounts: Readonly<Record<string, number>>;
 }): string | null {
-  const counts = countMenusByCategory(params.menus);
-
   for (const id of params.deleteIds) {
-    const menuCount = counts[id] ?? 0;
+    const menuCount = params.menuCounts[id] ?? 0;
     if (menuCount === 0) continue;
     const name =
       params.categories.find((category) => category.id === id)?.name ?? "";

@@ -43,6 +43,7 @@ import {
 } from "@/lib/business-settings";
 import { resolveBusinessDay, resolveStaffWorkingDay } from "@/lib/closures";
 import {
+  countMenusByCategory,
   diffMenuCategories,
   findCategoryDeleteViolation,
   renumberDisplayOrder,
@@ -922,7 +923,7 @@ export async function saveMenuCategories(
     const violation = findCategoryDeleteViolation({
       deleteIds: diff.deleteIds,
       categories: current.categories,
-      menus: current.menus,
+      menuCounts: countMenusByCategory(current.menus),
     });
     if (violation !== null) {
       return { ok: false, message: violation };

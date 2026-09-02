@@ -80,7 +80,7 @@ const SETTINGS_NAV_ITEMS: readonly SidebarNavItem[] = [
     label: "メニュー",
     icon: UtensilsCrossed,
     ownerOnly: true,
-    implemented: false,
+    implemented: true,
   },
   {
     href: "/admin/settings/salon",

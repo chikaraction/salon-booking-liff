@@ -457,7 +457,7 @@ describe("findCategoryDeleteViolation", () => {
     const message = findCategoryDeleteViolation({
       deleteIds: ["cat-1"],
       categories,
-      menus: [menu({ categoryId: "cat-1" })],
+      menuCounts: countMenusByCategory([menu({ categoryId: "cat-1" })]),
     });
 
     expect(message).toBe(
@@ -471,7 +471,9 @@ describe("findCategoryDeleteViolation", () => {
     const message = findCategoryDeleteViolation({
       deleteIds: ["cat-1"],
       categories,
-      menus: [menu({ categoryId: "cat-1", isActive: false })],
+      menuCounts: countMenusByCategory([
+        menu({ categoryId: "cat-1", isActive: false }),
+      ]),
     });
 
     expect(message).not.toBeNull();
@@ -481,7 +483,7 @@ describe("findCategoryDeleteViolation", () => {
     const message = findCategoryDeleteViolation({
       deleteIds: ["cat-2"],
       categories,
-      menus: [menu({ categoryId: "cat-1" })],
+      menuCounts: countMenusByCategory([menu({ categoryId: "cat-1" })]),
     });
 
     expect(message).toBeNull();
@@ -491,7 +493,7 @@ describe("findCategoryDeleteViolation", () => {
     const message = findCategoryDeleteViolation({
       deleteIds: [],
       categories,
-      menus: [menu({ categoryId: "cat-1" })],
+      menuCounts: countMenusByCategory([menu({ categoryId: "cat-1" })]),
     });
 
     expect(message).toBeNull();
