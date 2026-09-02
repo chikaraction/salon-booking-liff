@@ -7,7 +7,16 @@
 // (予約運用のアクションは src/app/admin/actions.ts のまま。権限の前提が違うため
 //  ファイルを分ける。予約系はスタッフも実行できる: ADR-005)。
 //
-// 【後続タスクへ】設定系のアクションは必ず先頭で requireOwner() を通すこと。
+// 【後続タスクへ】設定系のアクションは必ず先頭で requireOwner()
+// (@/server/admin-auth)を通すこと:
+//
+//   const guard = await requireOwner();
+//   if (!guard.ok) return { ok: false, message: guard.message };
+//
+// requireOwner を "use server" のこのファイルではなく server-only の
+// @/server/admin-auth に置いているのは、ここから export した関数がすべて
+// クライアントから呼べるServer Actionエンドポイントになるため。
+// ガードは呼び出し口を持つ必要がない。
 //
 // なぜアプリ層でも判定するか(RLSだけでは足りない理由):
 // RLSのUPDATE/DELETEは、ポリシーに合致しない行を「存在しない行」として扱う。
@@ -16,30 +25,4 @@
 // アプリ層で先に弾かないと「保存できたように見えるのに何も変わっていない」
 // というバグになる。RLSは迂回されたときの最後の砦、アプリ層はUXの防波堤。
 
-import {
-  SETTINGS_PERMISSION_DENIED_MESSAGE,
-  canManageSettings,
-} from "@/lib/admin-permissions";
-import { getCurrentStaff, type CurrentStaff } from "@/server/admin-auth";
-
-export type OwnerGuardResult =
-  { ok: true; staff: CurrentStaff } | { ok: false; message: string };
-
-/**
- * 設定系のServer Actionの先頭で通すオーナー判定。
- * 未ログイン・staff.auth_user_id 未紐付け・スタッフロールはいずれも拒否する
- * (メッセージは同一。ロールを断定しない文言にしてある)。
- *
- * 使い方:
- * ```ts
- * const guard = await requireOwner();
- * if (!guard.ok) return { ok: false, message: guard.message };
- * ```
- */
-export async function requireOwner(): Promise<OwnerGuardResult> {
-  const staff = await getCurrentStaff();
-  if (staff === null || !canManageSettings(staff.role)) {
-    return { ok: false, message: SETTINGS_PERMISSION_DENIED_MESSAGE };
-  }
-  return { ok: true, staff };
-}
+export {};

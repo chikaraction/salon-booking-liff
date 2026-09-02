@@ -12,7 +12,12 @@ import { createServerClient } from "@supabase/ssr";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
-import { isStaffRole, type StaffRole } from "@/lib/admin-permissions";
+import {
+  SETTINGS_PERMISSION_DENIED_MESSAGE,
+  canManageSettings,
+  isStaffRole,
+  type StaffRole,
+} from "@/lib/admin-permissions";
 
 /** Supabase の URL / anon キーを環境変数から取得する(未設定なら例外) */
 export function getSupabaseEnv(): { url: string; anonKey: string } {
@@ -112,4 +117,38 @@ export async function getCurrentStaff(): Promise<CurrentStaff | null> {
     return null;
   }
   return { id: staff.id, name: staff.name, role: staff.role };
+}
+
+export type OwnerGuardResult =
+  { ok: true; staff: CurrentStaff } | { ok: false; message: string };
+
+/**
+ * 設定系のServer Actionの先頭で通すオーナー判定(ADR-005)。
+ * 未ログイン・staff.auth_user_id 未紐付け・スタッフロールはいずれも拒否する
+ * (メッセージは同一。ロールを断定しない文言にしてある)。
+ *
+ * ここ(server-only モジュール)に置くのは意図的。設定系アクションのファイルは
+ * "use server" なので、そこから export するとガード自体がクライアントから呼べる
+ * Server Action エンドポイントとして生えてしまう。ガードは呼び出し口を持つ必要が
+ * ないため、import 専用のこちらに置く。
+ *
+ * なぜアプリ層でも判定するか(RLSだけでは足りない理由):
+ * RLSのUPDATE/DELETEは、ポリシーに合致しない行を「存在しない行」として扱う。
+ * そのためスタッフが設定系テーブルをUPDATE/DELETEしてもエラーにはならず、
+ * 「0行更新」で静かに成功してしまう(INSERTだけは 42501 で失敗する)。
+ * アプリ層で先に弾かないと「保存できたように見えるのに何も変わっていない」
+ * というバグになる。RLSは迂回されたときの最後の砦、アプリ層はUXの防波堤。
+ *
+ * 使い方:
+ * ```ts
+ * const guard = await requireOwner();
+ * if (!guard.ok) return { ok: false, message: guard.message };
+ * ```
+ */
+export async function requireOwner(): Promise<OwnerGuardResult> {
+  const staff = await getCurrentStaff();
+  if (staff === null || !canManageSettings(staff.role)) {
+    return { ok: false, message: SETTINGS_PERMISSION_DENIED_MESSAGE };
+  }
+  return { ok: true, staff };
 }
