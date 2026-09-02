@@ -39,7 +39,8 @@ Supabaseダッシュボードで行い、`staff` レコードと手動で紐付�
 1. Supabaseダッシュボードの **Authentication → Providers** で
    「Allow new users to sign up」を**無効**にする(招待制の担保)
 2. **Authentication → Users → Add user** でスタッフのメール+パスワードを作成
-3. 作成した auth ユーザーのUUIDを、対応する `staff` 行に紐付ける(SQL Editorで実行):
+3. 作成した auth ユーザーのUUIDを、対応する `staff` 行に紐付ける(SQL Editorで実行。
+   **この手順は必須**):
 
    ```sql
    update public.staff
@@ -47,8 +48,39 @@ Supabaseダッシュボードで行い、`staff` レコードと手動で紐付�
    where name = '<スタッフ名>';   -- または対象の staff.id で指定
    ```
 
-紐付けはロール差(オーナー/スタッフ)の実装(M4b)で必要になる。M4時点では
-ログインさえできれば管理画面の全操作が可能(両ロールとも全操作可)。
+4. ロールを確認する(`role` は `'owner'` / `'staff'` のいずれか。既定は `'staff'`)。
+   オーナーにする場合:
+
+   ```sql
+   update public.staff set role = 'owner' where name = '<スタッフ名>';
+   ```
+
+> **手順3を飛ばすと設定変更が一切できない。** M4bでロール差が実効化したため、
+> `staff.auth_user_id` が未紐付けのユーザーは DBの `current_staff_role()` が NULL に
+> なり、オーナーであるはずでも設定系のRLSに弾かれる。管理画面でも設定グループが
+> 表示されず、`/admin/settings/*` を開くと「オーナー権限が必要です」と表示される。
+> 予約カレンダー・代行登録は紐付けなしでもログインさえできれば使える。
+
+### 権限(オーナー / スタッフ)
+
+ADR-005 のとおり2ロール。アプリ層(サイドバーの出し分け・設定レイアウト・
+Server Actionのオーナー判定)と RLS(設定系テーブルの書き込みをオーナーのみ)の
+二重で担保する。
+
+| 操作                                             | オーナー | スタッフ |
+| ------------------------------------------------ | -------- | -------- |
+| 予約の閲覧(カレンダー)                           | ✓        | ✓        |
+| 代行登録・代行変更・代行キャンセル・スタッフメモ | ✓        | ✓        |
+| 営業日・営業時間の設定                           | ✓        | ✗        |
+| スタッフの追加・編集・勤務パターン               | ✓        | ✗        |
+| メニュー・カテゴリの管理                         | ✓        | ✗        |
+| 店舗・予約設定(店名・予約ポリシー)               | ✓        | ✗        |
+
+設定系テーブル(`salon_settings` / `business_hours` / `staff` /
+`staff_working_hours` / `menus` / `menu_categories` / `nth_weekday_closures` /
+`date_overrides`)は**閲覧は全スタッフ可・変更はオーナーのみ**。
+予約運用のテーブル(`reservations` / `reservation_menus` / `customers` /
+`push_messages`)は従来どおり全スタッフが操作できる。
 
 ## コマンド
 
