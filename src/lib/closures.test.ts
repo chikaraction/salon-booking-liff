@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import type { BusinessDay } from "./availability";
 import {
   buildClosureListItems,
   japaneseHolidayName,
   makeIsClosedDay,
   nthWeekdayOfMonth,
+  resolveBusinessDay,
   resolveDayClosure,
   type ClosureRules,
 } from "./closures";
@@ -182,6 +184,8 @@ describe("resolveDayClosure: 休業日判定の優先順位", () => {
               endDate: "2026-07-20",
               isOpen: false,
               label: "臨時休業",
+              openTime: null,
+              closeTime: null,
             },
           ],
         }),
@@ -202,6 +206,8 @@ describe("resolveDayClosure: 休業日判定の優先順位", () => {
               endDate: "2026-07-20",
               isOpen: true,
               label: "祝日営業",
+              openTime: null,
+              closeTime: null,
             },
           ],
         }),
@@ -217,6 +223,8 @@ describe("resolveDayClosure: 休業日判定の優先順位", () => {
           endDate: "2026-08-16",
           isOpen: false,
           label: "夏季休業",
+          openTime: null,
+          closeTime: null,
         },
       ],
     });
@@ -237,6 +245,8 @@ describe("resolveDayClosure: 休業日判定の優先順位", () => {
               endDate: "2026-07-29",
               isOpen: false,
               label: null,
+              openTime: null,
+              closeTime: null,
             },
           ],
         }),
@@ -283,6 +293,8 @@ describe("makeIsClosedDay: 休業日判定の関数化", () => {
             endDate: "2026-07-29",
             isOpen: false,
             label: "臨時休業",
+            openTime: null,
+            closeTime: null,
           },
         ],
       }),
@@ -311,6 +323,8 @@ describe("buildClosureListItems: 臨時休業・祝日の混在リスト", () =>
               endDate: "2026-07-29",
               isOpen: false,
               label: "臨時休業",
+              openTime: null,
+              closeTime: null,
             },
           ],
         }),
@@ -336,6 +350,8 @@ describe("buildClosureListItems: 臨時休業・祝日の混在リスト", () =>
               endDate: "2026-08-16",
               isOpen: false,
               label: "夏季休業",
+              openTime: null,
+              closeTime: null,
             },
           ],
         }),
@@ -360,6 +376,8 @@ describe("buildClosureListItems: 臨時休業・祝日の混在リスト", () =>
             endDate: "2026-09-02",
             isOpen: false,
             label: "改装",
+            openTime: null,
+            closeTime: null,
           },
         ],
       }),
@@ -378,6 +396,8 @@ describe("buildClosureListItems: 臨時休業・祝日の混在リスト", () =>
             endDate: "2026-07-20",
             isOpen: true,
             label: "祝日営業",
+            openTime: null,
+            closeTime: null,
           },
         ],
       }),
@@ -396,6 +416,8 @@ describe("buildClosureListItems: 臨時休業・祝日の混在リスト", () =>
             endDate: "2026-07-29",
             isOpen: false,
             label: null,
+            openTime: null,
+            closeTime: null,
           },
         ],
       }),
@@ -433,6 +455,8 @@ describe("buildClosureListItems: 臨時休業・祝日の混在リスト", () =>
               endDate: "2026-07-20",
               isOpen: true,
               label: "祝日営業",
+              openTime: null,
+              closeTime: null,
             },
           ],
         }),
@@ -471,12 +495,16 @@ describe("buildClosureListItems: 臨時休業・祝日の混在リスト", () =>
             endDate: "2026-07-29",
             isOpen: false,
             label: "臨時休業",
+            openTime: null,
+            closeTime: null,
           },
           {
             startDate: "2026-08-13",
             endDate: "2026-08-16",
             isOpen: false,
             label: "夏季休業",
+            openTime: null,
+            closeTime: null,
           },
         ],
       }),
@@ -497,6 +525,8 @@ describe("buildClosureListItems: 臨時休業・祝日の混在リスト", () =>
           endDate: "2026-08-16",
           isOpen: false,
           label: "夏季休業",
+          openTime: null,
+          closeTime: null,
         },
       ],
     });
@@ -516,5 +546,230 @@ describe("buildClosureListItems: 臨時休業・祝日の混在リスト", () =>
     expect(
       buildClosureListItems({ from: "2026-08-17", days: 1, rules: summer }),
     ).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 6. 臨時営業日の営業時間(date_overrides の open_time / close_time)
+// ---------------------------------------------------------------------------
+
+describe("resolveBusinessDay: その日の営業時間を確定する", () => {
+  /** 営業曜日の営業時間(business_hours の1行) */
+  const weekly: BusinessDay = {
+    isOpen: true,
+    openTime: "10:00:00",
+    closeTime: "18:00:00",
+  };
+  /** 定休曜日(business_hours が休業なので時刻を持たない) */
+  const weeklyClosed: BusinessDay = {
+    isOpen: false,
+    openTime: null,
+    closeTime: null,
+  };
+  const closed: BusinessDay = {
+    isOpen: false,
+    openTime: null,
+    closeTime: null,
+  };
+
+  it("どのルールにも当たらない日は曜日の営業時間をそのまま返す", () => {
+    expect(
+      resolveBusinessDay({
+        date: "2026-07-18",
+        weeklyBusinessDay: weekly,
+        rules: rules(),
+      }),
+    ).toEqual(weekly);
+  });
+
+  it("毎週の定休の日は閉じる", () => {
+    // 2026-07-20 は月曜
+    expect(
+      resolveBusinessDay({
+        date: "2026-07-20",
+        weeklyBusinessDay: weeklyClosed,
+        rules: rules({ businessHours: mondayClosed }),
+      }),
+    ).toEqual(closed);
+  });
+
+  it("第◯曜日の定休・祝日の日も閉じる(曜日は営業でも)", () => {
+    const nthAndHoliday = rules({
+      nthWeekdayClosures: [{ weekday: 0, nth: 3 }],
+      closeOnHolidays: true,
+    });
+    // 2026-07-19 は第3日曜 / 2026-07-20 は海の日
+    expect(
+      resolveBusinessDay({
+        date: "2026-07-19",
+        weeklyBusinessDay: weekly,
+        rules: nthAndHoliday,
+      }),
+    ).toEqual(closed);
+    expect(
+      resolveBusinessDay({
+        date: "2026-07-20",
+        weeklyBusinessDay: weekly,
+        rules: nthAndHoliday,
+      }),
+    ).toEqual(closed);
+  });
+
+  it("休業の上書き(臨時休業)は営業曜日でも閉じる", () => {
+    expect(
+      resolveBusinessDay({
+        date: "2026-07-29",
+        weeklyBusinessDay: weekly,
+        rules: rules({
+          overrides: [
+            {
+              startDate: "2026-07-29",
+              endDate: "2026-07-29",
+              isOpen: false,
+              label: "臨時休業",
+              openTime: null,
+              closeTime: null,
+            },
+          ],
+        }),
+      }),
+    ).toEqual(closed);
+  });
+
+  it("定休曜日でも時刻付きの臨時営業ならその時刻で営業する", () => {
+    // 毎週水曜が定休の店で、2026-07-29(水)だけ 11:00〜16:00 で営業する
+    const wednesdayClosed = [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
+      weekday,
+      isOpen: weekday !== 3,
+    }));
+    expect(
+      resolveBusinessDay({
+        date: "2026-07-29",
+        weeklyBusinessDay: weeklyClosed,
+        rules: rules({
+          businessHours: wednesdayClosed,
+          overrides: [
+            {
+              startDate: "2026-07-29",
+              endDate: "2026-07-29",
+              isOpen: true,
+              label: "臨時営業",
+              openTime: "11:00:00",
+              closeTime: "16:00:00",
+            },
+          ],
+        }),
+      }),
+    ).toEqual({
+      isOpen: true,
+      openTime: "11:00:00",
+      closeTime: "16:00:00",
+    });
+  });
+
+  it("営業曜日に時刻付きの臨時営業を重ねると短縮営業になる", () => {
+    expect(
+      resolveBusinessDay({
+        date: "2026-07-18",
+        weeklyBusinessDay: weekly,
+        rules: rules({
+          overrides: [
+            {
+              startDate: "2026-07-18",
+              endDate: "2026-07-18",
+              isOpen: true,
+              label: "短縮営業",
+              openTime: "10:00:00",
+              closeTime: "14:00:00",
+            },
+          ],
+        }),
+      }),
+    ).toEqual({
+      isOpen: true,
+      openTime: "10:00:00",
+      closeTime: "14:00:00",
+    });
+  });
+
+  it("時刻なしの臨時営業(祝日の打ち消し)は曜日の営業時間を使う", () => {
+    expect(
+      resolveBusinessDay({
+        date: "2026-07-20",
+        weeklyBusinessDay: weekly,
+        rules: rules({
+          closeOnHolidays: true,
+          overrides: [
+            {
+              startDate: "2026-07-20",
+              endDate: "2026-07-20",
+              isOpen: true,
+              label: "祝日営業",
+              openTime: null,
+              closeTime: null,
+            },
+          ],
+        }),
+      }),
+    ).toEqual(weekly);
+  });
+
+  it("複数日の臨時営業は範囲内のどの日にも同じ時刻が効く(両端を含む)", () => {
+    const goldenWeek = rules({
+      businessHours: mondayClosed,
+      overrides: [
+        {
+          startDate: "2026-05-04",
+          endDate: "2026-05-06",
+          isOpen: true,
+          label: "連休営業",
+          openTime: "09:00:00",
+          closeTime: "17:00:00",
+        },
+      ],
+    });
+    // 2026-05-04 は月曜(定休)。範囲の両端とも臨時営業の時刻で営業する
+    const days = ["2026-05-04", "2026-05-06"].map((date) =>
+      resolveBusinessDay({
+        date,
+        weeklyBusinessDay: date === "2026-05-04" ? weeklyClosed : weekly,
+        rules: goldenWeek,
+      }),
+    );
+    expect(days).toEqual([
+      { isOpen: true, openTime: "09:00:00", closeTime: "17:00:00" },
+      { isOpen: true, openTime: "09:00:00", closeTime: "17:00:00" },
+    ]);
+    // 範囲外(5/7・木)は曜日の営業時間に戻る
+    expect(
+      resolveBusinessDay({
+        date: "2026-05-07",
+        weeklyBusinessDay: weekly,
+        rules: goldenWeek,
+      }),
+    ).toEqual(weekly);
+  });
+
+  it("時刻を持つ上書きでも休業判定(resolveDayClosure)は変わらない", () => {
+    // 営業時間は resolveBusinessDay の責務で、休業判定には影響しない
+    const withHours = rules({
+      businessHours: mondayClosed,
+      overrides: [
+        {
+          startDate: "2026-07-20",
+          endDate: "2026-07-20",
+          isOpen: true,
+          label: "臨時営業",
+          openTime: "11:00:00",
+          closeTime: "16:00:00",
+        },
+      ],
+    });
+    expect(resolveDayClosure("2026-07-20", withHours)).toEqual({
+      isClosed: false,
+      reason: "override",
+      label: "臨時営業",
+    });
+    expect(makeIsClosedDay(withHours)("2026-07-20")).toBe(false);
   });
 });

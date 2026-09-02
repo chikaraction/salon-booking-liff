@@ -13,7 +13,11 @@
 
 import { getHolidaysOf } from "japanese-holidays";
 
-import { addCalendarDays, calendarWeekday } from "./availability";
+import {
+  addCalendarDays,
+  calendarWeekday,
+  type BusinessDay,
+} from "./availability";
 import { calendarDateLabel } from "./calendar";
 
 export type ClosureRules = {
@@ -29,6 +33,15 @@ export type ClosureRules = {
     endDate: string;
     isOpen: boolean;
     label: string | null;
+    /**
+     * 臨時営業日の営業時間(店舗ローカル=JSTの壁時計時刻)。
+     * isOpen=true かつ時刻ありならその日はこの時刻で営業する(短縮営業にも使う)。
+     * null ならその曜日の business_hours に従う(祝日・第◯曜日の定休を
+     * 打ち消すだけの用途)。休業(isOpen=false)は必ず null
+     * (DB制約 date_overrides_closed_has_no_times)。
+     */
+    openTime: string | null;
+    closeTime: string | null;
   }>;
 };
 
@@ -165,6 +178,47 @@ export function makeIsClosedDay(
   rules: ClosureRules,
 ): (date: string) => boolean {
   return (date) => resolveDayClosure(date, rules).isClosed;
+}
+
+/**
+ * その日の営業時間を確定する(休業日ルール + 臨時営業の営業時間)。
+ * 呼び出し側は business_hours から引いたその曜日の行(行が無い曜日は
+ * isOpen:false)を weeklyBusinessDay に渡し、戻り値をそのまま
+ * computeStaffDaySlots / buildDayTimeline の businessDay として使う。
+ *
+ *   1. 休業日(定休・第◯曜日・祝日・臨時休業)     → 閉じる
+ *   2. 時刻付きの臨時営業(is_open=true + 時刻あり)→ その時刻で営業する
+ *      (その曜日が定休でも営業する。営業曜日なら短縮営業になる)
+ *   3. それ以外                                     → その曜日の営業時間
+ */
+export function resolveBusinessDay(params: {
+  date: string;
+  /** その曜日の営業時間(business_hours。行が無い曜日は isOpen:false で渡す) */
+  weeklyBusinessDay: BusinessDay;
+  rules: ClosureRules;
+}): BusinessDay {
+  const { date, weeklyBusinessDay, rules } = params;
+
+  if (resolveDayClosure(date, rules).isClosed) {
+    return { isOpen: false, openTime: null, closeTime: null };
+  }
+
+  // 臨時営業に時刻があればその日だけの営業時間として使う。
+  // 時刻はペアでしか登録できない(DB制約 date_overrides_times_pair)
+  const override = findOverride(date, rules.overrides);
+  if (
+    override?.isOpen === true &&
+    override.openTime !== null &&
+    override.closeTime !== null
+  ) {
+    return {
+      isOpen: true,
+      openTime: override.openTime,
+      closeTime: override.closeTime,
+    };
+  }
+
+  return weeklyBusinessDay;
 }
 
 // ---------------------------------------------------------------------------

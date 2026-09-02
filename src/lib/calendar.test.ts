@@ -141,6 +141,8 @@ describe("isSelectableDate: カレンダーの日付選択可否", () => {
           endDate: "2026-07-29",
           isOpen: false,
           label: "臨時休業",
+          openTime: null,
+          closeTime: null,
         },
       ],
     });
