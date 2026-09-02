@@ -1,6 +1,10 @@
 import { redirect } from "next/navigation";
 
-import { createAdminAuthClient, getAdminUser } from "@/server/admin-auth";
+import {
+  createAdminAuthClient,
+  getAdminUser,
+  getCurrentStaff,
+} from "@/server/admin-auth";
 import { fetchSalonName, getAdminMiniSummary } from "@/server/admin-data";
 
 import { AdminSidebar } from "./_components/admin-sidebar";
@@ -19,15 +23,19 @@ export default async function AdminProtectedLayout({
 
   // 店名はDBから取得(ADR-007)。認証済みなので authenticated クライアント(RLS適用)
   const supabase = await createAdminAuthClient();
-  const [salonName, miniSummary] = await Promise.all([
+  // ロールはサーバー側で解決してサイドバーに渡す(ADR-005: 設定グループはオーナーのみ)。
+  // staff.auth_user_id が未紐付けなら null になり、設定グループは出ない
+  const [salonName, miniSummary, currentStaff] = await Promise.all([
     fetchSalonName(supabase),
     getAdminMiniSummary(supabase, new Date()),
+    getCurrentStaff(),
   ]);
 
   return (
     <div className="flex min-h-dvh flex-col md:flex-row">
       <AdminSidebar
         salonName={salonName}
+        role={currentStaff?.role ?? null}
         // ミニ集計スロット(今日の予約件数・LINEプッシュ残量バー)
         miniSummary={
           <MiniSummary
