@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { jstDateTime, type BusyRange } from "./availability";
+import { makeIsClosedDay } from "./closures";
 
 import {
   buildDayTimeline,
@@ -13,7 +14,6 @@ import {
   describeSlotAvailability,
   dialogInitialX,
   formDialogInitialX,
-  isClosedByBusinessHours,
   isJstToday,
   moveDay,
   moveWeek,
@@ -538,8 +538,12 @@ describe("buildWeekView: 週表示への集約", () => {
     })),
     { weekday: 6, isOpen: true, openTime: "09:00:00", closeTime: "19:00:00" },
   ];
-  const isClosedDay = (date: string) =>
-    isClosedByBusinessHours(date, businessHours);
+  const isClosedDay = makeIsClosedDay({
+    businessHours,
+    nthWeekdayClosures: [],
+    closeOnHolidays: false,
+    overrides: [],
+  });
   const weekStart = "2026-07-12"; // 日曜
 
   it("週の開始(日曜)から7日分を日別にグルーピングする", () => {
@@ -1001,28 +1005,6 @@ describe("weekItemTooltip: 週表示カードのツールチップ", () => {
     expect(
       weekItemTooltip({ titleLabel: "11:00 山田様", menuNames: "" }, "田中"),
     ).toBe("11:00 山田様 / 田中");
-  });
-});
-
-describe("isClosedByBusinessHours: 定休日判定", () => {
-  const businessHours = [
-    { weekday: 0, isOpen: false, openTime: null, closeTime: null },
-    { weekday: 6, isOpen: true, openTime: "09:00:00", closeTime: "19:00:00" },
-  ];
-
-  it("is_open=false の曜日は休業", () => {
-    // 2026-07-12 は日曜
-    expect(isClosedByBusinessHours("2026-07-12", businessHours)).toBe(true);
-  });
-
-  it("行がない曜日は休業として扱う(booking-data と同じ判定)", () => {
-    // 2026-07-13 は月曜(行なし)
-    expect(isClosedByBusinessHours("2026-07-13", businessHours)).toBe(true);
-  });
-
-  it("is_open=true の曜日は営業", () => {
-    // 2026-07-18 は土曜
-    expect(isClosedByBusinessHours("2026-07-18", businessHours)).toBe(false);
   });
 });
 
@@ -1903,8 +1885,12 @@ describe("buildWeekView: 時間軸の分数(axis)", () => {
     })),
     { weekday: 6, isOpen: true, openTime: "09:00:00", closeTime: "19:00:00" },
   ];
-  const isClosedDay = (date: string) =>
-    isClosedByBusinessHours(date, businessHours);
+  const isClosedDay = makeIsClosedDay({
+    businessHours,
+    nthWeekdayClosures: [],
+    closeOnHolidays: false,
+    overrides: [],
+  });
   const weekStart = "2026-07-12"; // 日曜
 
   it("営業日のある週は最小開店〜最大閉店を分数で返す(クリック位置→時刻の変換に使う)", () => {

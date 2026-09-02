@@ -16,6 +16,7 @@ import {
   type StaffWorkingDay,
 } from "@/lib/availability";
 import { addMonths } from "@/lib/calendar";
+import type { ClosureRules } from "@/lib/closures";
 import type { ReservationMenuSnapshot } from "@/lib/my-reservations";
 import { parseTstzrange } from "@/lib/tstzrange";
 import { getServiceRoleClient } from "@/server/supabase";
@@ -103,6 +104,18 @@ type BusinessHoursRow = {
   close_time: string | null;
 };
 
+type NthWeekdayClosureRow = {
+  weekday: number;
+  nth: number;
+};
+
+type DateOverrideRow = {
+  start_date: string; // date型は "YYYY-MM-DD"
+  end_date: string;
+  is_open: boolean;
+  label: string | null;
+};
+
 type StaffWorkingHoursRow = {
   staff_id: string;
   start_time: string;
@@ -154,6 +167,47 @@ export async function fetchAdminBusinessHours(
     openTime: row.open_time,
     closeTime: row.close_time,
   }));
+}
+
+/**
+ * 休業日ルール(毎週の定休・第◯曜日・祝日・臨時休業)を取得する。
+ * 毎週の定休は既に引いてある営業時間を使い回すので引数で受け取る
+ * (business_hours を二度引かない)。
+ * authenticated クライアント(RLS適用)で読む。service_role は使わない。
+ */
+export async function fetchClosureRules(
+  supabase: SupabaseClient,
+  businessHours: Array<{ weekday: number; isOpen: boolean }>,
+): Promise<ClosureRules> {
+  // どちらの新テーブルも行数が少ないので全件取得する
+  const [settingsRes, nthRes, overridesRes] = await Promise.all([
+    supabase.from("salon_settings").select("close_on_holidays").single(),
+    supabase.from("nth_weekday_closures").select("weekday, nth"),
+    supabase
+      .from("date_overrides")
+      .select("start_date, end_date, is_open, label")
+      .order("start_date"),
+  ]);
+  const settings = must(settingsRes, "店舗設定") as {
+    close_on_holidays: boolean;
+  };
+  const nthClosures: NthWeekdayClosureRow[] = must(nthRes, "第◯曜日の定休");
+  const overrides: DateOverrideRow[] = must(overridesRes, "臨時休業・臨時営業");
+
+  return {
+    businessHours: businessHours.map((day) => ({
+      weekday: day.weekday,
+      isOpen: day.isOpen,
+    })),
+    nthWeekdayClosures: nthClosures,
+    closeOnHolidays: settings.close_on_holidays,
+    overrides: overrides.map((row) => ({
+      startDate: row.start_date,
+      endDate: row.end_date,
+      isOpen: row.is_open,
+      label: row.label,
+    })),
+  };
 }
 
 /** 対象曜日のスタッフ勤務パターン(休憩ブロックの生成に使う)を取得する */

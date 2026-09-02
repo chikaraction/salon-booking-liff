@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { jstDateTime, type BookingPolicy } from "./availability";
+import { makeIsClosedDay } from "./closures";
 import {
   addMonths,
   buildCalendarWeeks,
@@ -84,14 +85,20 @@ describe("buildCalendarWeeks: 月カレンダーの週配列", () => {
 });
 
 describe("isSelectableDate: カレンダーの日付選択可否", () => {
-  // 月曜定休の営業時間(weekday 0=日曜〜6=土曜)
-  const businessHours = [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
-    weekday,
-    isOpen: weekday !== 1,
-  }));
+  // 月曜定休(weekday 0=日曜〜6=土曜)。休業日判定は closures.ts の
+  // makeIsClosedDay を渡す想定なので、テストでも同じ形の関数を渡す
+  const mondayClosed = makeIsClosedDay({
+    businessHours: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
+      weekday,
+      isOpen: weekday !== 1,
+    })),
+    nthWeekdayClosures: [],
+    closeOnHolidays: false,
+    overrides: [],
+  });
 
-  const selectable = (date: string, hours = businessHours) =>
-    isSelectableDate({ date, businessHours: hours, policy, now });
+  const selectable = (date: string, isClosedDay = mondayClosed) =>
+    isSelectableDate({ date, isClosedDay, policy, now });
 
   it("受付期間内の営業日は選択できる(今日を含む)", () => {
     expect(selectable("2026-07-16")).toBe(true); // 今日(木)
@@ -111,8 +118,36 @@ describe("isSelectableDate: カレンダーの日付選択可否", () => {
   });
 
   it("営業時間の行がない曜日は休業として選択できない", () => {
-    const onlyMonday = [{ weekday: 1, isOpen: true }];
+    const onlyMonday = makeIsClosedDay({
+      businessHours: [{ weekday: 1, isOpen: true }],
+      nthWeekdayClosures: [],
+      closeOnHolidays: false,
+      overrides: [],
+    });
     expect(selectable("2026-07-16", onlyMonday)).toBe(false);
+  });
+
+  it("第◯曜日・祝日・臨時休業も同じ受け口で選択不可になる", () => {
+    const closed = makeIsClosedDay({
+      businessHours: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
+        weekday,
+        isOpen: true,
+      })),
+      nthWeekdayClosures: [{ weekday: 0, nth: 3 }],
+      closeOnHolidays: true,
+      overrides: [
+        {
+          startDate: "2026-07-29",
+          endDate: "2026-07-29",
+          isOpen: false,
+          label: "臨時休業",
+        },
+      ],
+    });
+    expect(selectable("2026-07-19", closed)).toBe(false); // 第3日曜
+    expect(selectable("2026-07-20", closed)).toBe(false); // 海の日
+    expect(selectable("2026-07-29", closed)).toBe(false); // 臨時休業
+    expect(selectable("2026-07-18", closed)).toBe(true); // 通常の営業日
   });
 });
 

@@ -7,7 +7,6 @@
 
 import {
   describeSlotAvailability,
-  isClosedByBusinessHours,
   type ProxyDaySlot,
   type SlotAvailability,
 } from "@/lib/admin-calendar";
@@ -22,9 +21,11 @@ import {
 } from "@/lib/admin-reservation-form";
 import { isCalendarDate, jstDateTime } from "@/lib/availability";
 import { isSlotTakenError, isUuid } from "@/lib/booking";
+import { makeIsClosedDay } from "@/lib/closures";
 import { createAdminAuthClient } from "@/server/admin-auth";
 import {
   fetchAdminBusinessHours,
+  fetchClosureRules,
   fetchReservationDetail,
   searchCustomers,
   type CustomerSearchResult,
@@ -266,7 +267,8 @@ export type CreateProxyReservationResult =
   | { ok: false; reason: "invalid_input"; errors: ProxyRegistrationErrors }
   // 開始が現在より過去(サーバーの now で判定。UIは時間フィールドにエラー表示)
   | { ok: false; reason: "past"; message: string }
-  // 対象日が定休日(business_hours.is_open=false。UIは日付フィールドにエラー表示)
+  // 対象日が休業日(毎週の定休・第◯曜日・祝日・臨時休業。UIは日付フィールドに
+  // エラー表示)
   | { ok: false; reason: "closed"; message: string }
   // その枠は埋まりました(EXCLUDE制約違反 23P01。UIは日時付近にエラー表示)
   | { ok: false; reason: "slot_taken"; message: string }
@@ -311,11 +313,12 @@ export async function createProxyReservation(
   try {
     const supabase = await createAdminAuthClient();
 
-    // 定休日ガード(UXでなく本当のガード)。対象日の曜日が定休日ならRPC前に止める。
-    // 判定は authenticated クライアントの business_hours(全曜日)+ 純粋関数。
-    // 休憩・勤務時間外の上書きは許すが、定休日だけはブロックする(2026-07-18決定)
+    // 休業日ガード(UXでなく本当のガード)。対象日が休業日ならRPC前に止める。
+    // 判定は authenticated クライアントの休業日ルール + 純粋関数(closures.ts)。
+    // 休憩・勤務時間外の上書きは許すが、休業日だけはブロックする(2026-07-18決定)
     const businessHours = await fetchAdminBusinessHours(supabase);
-    if (isClosedByBusinessHours(value.date, businessHours)) {
+    const closureRules = await fetchClosureRules(supabase, businessHours);
+    if (makeIsClosedDay(closureRules)(value.date)) {
       return {
         ok: false,
         reason: "closed",
@@ -400,7 +403,8 @@ export type UpdateAdminReservationResult =
   | { ok: false; reason: "invalid_input"; errors: ReservationEditErrors }
   // 開始が現在より過去(サーバーの now で判定。UIは時間フィールドにエラー表示)
   | { ok: false; reason: "past"; message: string }
-  // 対象日が定休日(business_hours.is_open=false。UIは日付フィールドにエラー表示)
+  // 対象日が休業日(毎週の定休・第◯曜日・祝日・臨時休業。UIは日付フィールドに
+  // エラー表示)
   | { ok: false; reason: "closed"; message: string }
   // 対象が booking かつ confirmed でない(既に取り消し済み等)
   | { ok: false; reason: "not_found"; message: string }
@@ -450,11 +454,12 @@ export async function updateAdminReservation(
   try {
     const supabase = await createAdminAuthClient();
 
-    // 定休日ガード(UXでなく本当のガード)。対象日の曜日が定休日ならRPC前に止める。
-    // 判定は authenticated クライアントの business_hours(全曜日)+ 純粋関数。
-    // 休憩・勤務時間外の上書きは許すが、定休日だけはブロックする(2026-07-18決定)
+    // 休業日ガード(UXでなく本当のガード)。対象日が休業日ならRPC前に止める。
+    // 判定は authenticated クライアントの休業日ルール + 純粋関数(closures.ts)。
+    // 休憩・勤務時間外の上書きは許すが、休業日だけはブロックする(2026-07-18決定)
     const businessHours = await fetchAdminBusinessHours(supabase);
-    if (isClosedByBusinessHours(value.date, businessHours)) {
+    const closureRules = await fetchClosureRules(supabase, businessHours);
+    if (makeIsClosedDay(closureRules)(value.date)) {
       return {
         ok: false,
         reason: "closed",

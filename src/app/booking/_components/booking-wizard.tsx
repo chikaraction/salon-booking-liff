@@ -464,7 +464,7 @@ export function BookingWizard({
         )}
         {step === "datetime" && (
           <StepDatetime
-            businessHours={data.businessHours}
+            closureRules={data.closureRules}
             policy={data.policy}
             durationMinutes={summary.totalDurationMinutes}
             selectedDate={selectedDate}

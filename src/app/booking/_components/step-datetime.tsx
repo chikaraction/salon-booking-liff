@@ -3,11 +3,12 @@
 // STEP 3: 日時選択。月カレンダーで日付を選び、その日の開始時刻をボタン一覧で選ぶ。
 // 週配列・日付の選択可否・月移動可否の判断は src/lib/calendar.ts の純粋関数に委ねる。
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import type { AvailabilitySlot } from "@/app/booking/actions";
 import type { BookingPolicy } from "@/lib/availability";
+import { makeIsClosedDay, type ClosureRules } from "@/lib/closures";
 import {
   addMonths,
   buildCalendarWeeks,
@@ -23,7 +24,8 @@ import { cn } from "@/lib/utils";
 const WEEKDAY_HEADERS = ["日", "月", "火", "水", "木", "金", "土"];
 
 type Props = {
-  businessHours: Array<{ weekday: number; isOpen: boolean }>;
+  /** 休業日ルール(毎週の定休・第◯曜日・祝日・臨時休業) */
+  closureRules: ClosureRules;
   policy: BookingPolicy;
   /** 選択中メニューの合計所要時間(注記の表示用) */
   durationMinutes: number;
@@ -37,7 +39,7 @@ type Props = {
 };
 
 export function StepDatetime({
-  businessHours,
+  closureRules,
   policy,
   durationMinutes,
   selectedDate,
@@ -52,6 +54,11 @@ export function StepDatetime({
   // 表示する月。選択済みの日付があればその月から始める
   const [displayMonth, setDisplayMonth] = useState(
     () => selectedDate?.slice(0, 7) ?? jstYearMonth(now),
+  );
+  // 休業日判定は純粋関数(closures.ts)。クライアントから呼んでも問題ない
+  const isClosedDay = useMemo(
+    () => makeIsClosedDay(closureRules),
+    [closureRules],
   );
   const prevMonth = addMonths(displayMonth, -1);
   const nextMonth = addMonths(displayMonth, 1);
@@ -101,7 +108,7 @@ export function StepDatetime({
                   selected={cell.date === selectedDate}
                   selectable={isSelectableDate({
                     date: cell.date,
-                    businessHours,
+                    isClosedDay,
                     policy,
                     now,
                   })}

@@ -645,23 +645,10 @@ export type WeekView = {
 };
 
 /**
- * 定休日判定(business_hours 由来)。行がない曜日は休業として扱う
- * (booking-data.ts / calendar.ts と同じ判定)。
- */
-export function isClosedByBusinessHours(
-  date: string,
-  businessHours: Array<{ weekday: number; isOpen: boolean }>,
-): boolean {
-  const weekday = calendarWeekday(date);
-  const day = businessHours.find((hours) => hours.weekday === weekday);
-  return day?.isOpen !== true;
-}
-
-/**
  * 週表示(日曜始まりの7日分)へ予約を集約する。
  * - 週の範囲外の予約・ブロック(kind=block)は載せない
- * - 休業日判定は入力の isClosedDay に従う(将来の第◯曜日・祝日ルールも
- *   同じ入力に載せられる受け口)
+ * - 休業日判定は入力の isClosedDay に従う(closures.ts の makeIsClosedDay を
+ *   渡す。毎週の定休・第◯曜日・祝日・臨時休業が同じ受け口に載る)
  * - 時間軸は週内の営業時間の最小開店〜最大閉店
  */
 export function buildWeekView(params: {
