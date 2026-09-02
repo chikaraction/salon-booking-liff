@@ -8,11 +8,15 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { isStaffRole, type StaffRole } from "@/lib/admin-permissions";
+import { jstDateTime } from "@/lib/availability";
 import {
   fillWeeklyBusinessHours,
   type NthWeekdayClosureRow,
   type WeeklyBusinessHoursRow,
 } from "@/lib/business-settings";
+import type { StaffWorkingHoursRow } from "@/lib/staff-settings";
+import { formatTstzrange, parseTstzrange } from "@/lib/tstzrange";
 
 /** PostgRESTの結果からデータを取り出す。エラーは例外にする(サーバー側の障害) */
 function must<T>(
@@ -123,4 +127,150 @@ export async function fetchBusinessSettings(
     closeOnHolidays: settings.close_on_holidays,
     dateOverrides: overrides,
   };
+}
+
+// ---------------------------------------------------------------------------
+// スタッフ設定画面(モックE)
+// ---------------------------------------------------------------------------
+
+/** staff の1行(画面が扱う形) */
+export type StaffRecord = {
+  id: string;
+  name: string;
+  role: StaffRole;
+  displayOrder: number;
+  isActive: boolean;
+  bio: string | null;
+  /**
+   * 管理画面ユーザー(auth.users)と紐付いているか。
+   * auth_user_id そのものは画面に出さない(編集させない項目であり、
+   * クライアントへ渡す必要のないIDのため)。紐付け漏れの案内にだけ使う。
+   */
+  hasAuthUser: boolean;
+};
+
+/** スタッフ設定画面の初期表示に必要な設定一式 */
+export type StaffSettings = {
+  /** 無効なスタッフも含む全件(display_order順)。無効化の取り消しができるように */
+  staff: StaffRecord[];
+  /** 全スタッフの勤務パターン。staffId でひもづける */
+  workingHours: Array<{ staffId: string } & StaffWorkingHoursRow>;
+};
+
+type StaffTableRow = {
+  id: string;
+  name: string;
+  role: string;
+  display_order: number;
+  is_active: boolean;
+  bio: string | null;
+  auth_user_id: string | null;
+};
+
+type StaffWorkingHoursTableRow = {
+  staff_id: string;
+  weekday: number;
+  start_time: string; // time型は "HH:MM:SS"
+  end_time: string;
+  break_start: string | null;
+  break_end: string | null;
+};
+
+/**
+ * スタッフ(無効も含む全件)と週次勤務パターンをまとめて取得する。
+ * 並びは display_order → name。同じ表示順のときに並びが揺れないよう name を足す。
+ */
+export async function fetchStaffSettings(
+  supabase: SupabaseClient,
+): Promise<StaffSettings> {
+  const [staffRes, hoursRes] = await Promise.all([
+    supabase
+      .from("staff")
+      .select("id, name, role, display_order, is_active, bio, auth_user_id")
+      .order("display_order")
+      .order("name"),
+    supabase
+      .from("staff_working_hours")
+      .select("staff_id, weekday, start_time, end_time, break_start, break_end")
+      .order("weekday"),
+  ]);
+
+  const staffRows: StaffTableRow[] = must(staffRes, "スタッフ");
+  const hoursRows: StaffWorkingHoursTableRow[] = must(
+    hoursRes,
+    "スタッフ勤務時間",
+  );
+
+  return {
+    staff: staffRows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      // check 制約があるので通常は起きない。想定外の値はスタッフ扱いにする
+      role: isStaffRole(row.role) ? row.role : "staff",
+      displayOrder: row.display_order,
+      isActive: row.is_active,
+      bio: row.bio,
+      hasAuthUser: row.auth_user_id !== null,
+    })),
+    workingHours: hoursRows.map((row) => ({
+      staffId: row.staff_id,
+      weekday: row.weekday,
+      startTime: row.start_time,
+      endTime: row.end_time,
+      breakStart: row.break_start,
+      breakEnd: row.break_end,
+    })),
+  };
+}
+
+/** 臨時休ブロック1件(reservations の kind='block' の行) */
+export type StaffBlockRecord = {
+  id: string;
+  staffId: string;
+  start: Date;
+  end: Date;
+};
+
+type BlockRow = {
+  id: string;
+  staff_id: string;
+  during: string; // tstzrangeは文字列で返る
+};
+
+/**
+ * 今後の臨時休ブロックを取得する(全スタッフ分)。
+ * 期間は [fromDate, fromDate + days) のJST暦日。過ぎたブロックは
+ * 画面に出しても操作の意味がないので取らない。
+ *
+ * 臨時休は予約テーブル(reservations)の kind='block' の行なので、
+ * SELECT自体はスタッフにも許されている(予約運用のテーブルであるため)。
+ * オーナー限定なのはアプリ層(設定レイアウト・Server Action)の側。
+ */
+export async function fetchUpcomingStaffBlocks(
+  supabase: SupabaseClient,
+  fromDate: string,
+  days: number,
+): Promise<StaffBlockRecord[]> {
+  const start = jstDateTime(fromDate, "00:00");
+  const end = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
+
+  const result = await supabase
+    .from("reservations")
+    .select("id, staff_id, during")
+    .eq("kind", "block")
+    .eq("status", "confirmed")
+    .overlaps("during", formatTstzrange(start, end));
+  const rows: BlockRow[] = must(result, "臨時休");
+
+  return rows
+    .map((row) => {
+      const during = parseTstzrange(row.during);
+      return {
+        id: row.id,
+        staffId: row.staff_id,
+        start: during.start,
+        end: during.end,
+      };
+    })
+    .sort((a, b) => a.start.getTime() - b.start.getTime());
 }
