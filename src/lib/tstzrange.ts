@@ -40,3 +40,13 @@ export function parseTstzrange(value: string): BusyRange {
   }
   return { start, end };
 }
+
+/**
+ * Dateの半開区間を tstzrange のリテラル文字列にする(parseTstzrange の逆)。
+ * reservations.during へ書き込むときに使う。境界はUTCのISO 8601で書き、
+ * 上端を含めない "[開始, 終了)" にする(CHECK制約
+ * lower_inc(during) and not upper_inc(during) と同じ形)。
+ */
+export function formatTstzrange(start: Date, end: Date): string {
+  return `[${start.toISOString()},${end.toISOString()})`;
+}

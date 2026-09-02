@@ -1,0 +1,589 @@
+import { describe, expect, it } from "vitest";
+
+import { jstDateTime } from "./availability";
+import {
+  BLOCK_CONFLICT_MESSAGE,
+  BLOCK_NO_WORKING_DAY_MESSAGE,
+  LAST_OWNER_MESSAGE,
+  STAFF_INVALID_MESSAGE,
+  WORKING_HOURS_INVALID_MESSAGE,
+  applyTimesToWorkingDays,
+  describeStaffBlocks,
+  diffStaffWorkingHours,
+  fillStaffWorkingHours,
+  findLastOwnerViolation,
+  isBlockConflictError,
+  resolveStaffBlockRange,
+  staffBlockLabel,
+  staffHeadingLabel,
+  staffRoleLabel,
+  validateStaffInput,
+  validateStaffWorkingHours,
+  type StaffInput,
+  type WorkingDayInput,
+} from "./staff-settings";
+
+// ---------------------------------------------------------------------------
+// 1. スタッフの表示ラベル(モックEの見出し「田中(オーナー)」)
+// ---------------------------------------------------------------------------
+
+describe("staffRoleLabel / staffHeadingLabel", () => {
+  it("ロールを日本語のラベルにする", () => {
+    expect(staffRoleLabel("owner")).toBe("オーナー");
+    expect(staffRoleLabel("staff")).toBe("スタッフ");
+  });
+
+  it("見出しを「名前(ロール)」形式にする", () => {
+    expect(staffHeadingLabel({ name: "田中", role: "owner" })).toBe(
+      "田中(オーナー)",
+    );
+    expect(staffHeadingLabel({ name: "佐藤", role: "staff" })).toBe(
+      "佐藤(スタッフ)",
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2. スタッフ行のバリデーション
+// ---------------------------------------------------------------------------
+
+function staffInput(patch: Partial<StaffInput> = {}): StaffInput {
+  return {
+    name: "田中",
+    role: "staff",
+    displayOrder: "1",
+    isActive: true,
+    bio: "",
+    ...patch,
+  };
+}
+
+describe("validateStaffInput", () => {
+  it("正しい入力はそのまま保存できる値になる", () => {
+    const result = validateStaffInput(
+      staffInput({ role: "owner", displayOrder: "3", bio: " カット担当 " }),
+    );
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        name: "田中",
+        role: "owner",
+        displayOrder: 3,
+        isActive: true,
+        bio: "カット担当",
+      },
+    });
+  });
+
+  it("名前の前後の空白は落とし、空欄はエラーにする", () => {
+    const trimmed = validateStaffInput(staffInput({ name: "  田中  " }));
+    expect(trimmed.ok && trimmed.value.name).toBe("田中");
+
+    const empty = validateStaffInput(staffInput({ name: "   " }));
+    expect(empty.ok).toBe(false);
+    if (!empty.ok) {
+      expect(empty.errors.name).toBe("名前を入力してください");
+      expect(empty.message).toBe(STAFF_INVALID_MESSAGE);
+    }
+  });
+
+  it("自己紹介が空文字ならNULLにする(空文字と未入力を区別しない)", () => {
+    const result = validateStaffInput(staffInput({ bio: "  " }));
+    expect(result.ok && result.value.bio).toBeNull();
+  });
+
+  it("ロールは owner / staff 以外を受け付けない", () => {
+    const result = validateStaffInput(staffInput({ role: "admin" }));
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors.role).toBe("ロールの指定が正しくありません");
+    }
+  });
+
+  it("表示順は0以上の整数のみ受け付ける", () => {
+    for (const displayOrder of ["", "-1", "1.5", "あ"]) {
+      const result = validateStaffInput(staffInput({ displayOrder }));
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors.displayOrder).toBe(
+          "表示順は0以上の整数で入力してください",
+        );
+      }
+    }
+    const zero = validateStaffInput(staffInput({ displayOrder: "0" }));
+    expect(zero.ok && zero.value.displayOrder).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 3. 最後のオーナーを降格・無効化できない
+// ---------------------------------------------------------------------------
+
+describe("findLastOwnerViolation", () => {
+  const staffList = [
+    { id: "owner-1", role: "owner" as const, isActive: true },
+    { id: "staff-1", role: "staff" as const, isActive: true },
+  ];
+
+  it("最後のオーナーをスタッフに降格させようとすると拒否する", () => {
+    expect(
+      findLastOwnerViolation({
+        staffList,
+        target: { id: "owner-1", role: "staff", isActive: true },
+      }),
+    ).toBe(LAST_OWNER_MESSAGE);
+  });
+
+  it("最後のオーナーを無効にしようとすると拒否する", () => {
+    expect(
+      findLastOwnerViolation({
+        staffList,
+        target: { id: "owner-1", role: "owner", isActive: false },
+      }),
+    ).toBe(LAST_OWNER_MESSAGE);
+  });
+
+  it("オーナーが他にもいれば降格・無効化できる", () => {
+    const twoOwners = [
+      ...staffList,
+      { id: "owner-2", role: "owner" as const, isActive: true },
+    ];
+    expect(
+      findLastOwnerViolation({
+        staffList: twoOwners,
+        target: { id: "owner-1", role: "staff", isActive: true },
+      }),
+    ).toBeNull();
+  });
+
+  it("無効なオーナーは頭数に入れない(設定を変更できないため)", () => {
+    const withInactiveOwner = [
+      { id: "owner-1", role: "owner" as const, isActive: true },
+      { id: "owner-2", role: "owner" as const, isActive: false },
+    ];
+    expect(
+      findLastOwnerViolation({
+        staffList: withInactiveOwner,
+        target: { id: "owner-1", role: "staff", isActive: true },
+      }),
+    ).toBe(LAST_OWNER_MESSAGE);
+  });
+
+  it("オーナー以外の変更・新規追加は妨げない", () => {
+    expect(
+      findLastOwnerViolation({
+        staffList,
+        target: { id: "staff-1", role: "staff", isActive: false },
+      }),
+    ).toBeNull();
+    expect(
+      findLastOwnerViolation({
+        staffList,
+        target: { id: null, role: "staff", isActive: true },
+      }),
+    ).toBeNull();
+  });
+
+  it("オーナーへの昇格はオーナーを減らさないので妨げない", () => {
+    expect(
+      findLastOwnerViolation({
+        staffList,
+        target: { id: "staff-1", role: "owner", isActive: true },
+      }),
+    ).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4. 週次勤務パターン(staff_working_hours)
+// ---------------------------------------------------------------------------
+
+function workingDay(patch: Partial<WorkingDayInput> = {}): WorkingDayInput {
+  return {
+    weekday: 1,
+    isWorking: true,
+    startTime: "09:00",
+    endTime: "19:00",
+    breakStart: "",
+    breakEnd: "",
+    ...patch,
+  };
+}
+
+/** 日曜〜土曜の7件を作る(既定は全曜日OFF) */
+function allWeekdays(
+  patches: Record<number, Partial<WorkingDayInput>> = {},
+): WorkingDayInput[] {
+  return [0, 1, 2, 3, 4, 5, 6].map((weekday) =>
+    workingDay({ weekday, isWorking: false, ...(patches[weekday] ?? {}) }),
+  );
+}
+
+describe("fillStaffWorkingHours", () => {
+  it("行が無い曜日はOFF(勤務日でない)で7件に揃える", () => {
+    const filled = fillStaffWorkingHours([
+      {
+        weekday: 3,
+        startTime: "10:00:00",
+        endTime: "18:00:00",
+        breakStart: "13:00:00",
+        breakEnd: "14:00:00",
+      },
+    ]);
+    expect(filled).toHaveLength(7);
+    expect(filled.map((day) => day.weekday)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(filled[3]).toEqual({
+      weekday: 3,
+      isWorking: true,
+      startTime: "10:00",
+      endTime: "18:00",
+      breakStart: "13:00",
+      breakEnd: "14:00",
+    });
+    expect(filled[0]).toEqual({
+      weekday: 0,
+      isWorking: false,
+      startTime: "",
+      endTime: "",
+      breakStart: "",
+      breakEnd: "",
+    });
+  });
+});
+
+describe("validateStaffWorkingHours", () => {
+  it("勤務日だけを検証済みの値にする(休みの曜日は値にしない)", () => {
+    const result = validateStaffWorkingHours(
+      allWeekdays({
+        1: { isWorking: true, startTime: "09:00", endTime: "19:00" },
+        2: {
+          isWorking: true,
+          startTime: "10:00",
+          endTime: "18:00",
+          breakStart: "13:00",
+          breakEnd: "14:00",
+        },
+      }),
+    );
+    expect(result).toEqual({
+      ok: true,
+      value: [
+        {
+          weekday: 1,
+          startTime: "09:00",
+          endTime: "19:00",
+          breakStart: null,
+          breakEnd: null,
+        },
+        {
+          weekday: 2,
+          startTime: "10:00",
+          endTime: "18:00",
+          breakStart: "13:00",
+          breakEnd: "14:00",
+        },
+      ],
+    });
+  });
+
+  it("勤務日は開始・終了が必須(staff_working_hours の NOT NULL と同じ)", () => {
+    const result = validateStaffWorkingHours(
+      allWeekdays({ 1: { isWorking: true, startTime: "", endTime: "19:00" } }),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors[1]).toBe("開始・終了の時刻を入力してください");
+      expect(result.message).toBe(WORKING_HOURS_INVALID_MESSAGE);
+    }
+  });
+
+  it("開始 < 終了 でなければエラー(staff_working_hours_valid_range)", () => {
+    const result = validateStaffWorkingHours(
+      allWeekdays({
+        1: { isWorking: true, startTime: "19:00", endTime: "09:00" },
+      }),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors[1]).toBe("開始時刻は終了時刻より前にしてください");
+    }
+  });
+
+  it("休憩は開始・終了のペアでなければエラー(staff_working_hours_break_pair)", () => {
+    const result = validateStaffWorkingHours(
+      allWeekdays({ 1: { isWorking: true, breakStart: "13:00" } }),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors[1]).toBe(
+        "休憩は開始・終了の両方を入力してください(休憩なしは両方空欄)",
+      );
+    }
+  });
+
+  it("休憩の開始 < 終了 でなければエラー(staff_working_hours_break_within)", () => {
+    const result = validateStaffWorkingHours(
+      allWeekdays({
+        1: { isWorking: true, breakStart: "14:00", breakEnd: "13:00" },
+      }),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors[1]).toBe("休憩は勤務時間の中に収めてください");
+    }
+  });
+
+  it("休憩が勤務時間からはみ出したらエラー(staff_working_hours_break_within)", () => {
+    const before = validateStaffWorkingHours(
+      allWeekdays({
+        1: { isWorking: true, breakStart: "08:00", breakEnd: "10:00" },
+      }),
+    );
+    expect(before.ok).toBe(false);
+
+    const after = validateStaffWorkingHours(
+      allWeekdays({
+        1: { isWorking: true, breakStart: "18:00", breakEnd: "20:00" },
+      }),
+    );
+    expect(after.ok).toBe(false);
+
+    // 勤務時間の端に接する休憩は制約どおり許す(start <= break_start / break_end <= end)
+    const edge = validateStaffWorkingHours(
+      allWeekdays({
+        1: { isWorking: true, breakStart: "09:00", breakEnd: "19:00" },
+      }),
+    );
+    expect(edge.ok).toBe(true);
+  });
+
+  it("休みの曜日に不正な時刻が残っていても無視する(チップを戻すだけで保存できる)", () => {
+    const result = validateStaffWorkingHours(
+      allWeekdays({
+        1: { isWorking: false, startTime: "19:00", endTime: "09:00" },
+      }),
+    );
+    expect(result).toEqual({ ok: true, value: [] });
+  });
+});
+
+describe("diffStaffWorkingHours", () => {
+  it("勤務日はupsert、勤務でない曜日はdeleteの対象になる", () => {
+    const diff = diffStaffWorkingHours([
+      {
+        weekday: 1,
+        startTime: "09:00",
+        endTime: "19:00",
+        breakStart: null,
+        breakEnd: null,
+      },
+      {
+        weekday: 4,
+        startTime: "10:00",
+        endTime: "18:00",
+        breakStart: "13:00",
+        breakEnd: "14:00",
+      },
+    ]);
+    expect(diff.upserts.map((row) => row.weekday)).toEqual([1, 4]);
+    expect(diff.deleteWeekdays).toEqual([0, 2, 3, 5, 6]);
+  });
+
+  it("勤務日が1つも無ければ全曜日がdeleteの対象になる", () => {
+    expect(diffStaffWorkingHours([]).deleteWeekdays).toEqual([
+      0, 1, 2, 3, 4, 5, 6,
+    ]);
+  });
+});
+
+describe("applyTimesToWorkingDays", () => {
+  it("元の曜日の時刻をほかの勤務日にコピーする(休みの曜日は変えない)", () => {
+    const days = allWeekdays({
+      1: {
+        isWorking: true,
+        startTime: "09:00",
+        endTime: "19:00",
+        breakStart: "13:00",
+        breakEnd: "14:00",
+      },
+      2: { isWorking: true, startTime: "11:00", endTime: "15:00" },
+      3: { isWorking: false, startTime: "08:00", endTime: "12:00" },
+    });
+    const applied = applyTimesToWorkingDays(days, 1);
+    expect(applied[2]).toEqual({
+      weekday: 2,
+      isWorking: true,
+      startTime: "09:00",
+      endTime: "19:00",
+      breakStart: "13:00",
+      breakEnd: "14:00",
+    });
+    // 休みの曜日は触らない
+    expect(applied[3]).toEqual(days[3]);
+  });
+
+  it("元の曜日が見つからなければ何もしない", () => {
+    const days = allWeekdays({ 1: { isWorking: true } });
+    expect(applyTimesToWorkingDays(days, 9)).toEqual(days);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 5. 臨時休ブロック(reservations.kind = 'block')の時間帯
+// ---------------------------------------------------------------------------
+
+describe("resolveStaffBlockRange", () => {
+  const working = {
+    startTime: "10:00:00",
+    endTime: "19:00:00",
+    breakStart: "13:00:00",
+    breakEnd: "14:00:00",
+  };
+
+  it("終日はその日の実効勤務時間いっぱいを [開始, 終了) にする", () => {
+    const result = resolveStaffBlockRange({
+      input: {
+        date: "2026-07-29",
+        allDay: true,
+        startTime: "",
+        endTime: "",
+      },
+      workingDay: working,
+    });
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        start: jstDateTime("2026-07-29", "10:00"),
+        end: jstDateTime("2026-07-29", "19:00"),
+      },
+    });
+  });
+
+  it("その日にもともと勤務が無ければ終日は算出できずエラーにする", () => {
+    const result = resolveStaffBlockRange({
+      input: { date: "2026-07-29", allDay: true, startTime: "", endTime: "" },
+      workingDay: null,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors.time).toBe(BLOCK_NO_WORKING_DAY_MESSAGE);
+    }
+  });
+
+  it("時間帯指定は勤務パターンが無くても指定範囲をそのまま使う", () => {
+    const result = resolveStaffBlockRange({
+      input: {
+        date: "2026-07-29",
+        allDay: false,
+        startTime: "13:00",
+        endTime: "15:30",
+      },
+      workingDay: null,
+    });
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        start: jstDateTime("2026-07-29", "13:00"),
+        end: jstDateTime("2026-07-29", "15:30"),
+      },
+    });
+  });
+
+  it("日付が不正ならエラーにする", () => {
+    const result = resolveStaffBlockRange({
+      input: {
+        date: "2026-02-30",
+        allDay: false,
+        startTime: "13:00",
+        endTime: "15:00",
+      },
+      workingDay: working,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors.date).toBe("日付を選択してください");
+    }
+  });
+
+  it("時間帯指定の時刻が未入力・不正ならエラーにする", () => {
+    const missing = resolveStaffBlockRange({
+      input: {
+        date: "2026-07-29",
+        allDay: false,
+        startTime: "",
+        endTime: "15:00",
+      },
+      workingDay: working,
+    });
+    expect(missing.ok).toBe(false);
+    if (!missing.ok) {
+      expect(missing.errors.time).toBe("開始・終了の時刻を入力してください");
+    }
+  });
+
+  it("時間帯指定は開始 < 終了 でなければエラーにする(空の区間を作らない)", () => {
+    const result = resolveStaffBlockRange({
+      input: {
+        date: "2026-07-29",
+        allDay: false,
+        startTime: "15:00",
+        endTime: "15:00",
+      },
+      workingDay: working,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors.time).toBe("開始時刻は終了時刻より前にしてください");
+    }
+  });
+});
+
+describe("isBlockConflictError", () => {
+  it("EXCLUDE制約違反(23P01)を既存予約との重なりとして判定する", () => {
+    expect(isBlockConflictError({ code: "23P01" })).toBe(true);
+    expect(isBlockConflictError({ code: "23505" })).toBe(false);
+    expect(isBlockConflictError(null)).toBe(false);
+  });
+
+  it("重なりの文言はDB制約に任せた結果を伝えるものになっている", () => {
+    expect(BLOCK_CONFLICT_MESSAGE).toBe("その時間帯には予約が入っています");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 6. 臨時休の表示ラベル(モックE「7/29(水)は休診に設定済み」)
+// ---------------------------------------------------------------------------
+
+describe("describeStaffBlocks", () => {
+  it("登録済みの日付を「◯月◯日(曜)は休診に設定済み」にまとめる", () => {
+    expect(describeStaffBlocks([{ date: "2026-07-29" }])).toBe(
+      "7月29日(水)は休診に設定済み",
+    );
+  });
+
+  it("複数の日付は日付順に読点でつなぎ、同じ日は1回だけ出す", () => {
+    expect(
+      describeStaffBlocks([
+        { date: "2026-08-03" },
+        { date: "2026-07-29" },
+        { date: "2026-07-29" },
+      ]),
+    ).toBe("7月29日(水)、8月3日(月)は休診に設定済み");
+  });
+
+  it("登録が無ければ null(補足文そのものを出さない)", () => {
+    expect(describeStaffBlocks([])).toBeNull();
+  });
+});
+
+describe("staffBlockLabel", () => {
+  it("1件分を「◯月◯日(曜) 開始〜終了」にする", () => {
+    expect(
+      staffBlockLabel({
+        date: "2026-07-29",
+        startTime: "10:00",
+        endTime: "19:00",
+      }),
+    ).toBe("7月29日(水) 10:00〜19:00");
+  });
+});

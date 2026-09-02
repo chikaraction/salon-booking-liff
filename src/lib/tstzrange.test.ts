@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseTstzrange } from "./tstzrange";
+import { formatTstzrange, parseTstzrange } from "./tstzrange";
 
 describe("parseTstzrange: PostgRESTが返すtstzrange文字列の変換", () => {
   it("引用符付き・+00オフセットの標準形式を変換する", () => {
@@ -35,5 +35,24 @@ describe("parseTstzrange: PostgRESTが返すtstzrange文字列の変換", () => 
       parseTstzrange('("2026-07-18 02:00:00+00","2026-07-18 03:00:00+00"]'),
     ).toThrow();
     expect(() => parseTstzrange('["not-a-date","also-not-a-date")')).toThrow();
+  });
+});
+
+describe("formatTstzrange", () => {
+  it("[開始, 終了) の半開区間リテラルにする", () => {
+    expect(
+      formatTstzrange(
+        new Date("2026-07-29T01:00:00.000Z"),
+        new Date("2026-07-29T10:00:00.000Z"),
+      ),
+    ).toBe("[2026-07-29T01:00:00.000Z,2026-07-29T10:00:00.000Z)");
+  });
+
+  it("parseTstzrange で元のDateに戻せる", () => {
+    const start = new Date("2026-07-29T01:00:00.000Z");
+    const end = new Date("2026-07-29T10:00:00.000Z");
+    const range = parseTstzrange(formatTstzrange(start, end));
+    expect(range.start.toISOString()).toBe(start.toISOString());
+    expect(range.end.toISOString()).toBe(end.toISOString());
   });
 });
