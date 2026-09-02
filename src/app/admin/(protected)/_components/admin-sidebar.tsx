@@ -73,7 +73,7 @@ const SETTINGS_NAV_ITEMS: readonly SidebarNavItem[] = [
     label: "スタッフ",
     icon: Users,
     ownerOnly: true,
-    implemented: false,
+    implemented: true,
   },
   {
     href: "/admin/settings/menus",
