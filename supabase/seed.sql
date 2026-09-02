@@ -42,3 +42,12 @@ insert into public.menus (name, category_id, price, duration_minutes, display_or
   ('カラー', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2', 8800, 120, 3),
   ('パーマ', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3', 9900, 120, 4),
   ('トリートメント', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa4', 3300, 30, 5);
+
+-- 休業日ルール(M4b): 第3日曜を定休、祝日は休業、夏季休業を臨時休業として登録
+insert into public.nth_weekday_closures (weekday, nth) values (0, 3);
+
+update public.salon_settings set close_on_holidays = true;
+
+insert into public.date_overrides (start_date, end_date, is_open, label) values
+  ('2026-08-13', '2026-08-16', false, '夏季休業'),
+  ('2026-09-21', '2026-09-21', true,  '祝日だが営業');
