@@ -87,7 +87,7 @@ const SETTINGS_NAV_ITEMS: readonly SidebarNavItem[] = [
     label: "店舗・予約設定",
     icon: Store,
     ownerOnly: true,
-    implemented: false,
+    implemented: true,
   },
 ];
 
