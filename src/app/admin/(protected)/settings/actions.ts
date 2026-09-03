@@ -53,6 +53,11 @@ import {
   type MenuInput,
 } from "@/lib/menu-settings";
 import {
+  validateBookingPolicyInput,
+  validateSalonName,
+  type BookingPolicyInput,
+} from "@/lib/salon-settings";
+import {
   BLOCK_CONFLICT_MESSAGE,
   diffStaffWorkingHours,
   findLastOwnerViolation,
@@ -979,5 +984,135 @@ export async function saveMenuCategories(
   } catch (error) {
     console.error("saveMenuCategories failed", error);
     return { ok: false, message: "カテゴリの保存に失敗しました" };
+  }
+}
+// ---------------------------------------------------------------------------
+// 店舗・予約設定(モックなし)
+// ---------------------------------------------------------------------------
+//
+// salon_settings もRLSでオーナーのみ変更できるが、ファイル冒頭のとおり
+// RLSのUPDATEは0行更新で静かに成功する。requireOwner() が
+// 「保存できたように見える」バグを止めている。
+// 加えて update().select() の行数も確かめる(単一行のテーブルなので、
+// 0行なら権限か行の欠落しかない = 黙って成功させてはいけない状態)。
+
+/** 店舗・予約設定画面のパス(保存後の再検証に使う) */
+const SALON_SETTINGS_PATH = "/admin/settings/salon";
+
+/** 更新できた行が0件だったときの文言(店名・ポリシーで共通) */
+const SALON_SETTINGS_NOT_UPDATED_MESSAGE =
+  "店舗設定を保存できませんでした。画面を再読み込みしてください";
+
+/**
+ * 店名の反映先。実際に grep して確認した出どころは次の2つ:
+ * - 管理画面サイドバーの見出し(保護レイアウト → fetchSalonName)
+ * - 管理画面ログイン画面の見出し(fetchSalonNameForLogin)
+ *
+ * サイドバーは /admin 配下すべての共通レイアウトなので、レイアウトごと
+ * 再検証する。ログイン画面(/admin/login)は force-dynamic 指定で毎回
+ * サーバーで描画されるため、再検証の対象にする必要がない。
+ * 客側は現時点で店名を表示していない(booking-data は取得しているが
+ * 画面に出す箇所が無い)ので /booking は挙げない。
+ */
+function revalidateSalonName(): void {
+  revalidatePath(SALON_SETTINGS_PATH);
+  revalidatePath("/admin", "layout");
+}
+
+/**
+ * 予約ポリシーの反映先。
+ * - 客側の予約フロー(枠の刻み・受付期間・直前締切): /booking
+ * - 管理画面カレンダー(空き枠クリック時の刻み): /admin
+ * キャンセル締切は客側のマイ予約が使うが、あちらはServer Action経由の
+ * 実行時取得(キャッシュされない)なので再検証の対象が無い。
+ */
+function revalidateBookingPolicy(): void {
+  revalidatePath(SALON_SETTINGS_PATH);
+  revalidatePath("/booking");
+  revalidatePath("/admin");
+}
+
+/** 店名を保存する(salon_settings は id=true の単一行) */
+export async function saveSalonName(
+  name: string,
+): Promise<SettingsActionResult> {
+  const guard = await requireOwner();
+  if (!guard.ok) return { ok: false, message: guard.message };
+
+  const validated = validateSalonName(name);
+  if (!validated.ok) {
+    return { ok: false, message: validated.message };
+  }
+
+  try {
+    const supabase = await createAdminAuthClient();
+    const { data, error } = await supabase
+      .from("salon_settings")
+      .update({ name: validated.value })
+      .eq("id", true)
+      .select("id");
+    if (error !== null) {
+      console.error("saveSalonName failed", error);
+      return { ok: false, message: "店名の保存に失敗しました" };
+    }
+    if (data === null || data.length === 0) {
+      return { ok: false, message: SALON_SETTINGS_NOT_UPDATED_MESSAGE };
+    }
+
+    revalidateSalonName();
+    return { ok: true };
+  } catch (error) {
+    console.error("saveSalonName failed", error);
+    return { ok: false, message: "店名の保存に失敗しました" };
+  }
+}
+
+/**
+ * 予約の受付ルール(刻み・受付期間・直前締切・キャンセル締切)を保存する。
+ * 検証は salon-settings.ts の純粋関数(DB制約と同じルール + 極端な値の
+ * ガードレール + 直前締切と受付期間の整合)。最後の砦はDBのcheck制約。
+ */
+export async function saveBookingPolicy(
+  input: BookingPolicyInput,
+): Promise<SettingsActionResult> {
+  const guard = await requireOwner();
+  if (!guard.ok) return { ok: false, message: guard.message };
+
+  const validated = validateBookingPolicyInput(input);
+  if (!validated.ok) {
+    const message =
+      validated.errors.slotIntervalMinutes ??
+      validated.errors.bookingWindowDays ??
+      validated.errors.minLeadMinutes ??
+      validated.errors.cancelDeadlineMinutes ??
+      validated.message;
+    return { ok: false, message };
+  }
+
+  try {
+    const supabase = await createAdminAuthClient();
+    const { data, error } = await supabase
+      .from("salon_settings")
+      .update({
+        slot_interval_minutes: validated.value.slotIntervalMinutes,
+        booking_window_days: validated.value.bookingWindowDays,
+        min_lead_minutes: validated.value.minLeadMinutes,
+        cancel_deadline_minutes: validated.value.cancelDeadlineMinutes,
+      })
+      .eq("id", true)
+      .select("id");
+    if (error !== null) {
+      console.error("saveBookingPolicy failed", error);
+      return { ok: false, message: "予約の受付ルールの保存に失敗しました" };
+    }
+    if (data === null || data.length === 0) {
+      return { ok: false, message: SALON_SETTINGS_NOT_UPDATED_MESSAGE };
+    }
+
+    revalidateBookingPolicy();
+    return { ok: true };
+  } catch (error) {
+    console.error("saveBookingPolicy failed", error);
+    return { ok: false, message: "予約の受付ルールの保存に失敗しました" };
   }
 }

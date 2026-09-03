@@ -277,6 +277,54 @@ export async function fetchUpcomingStaffBlocks(
 }
 
 // ---------------------------------------------------------------------------
+// 店舗・予約設定画面(モックなし)
+// ---------------------------------------------------------------------------
+
+/** 店舗・予約設定画面が編集する salon_settings の列(単一行) */
+export type SalonSettings = {
+  name: string;
+  slotIntervalMinutes: number;
+  bookingWindowDays: number;
+  minLeadMinutes: number;
+  cancelDeadlineMinutes: number;
+};
+
+type SalonSettingsRow = {
+  name: string;
+  slot_interval_minutes: number;
+  booking_window_days: number;
+  min_lead_minutes: number;
+  cancel_deadline_minutes: number;
+};
+
+/**
+ * 店名と予約ポリシー4値を取得する(salon_settings は id=true の1行だけ)。
+ *
+ * close_on_holidays は同じテーブルの列だが休業日ルールの一部なので、
+ * 営業日設定画面の fetchBusinessSettings が持つ。画面ごとに必要な列だけを
+ * 引き、どの画面がどの設定を編集するのかを取得の形にも表す。
+ */
+export async function fetchSalonSettings(
+  supabase: SupabaseClient,
+): Promise<SalonSettings> {
+  const result = await supabase
+    .from("salon_settings")
+    .select(
+      "name, slot_interval_minutes, booking_window_days, min_lead_minutes, cancel_deadline_minutes",
+    )
+    .single();
+  const row: SalonSettingsRow = must(result, "店舗設定");
+
+  return {
+    name: row.name,
+    slotIntervalMinutes: row.slot_interval_minutes,
+    bookingWindowDays: row.booking_window_days,
+    minLeadMinutes: row.min_lead_minutes,
+    cancelDeadlineMinutes: row.cancel_deadline_minutes,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // メニュー管理画面(モックF・F詳細)
 // ---------------------------------------------------------------------------
 
