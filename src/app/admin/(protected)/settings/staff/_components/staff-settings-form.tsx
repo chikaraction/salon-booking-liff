@@ -402,6 +402,8 @@ function StaffEditorSection({
       </p>
 
       {/* auth_user_id は画面から編集させない(ADR-005・READMEの運用手順) */}
+      {/* ここは列名を出す。オーナー専用画面であり、読み手は紐付けSQLを実行する当人
+          なので、伏せると手順が辿れなくなる(権限不足カード側は逆に出さない) */}
       <p className="text-sm text-muted-foreground">
         管理画面へのログイン
         {staff !== null && (

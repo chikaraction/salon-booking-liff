@@ -89,6 +89,9 @@ export type CurrentStaff = {
  * - null は「ロール不明」であり、DBの current_staff_role() が NULL を返す状態と
  *   一致する。設定変更はアプリ層でもRLSでも拒否される
  *   (紐付け手順は README の「店側スタッフ(管理画面ユーザー)の登録」を参照)
+ * - 紐付け漏れ(Authユーザーはあるが staff 行が無い)は console.warn に
+ *   auth ユーザーIDだけを残す。画面側は原因を出さないため、運用時の切り分けは
+ *   このログで行う
  */
 export async function getCurrentStaff(): Promise<CurrentStaff | null> {
   const supabase = await createAdminAuthClient();
@@ -103,10 +106,23 @@ export async function getCurrentStaff(): Promise<CurrentStaff | null> {
     .select("id, name, role")
     .eq("auth_user_id", userData.user.id)
     .maybeSingle();
-  if (error !== null || data === null) {
-    if (error !== null) {
-      console.error("getCurrentStaff failed", error);
-    }
+  if (error !== null) {
+    console.error("getCurrentStaff failed", error);
+    return null;
+  }
+  if (data === null) {
+    // Authユーザーはあるのに staff 行が無い = 紐付け漏れ。障害ではなく運用上の
+    // 設定漏れなので error ではなく warn にする(取得エラーは上の console.error、
+    // role の想定外値は下の console.error が担当。役割が重複しないようにしている)。
+    //
+    // 権限不足カード(settings/layout.tsx)は読み手が対処できないため原因を
+    // 出さない。そのぶんの診断性をこのログで補う。
+    // 出すのは auth ユーザーIDだけ(READMEの紐付けSQLに必要なのもこのIDで、
+    // メールアドレスなどの個人情報はログに入れない)。
+    console.warn(
+      "管理画面ユーザーに紐付く staff 行がありません(auth_user_id の紐付け漏れ)。auth user id:",
+      userData.user.id,
+    );
     return null;
   }
 

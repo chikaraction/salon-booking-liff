@@ -18,8 +18,16 @@ import { getCurrentStaff } from "@/server/admin-auth";
 // - 未ログインの redirect(保護レイアウト・proxy.ts)は、ログイン画面という
 //   ユーザーが取れる次の行動があるので遷移させる意味がある
 // - 権限不足は本人には解消できず、黙って別画面へ飛ばすと操作を見失う。
-//   staff.auth_user_id の紐付け漏れでオーナーが弾かれるケースもあり、
+//   管理画面ユーザーの紐付け漏れでオーナーが弾かれるケースもあり、
 //   原因が画面に出ていないと運用で詰まる(READMEの紐付け手順を参照)
+//
+// 本文にテーブル名・列名・SQLは書かない。このカードの読み手はスタッフロールか、
+// 紐付けが済んでいないユーザーであり、どちらも自分では対処できない立場にある。
+// 対処できない相手にスキーマの内部構造だけが伝わるのは損でしかないので、
+// 画面では「誰に確認すればよいか」までに留め、具体的な紐付け手順はREADMEに任せる。
+// 原因の切り分けは getCurrentStaff() のサーバーログ(auth ユーザーIDのみ)で行う。
+// オーナー専用のスタッフ設定画面(staff-settings-form.tsx)は読み手が紐付けSQLを
+// 実行する当人なので、あちらは列名を出したままにしてある。
 export default async function AdminSettingsLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
@@ -32,9 +40,12 @@ export default async function AdminSettingsLayout({
             {SETTINGS_PERMISSION_DENIED_MESSAGE}
           </h1>
           <p className="mt-3 text-sm text-muted-foreground">
-            設定の変更はオーナーのみが行えます。オーナーのはずが表示される場合は、
-            管理画面ユーザーとスタッフの紐付け(staff.auth_user_id)が
-            済んでいない可能性があります。
+            設定の変更はオーナーのみが行えます。
+          </p>
+          {/* 1行で書く。JSXは行途中の改行を半角スペースに畳むため、
+              日本語を折り返すと文中に空きができてしまう */}
+          <p className="mt-2 text-sm text-muted-foreground">
+            オーナーのはずなのにこの画面が表示される場合は、管理画面ユーザーの登録が完了していない可能性があります。管理画面のセットアップを担当した方に確認してください。
           </p>
           <Link
             href="/admin"
