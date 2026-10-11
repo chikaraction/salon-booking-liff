@@ -45,7 +45,10 @@ export default async function AdminSettingsLayout({
           {/* 1行で書く。JSXは行途中の改行を半角スペースに畳むため、
               日本語を折り返すと文中に空きができてしまう */}
           <p className="mt-2 text-sm text-muted-foreground">
-            オーナーのはずなのにこの画面が表示される場合は、管理画面ユーザーの登録が完了していない可能性があります。管理画面のセットアップを担当した方に確認してください。
+            オーナーなのにこの画面が表示される場合は、管理画面ユーザーの登録が完了していない可能性があります。
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            管理画面のセットアップを担当した方に確認してください。
           </p>
           <Link
             href="/admin"
