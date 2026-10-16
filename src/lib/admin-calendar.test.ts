@@ -1024,6 +1024,131 @@ describe("buildWeekView: 営業時間外の帯(offHoursBands)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// 2-1c. 臨時営業・短縮営業(date_overrides の時刻)と軸・帯
+// ---------------------------------------------------------------------------
+
+describe("buildWeekView: 臨時営業・短縮営業の日(実効営業時間)", () => {
+  // 月曜定休。他の曜日は 9:00〜21:00。月曜(2026-07-13)に上書きを当てる
+  const weekStart = "2026-07-12"; // 日曜
+  const businessHours = [
+    { weekday: 0, isOpen: false, openTime: null, closeTime: null },
+    { weekday: 1, isOpen: false, openTime: null, closeTime: null }, // 月曜定休
+    ...[2, 3, 4, 5, 6].map((weekday) => ({
+      weekday,
+      isOpen: true,
+      openTime: "09:00:00",
+      closeTime: "21:00:00",
+    })),
+  ];
+
+  it("臨時休業の日は定休日と同じ扱い(帯を重ねない)", () => {
+    const rules = {
+      businessHours,
+      nthWeekdayClosures: [],
+      closeOnHolidays: false,
+      overrides: [
+        {
+          startDate: "2026-07-15",
+          endDate: "2026-07-15",
+          isOpen: false,
+          label: "臨時休業",
+          openTime: null,
+          closeTime: null,
+        },
+      ],
+    };
+    const view = buildWeekView({
+      weekStart,
+      businessHours,
+      items: [],
+      isClosedDay: makeIsClosedDay(rules),
+    });
+    expect(view.days[3].isClosed).toBe(true);
+    expect(view.days[3].offHoursBands).toEqual([]);
+  });
+
+  it("特性化: 定休曜日の臨時営業(10:00〜15:00)でも帯が1本も出ない", () => {
+    // 軸は business_hours の7行だけから作られ、帯も business_hours の
+    // その曜日の行(月曜=定休)を見るため、月曜列は軸いっぱい(9:00〜21:00)が
+    // 営業中に見えてしまう。実際に営業しているのは 10:00〜15:00 だけ
+    const rules = {
+      businessHours,
+      nthWeekdayClosures: [],
+      closeOnHolidays: false,
+      overrides: [
+        {
+          startDate: "2026-07-13",
+          endDate: "2026-07-13",
+          isOpen: true,
+          label: "臨時営業",
+          openTime: "10:00:00",
+          closeTime: "15:00:00",
+        },
+      ],
+    };
+    const view = buildWeekView({
+      weekStart,
+      businessHours,
+      items: [],
+      isClosedDay: makeIsClosedDay(rules),
+    });
+    expect(view.days[1].isClosed).toBe(false);
+    expect(view.days[1].offHoursBands).toEqual([]);
+  });
+
+  it("特性化: 営業曜日の短縮営業でも帯が出ない", () => {
+    const rules = {
+      businessHours,
+      nthWeekdayClosures: [],
+      closeOnHolidays: false,
+      overrides: [
+        {
+          startDate: "2026-07-14",
+          endDate: "2026-07-14",
+          isOpen: true,
+          label: null,
+          openTime: "10:00:00",
+          closeTime: "15:00:00",
+        },
+      ],
+    };
+    const view = buildWeekView({
+      weekStart,
+      businessHours,
+      items: [],
+      isClosedDay: makeIsClosedDay(rules),
+    });
+    expect(view.days[2].offHoursBands).toEqual([]);
+  });
+
+  it("特性化: 営業曜日の範囲外に臨時営業を置いても軸が広がらない", () => {
+    const rules = {
+      businessHours,
+      nthWeekdayClosures: [],
+      closeOnHolidays: false,
+      overrides: [
+        {
+          startDate: "2026-07-13",
+          endDate: "2026-07-13",
+          isOpen: true,
+          label: "夜間営業",
+          openTime: "21:00:00",
+          closeTime: "23:00:00",
+        },
+      ],
+    };
+    const view = buildWeekView({
+      weekStart,
+      businessHours,
+      items: [],
+      isClosedDay: makeIsClosedDay(rules),
+    });
+    // 臨時営業の 21:00〜23:00 が軸に入らない(その時間の予約を描けない)
+    expect(view.axis).toEqual({ openMinutes: 540, closeMinutes: 1260 });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 2-2. 週表示の重なりレーン分割
 // ---------------------------------------------------------------------------
 
