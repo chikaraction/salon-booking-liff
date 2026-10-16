@@ -234,6 +234,14 @@ function BookingPolicySection({ policy }: { policy: BookingPolicyInput }) {
 
   return (
     <section className="flex flex-col gap-6">
+      {/* この節の見出し「予約の受付ルール」はカードのヘッダー側にあるので、
+          バッジは節の先頭に出す */}
+      {isDirty && (
+        <div className="flex flex-wrap items-center gap-2">
+          <UnsavedBadge />
+        </div>
+      )}
+
       <PolicyField
         id="slot-interval-minutes"
         changed={changedFields.includes("slotIntervalMinutes")}
