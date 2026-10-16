@@ -4,11 +4,13 @@ import {
   BOOKING_POLICY_INVALID_MESSAGE,
   BOOKING_POLICY_LIMITS,
   SALON_NAME_MAX_LENGTH,
+  changedBookingPolicyFields,
   describeBookingWindow,
   describeCancelDeadline,
   describeMinLead,
   describeSlotInterval,
   formatMinutesDuration,
+  isSalonNameChanged,
   validateBookingPolicyInput,
   validateSalonName,
   type BookingPolicyInput,
@@ -310,5 +312,93 @@ describe("設定値の補足文", () => {
     expect(describeBookingWindow("abc")).toBeNull();
     expect(describeMinLead("-1")).toBeNull();
     expect(describeCancelDeadline("1.5")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4. 未保存の変更の判定(節ごとの保存ボタン・「元に戻す」・変更箇所の目印)
+// ---------------------------------------------------------------------------
+
+describe("isSalonNameChanged", () => {
+  it("保存済みの店名と同じなら変更なし", () => {
+    expect(isSalonNameChanged("サンプル店", "サンプル店")).toBe(false);
+  });
+
+  it("前後の空白だけの違いは変更として扱わない(保存時に落とすため)", () => {
+    expect(isSalonNameChanged("サンプル店", "  サンプル店 ")).toBe(false);
+  });
+
+  it("文字が変わっていれば変更として扱う", () => {
+    expect(isSalonNameChanged("サンプル店", "サンプル店 本店")).toBe(true);
+  });
+
+  it("空にしたら変更として扱う(保存はできないが「元に戻す」で戻せる)", () => {
+    expect(isSalonNameChanged("サンプル店", "")).toBe(true);
+  });
+});
+
+describe("changedBookingPolicyFields", () => {
+  it("保存済みの値と同じなら変更なし", () => {
+    expect(changedBookingPolicyFields(policyInput(), policyInput())).toEqual(
+      [],
+    );
+  });
+
+  it("変えた項目だけを返す", () => {
+    expect(
+      changedBookingPolicyFields(
+        policyInput(),
+        policyInput({ slotIntervalMinutes: "15" }),
+      ),
+    ).toEqual(["slotIntervalMinutes"]);
+  });
+
+  it("複数を変えたら画面の並び順(刻み・受付期間・直前締切・キャンセル締切)で返す", () => {
+    expect(
+      changedBookingPolicyFields(
+        policyInput(),
+        policyInput({ cancelDeadlineMinutes: "120", bookingWindowDays: "60" }),
+      ),
+    ).toEqual(["bookingWindowDays", "cancelDeadlineMinutes"]);
+  });
+
+  it("数値として同じ値は変更として扱わない(「30」と「 030 」)", () => {
+    expect(
+      changedBookingPolicyFields(
+        policyInput({ slotIntervalMinutes: "30" }),
+        policyInput({ slotIntervalMinutes: " 030 " }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("数値として読めない入力は文字列として突き合わせる(エラーは検証側の仕事)", () => {
+    expect(
+      changedBookingPolicyFields(
+        policyInput({ minLeadMinutes: "60" }),
+        policyInput({ minLeadMinutes: "" }),
+      ),
+    ).toEqual(["minLeadMinutes"]);
+    expect(
+      changedBookingPolicyFields(
+        policyInput({ minLeadMinutes: "abc" }),
+        policyInput({ minLeadMinutes: " abc " }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("値を変えてから手で元の値に戻すと変更なしに戻る", () => {
+    const saved = policyInput({ bookingWindowDays: "30" });
+    expect(
+      changedBookingPolicyFields(
+        saved,
+        policyInput({ bookingWindowDays: "60" }),
+      ),
+    ).toEqual(["bookingWindowDays"]);
+    expect(
+      changedBookingPolicyFields(
+        saved,
+        policyInput({ bookingWindowDays: "30" }),
+      ),
+    ).toEqual([]);
   });
 });

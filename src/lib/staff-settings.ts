@@ -18,7 +18,7 @@ import {
   type StaffWorkingDay,
 } from "./availability";
 import { isSlotTakenError } from "./booking";
-import { WEEKDAYS } from "./business-settings";
+import { WEEKDAYS, canonicalTimeInput } from "./business-settings";
 import { calendarDateLabel } from "./calendar";
 
 /** "HH:MM"(00:00〜23:59)形式の壁時計時刻か */
@@ -495,4 +495,94 @@ export function staffBlockLabel(block: {
   endTime: string;
 }): string {
   return `${calendarDateLabel(block.date)} ${block.startTime}〜${block.endTime}`;
+}
+
+// ---------------------------------------------------------------------------
+// 6. 未保存の変更の判定(節ごとの保存ボタン・「元に戻す」・変更箇所の目印)
+// ---------------------------------------------------------------------------
+//
+// 「保存済みの値(props)と編集中の値の差」を節ごとの単位で返す。
+// 汎用の深い比較を置かない理由は business-settings.ts の同じ節に書いた
+// (差の粒度が節ごとに違い、「同じ値」の定義が保存結果の一致であるため)。
+
+/**
+ * 整数の入力欄を**比較用**に揃える(保存はしない)。
+ * 前後の空白と桁揃え("1" と " 01 ")を潰す。整数として読めない値は
+ * 前後の空白だけ落として返す(弾くのは validateStaffInput の仕事)。
+ * salon-settings.ts にも同じ整形があるが、どちらも数行なので
+ * 依存の向きを増やさずそれぞれに置く(toTimeInput と同じ判断)。
+ */
+function canonicalIntegerInput(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed === "") return "";
+  const parsed = Number(trimmed);
+  return Number.isInteger(parsed) ? String(parsed) : trimmed;
+}
+
+/** スタッフ情報の項目名(変更の目印を出す単位) */
+export type StaffFieldKey =
+  "name" | "role" | "displayOrder" | "isActive" | "bio";
+
+/** 画面の並び順(返す配列の順序をこれに揃える) */
+const STAFF_FIELD_KEYS: readonly StaffFieldKey[] = [
+  "name",
+  "role",
+  "displayOrder",
+  "isActive",
+  "bio",
+];
+
+/**
+ * スタッフ情報で、保存済みの値と差がある項目を画面の並び順で返す。
+ * 空配列なら「変更なし」(保存ボタンを無効にする)。
+ *
+ * 正規化は validateStaffInput と対にする:
+ * 名前・自己紹介は前後の空白を落とす(保存時に trim する。自己紹介は
+ * 空文字と空白のみがどちらもNULLになるので同じ扱い)。表示順は数値として
+ * 突き合わせる(保存するのは Number(...) の結果)。
+ */
+export function changedStaffFields(
+  saved: StaffInput,
+  draft: StaffInput,
+): StaffFieldKey[] {
+  const canonical = (input: StaffInput): Record<StaffFieldKey, string> => ({
+    name: input.name.trim(),
+    role: input.role,
+    displayOrder: canonicalIntegerInput(input.displayOrder),
+    isActive: input.isActive ? "active" : "inactive",
+    bio: input.bio.trim(),
+  });
+
+  const a = canonical(saved);
+  const b = canonical(draft);
+  return STAFF_FIELD_KEYS.filter((key) => a[key] !== b[key]);
+}
+
+/** 比較用に揃えた1曜日ぶんの勤務(保存結果が同じなら同じ文字列になる) */
+function canonicalWorkingDay(day: WorkingDayInput): string {
+  // 勤務でない曜日は行そのものが消えるので、残った時刻は差ではない
+  // (validateStaffWorkingHours が検証しないのと同じ扱い)
+  if (!day.isWorking) return "off";
+  const times = [day.startTime, day.endTime, day.breakStart, day.breakEnd].map(
+    canonicalTimeInput,
+  );
+  return `on:${times.join("/")}`;
+}
+
+/**
+ * 勤務曜日・時間で、保存済みの値と差がある曜日を昇順で返す。
+ * 空配列なら「変更なし」。
+ */
+export function changedWorkingDayWeekdays(
+  saved: readonly WorkingDayInput[],
+  draft: readonly WorkingDayInput[],
+): number[] {
+  const toMap = (days: readonly WorkingDayInput[]) =>
+    new Map(days.map((day) => [day.weekday, canonicalWorkingDay(day)]));
+  const savedMap = toMap(saved);
+  const draftMap = toMap(draft);
+
+  return [...new Set([...savedMap.keys(), ...draftMap.keys()])]
+    .filter((weekday) => savedMap.get(weekday) !== draftMap.get(weekday))
+    .sort((a, b) => a - b);
 }

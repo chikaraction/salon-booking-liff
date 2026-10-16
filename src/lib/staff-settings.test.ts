@@ -8,6 +8,8 @@ import {
   STAFF_INVALID_MESSAGE,
   WORKING_HOURS_INVALID_MESSAGE,
   applyTimesToWorkingDays,
+  changedStaffFields,
+  changedWorkingDayWeekdays,
   describeStaffBlocks,
   diffStaffWorkingHours,
   fillStaffWorkingHours,
@@ -585,5 +587,168 @@ describe("staffBlockLabel", () => {
         endTime: "19:00",
       }),
     ).toBe("7月29日(水) 10:00〜19:00");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 7. 未保存の変更の判定(節ごとの保存ボタン・「元に戻す」・変更箇所の目印)
+// ---------------------------------------------------------------------------
+
+describe("changedStaffFields", () => {
+  it("保存済みの値と同じなら変更なし", () => {
+    expect(changedStaffFields(staffInput(), staffInput())).toEqual([]);
+  });
+
+  it("変えた項目だけを返す", () => {
+    expect(
+      changedStaffFields(staffInput(), staffInput({ name: "佐藤" })),
+    ).toEqual(["name"]);
+    expect(
+      changedStaffFields(staffInput(), staffInput({ role: "owner" })),
+    ).toEqual(["role"]);
+    expect(
+      changedStaffFields(staffInput(), staffInput({ isActive: false })),
+    ).toEqual(["isActive"]);
+  });
+
+  it("複数を変えたら項目の並び順(名前・ロール・表示順・状態・自己紹介)で返す", () => {
+    expect(
+      changedStaffFields(
+        staffInput(),
+        staffInput({ bio: "カット担当", name: "佐藤" }),
+      ),
+    ).toEqual(["name", "bio"]);
+  });
+
+  it("名前・自己紹介の前後の空白は変更として扱わない(保存時に落とすため)", () => {
+    expect(
+      changedStaffFields(
+        staffInput({ name: "田中", bio: "カット担当" }),
+        staffInput({ name: " 田中 ", bio: " カット担当 " }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("自己紹介の未入力(空文字)と空白のみは同じ扱い(どちらもNULLになる)", () => {
+    expect(
+      changedStaffFields(staffInput({ bio: "" }), staffInput({ bio: "  " })),
+    ).toEqual([]);
+  });
+
+  it("表示順は数値として突き合わせる(「1」と「 01 」は同じ)", () => {
+    expect(
+      changedStaffFields(
+        staffInput({ displayOrder: "1" }),
+        staffInput({ displayOrder: " 01 " }),
+      ),
+    ).toEqual([]);
+    expect(
+      changedStaffFields(
+        staffInput({ displayOrder: "1" }),
+        staffInput({ displayOrder: "2" }),
+      ),
+    ).toEqual(["displayOrder"]);
+  });
+
+  it("表示順が数値として読めない入力は文字列として突き合わせる(エラーは検証側の仕事)", () => {
+    expect(
+      changedStaffFields(
+        staffInput({ displayOrder: "1" }),
+        staffInput({ displayOrder: "" }),
+      ),
+    ).toEqual(["displayOrder"]);
+  });
+
+  it("値を変えてから手で元の値に戻すと変更なしに戻る", () => {
+    const saved = staffInput({ name: "田中" });
+    expect(changedStaffFields(saved, staffInput({ name: "佐藤" }))).toEqual([
+      "name",
+    ]);
+    expect(changedStaffFields(saved, staffInput({ name: "田中" }))).toEqual([]);
+  });
+});
+
+describe("changedWorkingDayWeekdays", () => {
+  it("保存済みの値と同じなら変更なし", () => {
+    const saved = allWeekdays({
+      1: { isWorking: true },
+      2: { isWorking: true },
+    });
+    expect(changedWorkingDayWeekdays(saved, saved)).toEqual([]);
+  });
+
+  it("勤務曜日のON/OFFを切り替えた曜日を返す", () => {
+    expect(
+      changedWorkingDayWeekdays(
+        allWeekdays({ 1: { isWorking: true } }),
+        allWeekdays({ 1: { isWorking: true }, 4: { isWorking: true } }),
+      ),
+    ).toEqual([4]);
+  });
+
+  it("時刻・休憩を変えた曜日だけを返す", () => {
+    expect(
+      changedWorkingDayWeekdays(
+        allWeekdays({ 1: { isWorking: true }, 2: { isWorking: true } }),
+        allWeekdays({
+          1: { isWorking: true },
+          2: { isWorking: true, breakStart: "13:00", breakEnd: "14:00" },
+        }),
+      ),
+    ).toEqual([2]);
+  });
+
+  it("「09:00」と「9:00」・前後の空白・秒付きは同じ時刻として扱う", () => {
+    expect(
+      changedWorkingDayWeekdays(
+        allWeekdays({ 1: { isWorking: true, startTime: "09:00" } }),
+        allWeekdays({ 1: { isWorking: true, startTime: " 9:00 " } }),
+      ),
+    ).toEqual([]);
+    expect(
+      changedWorkingDayWeekdays(
+        allWeekdays({ 1: { isWorking: true, startTime: "09:00:00" } }),
+        allWeekdays({ 1: { isWorking: true, startTime: "09:00" } }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("休みの曜日に残った時刻は変更として扱わない(行そのものが消えるため)", () => {
+    expect(
+      changedWorkingDayWeekdays(
+        allWeekdays({ 3: { isWorking: false, startTime: "", endTime: "" } }),
+        allWeekdays({
+          3: { isWorking: false, startTime: "10:00", endTime: "18:00" },
+        }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("変更した曜日が複数あれば曜日順に返す", () => {
+    expect(
+      changedWorkingDayWeekdays(
+        allWeekdays({ 1: { isWorking: true }, 5: { isWorking: true } }),
+        allWeekdays({
+          1: { isWorking: true, endTime: "20:00" },
+          5: { isWorking: false },
+        }),
+      ),
+    ).toEqual([1, 5]);
+  });
+
+  it("値を変えてから手で元の値に戻すと変更なしに戻る", () => {
+    const saved = allWeekdays({ 1: { isWorking: true, endTime: "19:00" } });
+    expect(
+      changedWorkingDayWeekdays(
+        saved,
+        allWeekdays({ 1: { isWorking: true, endTime: "20:00" } }),
+      ),
+    ).toEqual([1]);
+    expect(
+      changedWorkingDayWeekdays(
+        saved,
+        allWeekdays({ 1: { isWorking: true, endTime: "19:00" } }),
+      ),
+    ).toEqual([]);
   });
 });

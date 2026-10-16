@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   DATE_OVERRIDE_OVERLAP_MESSAGE,
+  canonicalTimeInput,
+  changedNthWeekdayWeekdays,
+  changedWeeklyHourWeekdays,
   closureListWindow,
   describeNthWeekdayClosures,
   fillWeeklyBusinessHours,
@@ -565,5 +568,187 @@ describe("closureListWindow", () => {
         overrides: [{ startDate: "2026-01-01", endDate: "2026-01-03" }],
       }),
     ).toEqual({ from: "2026-07-18", days: 180 });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 7. 未保存の変更の判定(節ごとの保存ボタン・「元に戻す」・変更箇所の目印)
+// ---------------------------------------------------------------------------
+
+describe("canonicalTimeInput", () => {
+  it("前後の空白を落とす", () => {
+    expect(canonicalTimeInput("  10:00  ")).toBe("10:00");
+  });
+
+  it("時が1桁の入力を2桁に揃える(「9:00」と「09:00」は同じ時刻)", () => {
+    expect(canonicalTimeInput("9:00")).toBe("09:00");
+  });
+
+  it("DBの秒付き(HH:MM:SS)は秒を落とす", () => {
+    expect(canonicalTimeInput("10:00:00")).toBe("10:00");
+    expect(canonicalTimeInput("9:30:00")).toBe("09:30");
+  });
+
+  it("空文字・空白のみは空文字(未入力)にする", () => {
+    expect(canonicalTimeInput("")).toBe("");
+    expect(canonicalTimeInput("   ")).toBe("");
+  });
+
+  it("時刻として読めない値は前後の空白だけ落として返す(比較はできる)", () => {
+    expect(canonicalTimeInput(" 25:99 ")).toBe("25:99");
+    expect(canonicalTimeInput(" あ ")).toBe("あ");
+  });
+});
+
+describe("changedWeeklyHourWeekdays", () => {
+  it("保存済みの値と同じなら変更なし", () => {
+    expect(changedWeeklyHourWeekdays(weeklyInput(), weeklyInput())).toEqual([]);
+  });
+
+  it("時刻を変えた曜日だけを返す", () => {
+    expect(
+      changedWeeklyHourWeekdays(
+        weeklyInput(),
+        weeklyInput({ 3: { closeTime: "21:00" } }),
+      ),
+    ).toEqual([3]);
+  });
+
+  it("定休と営業の切り替えも変更として返す", () => {
+    expect(
+      changedWeeklyHourWeekdays(
+        weeklyInput(),
+        weeklyInput({ 1: { isOpen: false } }),
+      ),
+    ).toEqual([1]);
+  });
+
+  it("変更した曜日が複数あれば曜日順に返す", () => {
+    expect(
+      changedWeeklyHourWeekdays(
+        weeklyInput(),
+        weeklyInput({ 5: { openTime: "11:00" }, 2: { isOpen: false } }),
+      ),
+    ).toEqual([2, 5]);
+  });
+
+  it("「09:00」と「9:00」・前後の空白は同じ時刻として扱う", () => {
+    expect(
+      changedWeeklyHourWeekdays(
+        weeklyInput({ 4: { openTime: "09:00" } }),
+        weeklyInput({ 4: { openTime: " 9:00 " } }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("DBの秒付きの値と input[type=time] の HH:MM は同じ時刻として扱う", () => {
+    expect(
+      changedWeeklyHourWeekdays(
+        weeklyInput({ 4: { openTime: "10:00:00" } }),
+        weeklyInput({ 4: { openTime: "10:00" } }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("休業の曜日に残った時刻は変更として扱わない(保存時に捨てられるため)", () => {
+    expect(
+      changedWeeklyHourWeekdays(
+        weeklyInput({ 0: { isOpen: false, openTime: "", closeTime: "" } }),
+        weeklyInput({
+          0: { isOpen: false, openTime: "10:00", closeTime: "19:00" },
+        }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("値を変えてから手で元の値に戻すと変更なしに戻る", () => {
+    const saved = weeklyInput();
+    const edited = weeklyInput({ 3: { closeTime: "21:00" } });
+    expect(changedWeeklyHourWeekdays(saved, edited)).toEqual([3]);
+    expect(
+      changedWeeklyHourWeekdays(
+        saved,
+        weeklyInput({ 3: { closeTime: "19:00" } }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("曜日の並びが違っても曜日ごとに突き合わせる", () => {
+    const saved = weeklyInput();
+    const reversed = [...weeklyInput()].reverse();
+    expect(changedWeeklyHourWeekdays(saved, reversed)).toEqual([]);
+  });
+
+  it("片方に無い曜日は変更として返す(行が欠けた入力でも判定できる)", () => {
+    expect(
+      changedWeeklyHourWeekdays(weeklyInput(), weeklyInput().slice(0, 6)),
+    ).toEqual([6]);
+  });
+});
+
+describe("changedNthWeekdayWeekdays", () => {
+  it("保存済みの行と同じ内容なら変更なし", () => {
+    const saved = [
+      { weekday: 0, nth: 1 },
+      { weekday: 0, nth: 3 },
+    ];
+    expect(
+      changedNthWeekdayWeekdays(saved, [{ weekday: 0, nths: [1, 3] }]),
+    ).toEqual([]);
+  });
+
+  it("第◯を増やした曜日を返す", () => {
+    expect(
+      changedNthWeekdayWeekdays(
+        [{ weekday: 0, nth: 1 }],
+        [{ weekday: 0, nths: [1, 3] }],
+      ),
+    ).toEqual([0]);
+  });
+
+  it("ブロックを消した曜日を返す", () => {
+    expect(changedNthWeekdayWeekdays([{ weekday: 2, nth: 4 }], [])).toEqual([
+      2,
+    ]);
+  });
+
+  it("曜日を変えたら元の曜日と新しい曜日の両方を返す", () => {
+    expect(
+      changedNthWeekdayWeekdays(
+        [{ weekday: 0, nth: 1 }],
+        [{ weekday: 3, nths: [1] }],
+      ),
+    ).toEqual([0, 3]);
+  });
+
+  it("第◯を1つも選んでいない空のブロックは変更として扱わない(保存時に落ちるため)", () => {
+    expect(changedNthWeekdayWeekdays([], [{ weekday: 0, nths: [] }])).toEqual(
+      [],
+    );
+  });
+
+  it("同じ曜日が2ブロックに分かれていても、合わせた内容が同じなら変更なし", () => {
+    const saved = [
+      { weekday: 0, nth: 1 },
+      { weekday: 0, nth: 3 },
+    ];
+    expect(
+      changedNthWeekdayWeekdays(saved, [
+        { weekday: 0, nths: [3] },
+        { weekday: 0, nths: [1, 3] },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("第◯の並び順の違いは変更として扱わない", () => {
+    expect(
+      changedNthWeekdayWeekdays(
+        [
+          { weekday: 1, nth: 2 },
+          { weekday: 1, nth: 4 },
+        ],
+        [{ weekday: 1, nths: [4, 2] }],
+      ),
+    ).toEqual([]);
   });
 });

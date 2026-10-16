@@ -324,3 +324,56 @@ export function describeCancelDeadline(value: string): string | null {
   const duration = formatMinutesDuration(minutes);
   return `開始${duration}前を過ぎると、お客様自身ではキャンセル・変更できなくなります(ちょうど${duration}前は可)。店側からのキャンセルはこの設定に左右されません。`;
 }
+
+// ---------------------------------------------------------------------------
+// 4. 未保存の変更の判定(節ごとの保存ボタン・「元に戻す」・変更箇所の目印)
+// ---------------------------------------------------------------------------
+//
+// 「保存済みの値(props)と編集中の値の差」を節ごとの単位で返す。
+// 汎用の深い比較を置かない理由は business-settings.ts の同じ節に書いた
+// (差の粒度が節ごとに違い、「同じ値」の定義が保存結果の一致であるため)。
+
+/**
+ * 店名が保存済みの値から変わっているか。
+ * validateSalonName が前後の空白を落として保存するので、
+ * 空白だけの違いは変更として扱わない。
+ */
+export function isSalonNameChanged(saved: string, draft: string): boolean {
+  return saved.trim() !== draft.trim();
+}
+
+/** 予約の受付ルールの入力欄名(変更の目印を出す単位) */
+export type BookingPolicyFieldKey = keyof BookingPolicyInput;
+
+/** 画面の並び順(返す配列の順序をこれに揃える) */
+const BOOKING_POLICY_FIELD_KEYS: readonly BookingPolicyFieldKey[] = [
+  "slotIntervalMinutes",
+  "bookingWindowDays",
+  "minLeadMinutes",
+  "cancelDeadlineMinutes",
+];
+
+/**
+ * 整数の入力欄を**比較用**に揃える(保存はしない)。
+ * 前後の空白と桁揃え("30" と " 030 ")を潰す。整数として読めない値は
+ * 前後の空白だけ落として返す(弾くのは validateBookingPolicyInput の仕事)。
+ */
+function canonicalIntegerInput(value: string): string {
+  const parsed = parseIntegerInput(value);
+  return parsed === null ? value.trim() : String(parsed);
+}
+
+/**
+ * 予約の受付ルールで、保存済みの値と差がある項目を画面の並び順で返す。
+ * 空配列なら「変更なし」(保存ボタンを無効にする)。
+ * 保存するのは整数に変換した値なので、突き合わせも整数で行う。
+ */
+export function changedBookingPolicyFields(
+  saved: BookingPolicyInput,
+  draft: BookingPolicyInput,
+): BookingPolicyFieldKey[] {
+  return BOOKING_POLICY_FIELD_KEYS.filter(
+    (key) =>
+      canonicalIntegerInput(saved[key]) !== canonicalIntegerInput(draft[key]),
+  );
+}

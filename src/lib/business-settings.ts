@@ -49,6 +49,24 @@ export function normalizeTimeInput(value: string | null): string {
   return value.slice(0, 5);
 }
 
+/**
+ * 時刻入力を**比較用**に揃える(保存はしない)。
+ * 見た目が違っても保存結果が同じになる差を潰すのが目的:
+ * - 前後の空白(手入力・貼り付け)
+ * - 時が1桁("9:00" と "09:00"。input[type=time] は2桁で返すが、
+ *   DBから来た値やブラウザ差で1桁が混ざっても同じ時刻として扱う)
+ * - 秒("HH:MM:SS"。DBの time 型。normalizeTimeInput 前の値が混ざっても揃う)
+ *
+ * 時刻として読めない値は前後の空白だけ落として返す(比較はできる。
+ * 不正な入力を弾くのは validateWeeklyBusinessHours の仕事)。
+ */
+export function canonicalTimeInput(value: string): string {
+  const trimmed = value.trim();
+  const matched = /^(\d{1,2}):([0-5]\d)(?::[0-5]\d)?$/.exec(trimmed);
+  if (matched === null) return trimmed;
+  return `${matched[1].padStart(2, "0")}:${matched[2]}`;
+}
+
 // ---------------------------------------------------------------------------
 // 1. 毎週の定休 + 曜日ごとの営業時間(business_hours)
 // ---------------------------------------------------------------------------
@@ -434,4 +452,82 @@ export function closureListWindow(params: {
     if (override.endDate > until) until = override.endDate;
   }
   return { from: today, days: diffCalendarDays(today, until) + 1 };
+}
+
+// ---------------------------------------------------------------------------
+// 5. 未保存の変更の判定(節ごとの保存ボタン・「元に戻す」・変更箇所の目印)
+// ---------------------------------------------------------------------------
+//
+// 設定画面は節ごとに保存する。節ごとに
+//   - 変更が無ければ保存ボタンを押せない
+//   - 変更があるときだけ「元に戻す」を出す
+//   - 見出しに「未保存の変更」バッジ、変更された行に目印を出す
+// という挙動が要るので、「保存済みの値(props)と編集中の値の差」を判定する。
+//
+// **汎用の深い比較を1つ作るのではなく、節ごとの判定関数を置いた**。理由:
+//   1. 差を取りたい粒度が「真偽値」ではなく「どの行・どの項目が変わったか」で、
+//      節ごとに単位が違う(曜日 / 第◯曜日の曜日 / スタッフの項目名 / 入力欄名)。
+//      目印を出すにはこの粒度が必要で、汎用比較では表現できない
+//   2. 「同じ値」の定義が構造の一致ではなく**保存結果の一致**。休業の曜日に
+//      残った時刻("09:00" が入ったままの定休曜日)は保存時に捨てられるので
+//      差とみなさない、表示順 "1" と " 01 " は同じ、店名の前後の空白は落ちる、
+//      といった正規化が各節の検証関数(validate*)と対になっている。
+//      汎用の深い比較では必ずこの正規化を取りこぼし、
+//      「保存しても未保存バッジが消えない」「変更が無いのに押せる」になる
+// 判定は各設定のファイル(business / staff / salon)に置き、
+// それぞれの検証関数と同じ正規化を使う。
+
+/** 比較用に揃えた1曜日ぶんの営業時間(保存結果が同じなら同じ文字列になる) */
+function canonicalWeeklyHours(day: WeeklyHoursInput): string {
+  // 休業の曜日は時刻を捨てて NULL にして保存するので、残った時刻は差ではない
+  // (validateWeeklyBusinessHours と同じ扱い)
+  if (!day.isOpen) return "closed";
+  return `open:${canonicalTimeInput(day.openTime)}-${canonicalTimeInput(day.closeTime)}`;
+}
+
+/**
+ * 曜日ごとの営業時間で、保存済みの値と差がある曜日を昇順で返す。
+ * 空配列なら「変更なし」(保存ボタンを無効にする)。
+ * 片方にしか無い曜日は差として返す(通常はUIが常に7件持つので起きない)。
+ */
+export function changedWeeklyHourWeekdays(
+  saved: readonly WeeklyHoursInput[],
+  draft: readonly WeeklyHoursInput[],
+): number[] {
+  const toMap = (days: readonly WeeklyHoursInput[]) =>
+    new Map(days.map((day) => [day.weekday, canonicalWeeklyHours(day)]));
+  const savedMap = toMap(saved);
+  const draftMap = toMap(draft);
+
+  return [...new Set([...savedMap.keys(), ...draftMap.keys()])]
+    .filter((weekday) => savedMap.get(weekday) !== draftMap.get(weekday))
+    .sort((a, b) => a - b);
+}
+
+/**
+ * 第◯曜日の定休で、保存済みの内容と差がある曜日を昇順で返す。
+ * 空配列なら「変更なし」。
+ *
+ * 比較は「保存されるDBの行集合」どうしで行う(flattenNthWeekdayGroups を通す)。
+ * そのため、第◯を1つも選んでいない空のブロック(「+ 追加」しただけ)や
+ * 同じ曜日の重複ブロック・第◯の並び順の違いは差にならない
+ * ── いずれも保存時に落ちて行集合が変わらないため。
+ */
+export function changedNthWeekdayWeekdays(
+  saved: readonly NthWeekdayClosureRow[],
+  draft: readonly NthWeekdayGroup[],
+): number[] {
+  const toMap = (rows: readonly NthWeekdayClosureRow[]) => {
+    const map = new Map<number, string>();
+    for (const group of groupNthWeekdayClosures(rows)) {
+      map.set(group.weekday, group.nths.join(","));
+    }
+    return map;
+  };
+  const savedMap = toMap(saved);
+  const draftMap = toMap(flattenNthWeekdayGroups(draft));
+
+  return [...new Set([...savedMap.keys(), ...draftMap.keys()])]
+    .filter((weekday) => savedMap.get(weekday) !== draftMap.get(weekday))
+    .sort((a, b) => a - b);
 }
