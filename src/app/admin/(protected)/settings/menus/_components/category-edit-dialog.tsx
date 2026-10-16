@@ -147,7 +147,9 @@ export function CategoryEditDialog({ categories, menuCounts, onClose }: Props) {
             type="button"
             aria-label="閉じる"
             onClick={onClose}
-            className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            // ホバーは bg-input にする。bg-secondary は bg-muted と明度差が
+            // ほぼ無く(ダークでは同値)、ホバーしたことが分からなかった
+            className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground transition-colors hover:bg-input hover:text-foreground"
           >
             <X aria-hidden="true" className="size-5" />
           </button>
