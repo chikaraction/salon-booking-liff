@@ -53,6 +53,13 @@ const inputClass =
   "h-11 rounded-xl border border-input bg-card px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50";
 const sectionLabelClass = "text-base font-bold text-muted-foreground";
 const saveButtonClass = "h-11 rounded-xl px-5 text-base font-bold";
+// モックE-2の「＋ 追加」「＋ 日付を追加」は枠と文字がテーマ色(白地)。
+// shadcnの outline は枠=--border・文字=--foreground のニュートラルで、
+// モックの「戻る」「キャンセル」側がそれに当たるため variant は変えず、
+// テーマ色のアウトラインが要る箇所だけここで上書きする。
+// hover:/aria-expanded: も outline の指定を打ち消して文字色を保つ。
+const accentOutlineButtonClass =
+  "border-primary bg-card text-primary hover:text-primary aria-expanded:text-primary";
 
 type Props = {
   /** 今日(JSTの暦日)。日付入力の初期値に使う */
@@ -398,7 +405,10 @@ function NthWeekdaySection({
             touch();
             setGroups((current) => [...current, { weekday: 0, nths: [] }]);
           }}
-          className="h-11 rounded-xl px-4 text-base font-medium"
+          className={cn(
+            "h-11 rounded-xl px-4 text-base font-medium",
+            accentOutlineButtonClass,
+          )}
         >
           <Plus aria-hidden="true" className="size-4" />
           追加
@@ -653,7 +663,10 @@ function DateOverrideSection({
             setMessage(null);
             setIsAdding((open) => !open);
           }}
-          className="h-11 rounded-xl px-4 text-base font-medium"
+          className={cn(
+            "h-11 rounded-xl px-4 text-base font-medium",
+            accentOutlineButtonClass,
+          )}
         >
           <Plus aria-hidden="true" className="size-4" />
           日付を追加

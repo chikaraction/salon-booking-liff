@@ -59,6 +59,12 @@ const inputClass =
 const sectionLabelClass = "text-base font-bold text-muted-foreground";
 const saveButtonClass = "h-11 rounded-xl px-5 text-base font-bold";
 const fieldLabelClass = "text-sm font-bold text-foreground";
+// モックEの「臨時休を追加」の「＋ 追加」は枠と文字がテーマ色(白地)。
+// shadcnの outline は枠=--border・文字=--foreground のニュートラルで、
+// モックの「戻る」「キャンセル」側がそれに当たるため variant は変えず、
+// テーマ色のアウトラインが要る箇所だけここで上書きする
+const accentOutlineButtonClass =
+  "border-primary bg-card text-primary hover:text-primary aria-expanded:text-primary";
 
 /** 選べるロール(staff.role の check 制約と同じ2値) */
 const ROLE_CHOICES: readonly StaffRole[] = ["owner", "staff"];
@@ -872,7 +878,10 @@ function BlockSection({
             setMessage(null);
             setIsAdding((open) => !open);
           }}
-          className="h-11 shrink-0 rounded-xl bg-card px-4 text-base font-medium"
+          className={cn(
+            "h-11 shrink-0 rounded-xl px-4 text-base font-medium",
+            accentOutlineButtonClass,
+          )}
         >
           <Plus aria-hidden="true" className="size-4" />
           追加
