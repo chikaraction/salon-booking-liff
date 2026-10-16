@@ -15,7 +15,7 @@
 
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 
 import {
   addStaffBlock,
@@ -23,11 +23,21 @@ import {
   saveStaff,
   saveStaffWorkingHours,
 } from "@/app/admin/(protected)/settings/actions";
+import {
+  ChangedMark,
+  RevertButton,
+  SectionFooter,
+  UnsavedBadge,
+  changedRowClass,
+  useSavedDraft,
+} from "@/app/admin/(protected)/settings/_components/unsaved-changes";
 import { Button } from "@/components/ui/button";
 import type { StaffRole } from "@/lib/admin-permissions";
 import { weekdayLongLabel, weekdayShortLabel } from "@/lib/business-settings";
 import {
   applyTimesToWorkingDays,
+  changedStaffFields,
+  changedWorkingDayWeekdays,
   describeStaffBlocks,
   resolveStaffBlockRange,
   staffBlockLabel,
@@ -242,13 +252,30 @@ function StaffEditorSection({
   onFinished: () => void;
 }) {
   const router = useRouter();
-  const [input, setInput] = useState<StaffInput>(() => ({
-    name: staff?.name ?? "",
-    role: staff?.role ?? "staff",
-    displayOrder: String(staff?.displayOrder ?? defaultDisplayOrder),
-    isActive: staff?.isActive ?? true,
-    bio: staff?.bio ?? "",
-  }));
+  // 保存済みの値(props)から組んだ入力が基準。新規追加(staff === null)は
+  // 保存済みの値が無いので「未保存の変更」は見ない(従来どおり登録できる)
+  const isTracked = staff !== null;
+  const savedInput = useMemo<StaffInput>(
+    () => ({
+      name: staff?.name ?? "",
+      role: staff?.role ?? "staff",
+      displayOrder: String(staff?.displayOrder ?? defaultDisplayOrder),
+      isActive: staff?.isActive ?? true,
+      bio: staff?.bio ?? "",
+    }),
+    [staff, defaultDisplayOrder],
+  );
+  const {
+    base,
+    draft: input,
+    setDraft: setInput,
+    revert,
+  } = useSavedDraft<StaffInput>(
+    savedInput,
+    (a, b) => changedStaffFields(a, b).length === 0,
+  );
+  const changedFields = isTracked ? changedStaffFields(base, input) : [];
+  const isDirty = changedFields.length > 0;
   const [errors, setErrors] = useState<StaffErrors>({});
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -256,6 +283,12 @@ function StaffEditorSection({
   const update = (patch: Partial<StaffInput>) => {
     setMessage(null);
     setInput((current) => ({ ...current, ...patch }));
+  };
+
+  const handleRevert = () => {
+    setErrors({});
+    setMessage(null);
+    revert();
   };
 
   const handleSave = () => {
@@ -270,6 +303,8 @@ function StaffEditorSection({
     startTransition(async () => {
       const result = await saveStaff({ id: staff?.id ?? null, input });
       if (result.ok) {
+        // 成功したら編集フォームを閉じるので基準値の更新は要らない
+        // (次に開いたときは新しい props から組み直す)
         onFinished();
         router.refresh();
         return;
@@ -281,15 +316,21 @@ function StaffEditorSection({
 
   return (
     <section className="flex flex-col gap-4 rounded-xl border border-border p-4 md:p-6">
-      <p className={sectionLabelClass}>
-        {staff === null ? "スタッフを追加" : "スタッフ情報"}
-      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className={sectionLabelClass}>
+          {staff === null ? "スタッフを追加" : "スタッフ情報"}
+        </p>
+        {isDirty && <UnsavedBadge />}
+      </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label htmlFor="staff-name" className={fieldLabelClass}>
-            名前
-          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <label htmlFor="staff-name" className={fieldLabelClass}>
+              名前
+            </label>
+            {changedFields.includes("name") && <ChangedMark />}
+          </div>
           <input
             id="staff-name"
             type="text"
@@ -305,9 +346,12 @@ function StaffEditorSection({
         </div>
 
         <div>
-          <label htmlFor="staff-role" className={fieldLabelClass}>
-            ロール
-          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <label htmlFor="staff-role" className={fieldLabelClass}>
+              ロール
+            </label>
+            {changedFields.includes("role") && <ChangedMark />}
+          </div>
           <select
             id="staff-role"
             value={input.role}
@@ -328,12 +372,15 @@ function StaffEditorSection({
         </div>
 
         <div>
-          <label htmlFor="staff-display-order" className={fieldLabelClass}>
-            表示順{" "}
-            <span className="font-normal text-muted-foreground">
-              (小さいほど先)
-            </span>
-          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <label htmlFor="staff-display-order" className={fieldLabelClass}>
+              表示順{" "}
+              <span className="font-normal text-muted-foreground">
+                (小さいほど先)
+              </span>
+            </label>
+            {changedFields.includes("displayOrder") && <ChangedMark />}
+          </div>
           <input
             id="staff-display-order"
             type="number"
@@ -351,7 +398,10 @@ function StaffEditorSection({
         </div>
 
         <div>
-          <p className={fieldLabelClass}>状態</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className={fieldLabelClass}>状態</p>
+            {changedFields.includes("isActive") && <ChangedMark />}
+          </div>
           <div className="mt-1 flex items-center justify-between gap-3 rounded-xl bg-muted px-4 py-2">
             <span className="text-base text-foreground">
               {input.isActive ? "有効" : "無効"}
@@ -380,10 +430,13 @@ function StaffEditorSection({
       </div>
 
       <div>
-        <label htmlFor="staff-bio" className={fieldLabelClass}>
-          自己紹介{" "}
-          <span className="font-normal text-muted-foreground">(任意)</span>
-        </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <label htmlFor="staff-bio" className={fieldLabelClass}>
+            自己紹介{" "}
+            <span className="font-normal text-muted-foreground">(任意)</span>
+          </label>
+          {changedFields.includes("bio") && <ChangedMark />}
+        </div>
         <textarea
           id="staff-bio"
           rows={3}
@@ -421,7 +474,8 @@ function StaffEditorSection({
         <Button
           type="button"
           onClick={handleSave}
-          disabled={isPending}
+          // 既存スタッフの編集では、変更が無いあいだ保存できない
+          disabled={isPending || (isTracked && !isDirty)}
           className={saveButtonClass}
         >
           {isPending && (
@@ -429,6 +483,9 @@ function StaffEditorSection({
           )}
           {staff === null ? "登録する" : "保存する"}
         </Button>
+        {isDirty && (
+          <RevertButton disabled={isPending} onRevert={handleRevert} />
+        )}
         <Button
           type="button"
           variant="ghost"
@@ -459,7 +516,20 @@ function WorkingHoursSection({
   workingDays: WorkingDayInput[];
 }) {
   const router = useRouter();
-  const [days, setDays] = useState<WorkingDayInput[]>(workingDays);
+  // 保存済みの値(props)が基準。変更の有無・変更された曜日の判定は
+  // 純粋関数(changedWorkingDayWeekdays)に任せる
+  const {
+    base,
+    draft: days,
+    setDraft: setDays,
+    revert,
+    markSaved,
+  } = useSavedDraft<WorkingDayInput[]>(
+    workingDays,
+    (a, b) => changedWorkingDayWeekdays(a, b).length === 0,
+  );
+  const changedWeekdays = changedWorkingDayWeekdays(base, days);
+  const isDirty = changedWeekdays.length > 0;
   const [errors, setErrors] = useState<Record<number, string>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -468,6 +538,12 @@ function WorkingHoursSection({
   const touch = () => {
     setSaved(false);
     setMessage(null);
+  };
+
+  const handleRevert = () => {
+    touch();
+    setErrors({});
+    revert();
   };
 
   const update = (weekday: number, patch: Partial<WorkingDayInput>) => {
@@ -495,6 +571,8 @@ function WorkingHoursSection({
       const result = await saveStaffWorkingHours({ staffId, days });
       if (result.ok) {
         setSaved(true);
+        // 保存した値が新しい基準になる(= 変更なしの状態に戻る)
+        markSaved();
         router.refresh();
         return;
       }
@@ -504,7 +582,10 @@ function WorkingHoursSection({
 
   return (
     <section className="flex flex-col gap-4">
-      <p className={sectionLabelClass}>勤務曜日・時間</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className={sectionLabelClass}>勤務曜日・時間</p>
+        {isDirty && <UnsavedBadge />}
+      </div>
 
       {/* 曜日チップ。選択(塗り)= 勤務日(モックE準拠) */}
       <div className="flex flex-wrap gap-2">
@@ -544,6 +625,17 @@ function WorkingHoursSection({
         ))}
       </div>
 
+      {/* 休みにした曜日は下の入力欄が消えて行の目印が出せないので、
+          変更した曜日をここで名前で挙げる */}
+      {isDirty && (
+        <p className="text-sm text-accent-foreground">
+          未保存の変更:{" "}
+          {changedWeekdays
+            .map((weekday) => weekdayLongLabel(weekday))
+            .join("・")}
+        </p>
+      )}
+
       {workingDaysOnly.length === 0 ? (
         <p className="text-base text-muted-foreground">
           勤務する曜日を選ぶと、開始・終了・休憩を設定できます。
@@ -560,10 +652,18 @@ function WorkingHoursSection({
           </div>
 
           {workingDaysOnly.map((day) => (
-            <div key={day.weekday} className="flex flex-col gap-1">
+            <div
+              key={day.weekday}
+              className={cn(
+                "flex flex-col gap-1",
+                // 触った曜日の行に目印を出す
+                changedWeekdays.includes(day.weekday) && changedRowClass,
+              )}
+            >
               <div className="grid grid-cols-1 gap-2 rounded-xl border border-border p-3 md:grid-cols-[5rem_1fr_1fr_1.6fr] md:items-center md:gap-3 md:rounded-none md:border-0 md:p-0">
-                <span className="text-base font-bold text-foreground md:font-normal">
+                <span className="flex flex-wrap items-center gap-2 text-base font-bold text-foreground md:font-normal">
                   {weekdayLongLabel(day.weekday)}
+                  {changedWeekdays.includes(day.weekday) && <ChangedMark />}
                 </span>
 
                 <div className="flex flex-col gap-1">
@@ -672,9 +772,11 @@ function WorkingHoursSection({
 
       <SectionFooter
         isPending={isPending}
+        isDirty={isDirty}
         message={message}
         saved={saved}
         onSave={handleSave}
+        onRevert={handleRevert}
       />
     </section>
   );
@@ -922,47 +1024,5 @@ function BlockSection({
         </ul>
       )}
     </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// 節の保存ボタン(共通。営業日設定と同じ作法)
-// ---------------------------------------------------------------------------
-
-function SectionFooter({
-  isPending,
-  message,
-  saved,
-  onSave,
-}: {
-  isPending: boolean;
-  message: string | null;
-  saved: boolean;
-  onSave: () => void;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-3">
-      <Button
-        type="button"
-        onClick={onSave}
-        disabled={isPending}
-        className={saveButtonClass}
-      >
-        {isPending && (
-          <Loader2 aria-hidden="true" className="size-4 animate-spin" />
-        )}
-        保存する
-      </Button>
-      {saved && (
-        <p role="status" className="text-sm text-muted-foreground">
-          保存しました
-        </p>
-      )}
-      {message !== null && (
-        <p role="alert" className="text-sm text-destructive">
-          {message}
-        </p>
-      )}
-    </div>
   );
 }
