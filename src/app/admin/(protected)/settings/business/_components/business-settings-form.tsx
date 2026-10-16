@@ -838,53 +838,58 @@ function DateOverrideSection({
         </p>
       )}
 
-      {closureItems.length === 0 ? (
-        <p className="text-base text-muted-foreground">
-          今後の臨時休業・指定日はありません。
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {closureItems.map((item, index) => {
-            // 出どころのIDは closures.ts が行に載せている(表示から逆算しない)
-            const overrideId = item.overrideId;
-            return (
-              <li
-                key={overrideId ?? `holiday-${index}`}
-                className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-muted px-4 py-3"
-              >
-                <span className="text-base font-bold text-foreground">
-                  {item.dateRangeLabel}
-                </span>
-                {item.label !== "" && (
-                  <span className="text-sm text-muted-foreground">
-                    {item.label}
-                  </span>
-                )}
-                <span
-                  className={cn(
-                    "ml-auto rounded-full px-3 py-1 text-xs font-bold",
-                    badgeClass(item.badge),
-                  )}
+      {/* モック08どおり、淡い枠の箱に白い行を並べ、行どうしは薄い線で分ける。
+          行を bg-muted にするとグレーのバッジ(bg-secondary)と明度がほぼ同じで
+          バッジが消えてしまうため、行は bg-card(白)にする */}
+      <div className="overflow-hidden rounded-xl border border-border">
+        {closureItems.length === 0 ? (
+          <p className="bg-muted px-4 py-3 text-base text-muted-foreground">
+            今後の臨時休業・指定日はありません。
+          </p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {closureItems.map((item, index) => {
+              // 出どころのIDは closures.ts が行に載せている(表示から逆算しない)
+              const overrideId = item.overrideId;
+              return (
+                <li
+                  key={overrideId ?? `holiday-${index}`}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-card px-4 py-3"
                 >
-                  {item.badge}
-                </span>
-                {/* 祝日行は自動導出なので削除できない(トグルで一括して切り替える) */}
-                {overrideId !== null && (
-                  <button
-                    type="button"
-                    aria-label={`${item.dateRangeLabel}の登録を削除`}
-                    disabled={isPending}
-                    onClick={() => handleDelete(overrideId)}
-                    className="flex size-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-card hover:text-destructive disabled:opacity-50"
+                  <span className="text-base font-bold text-foreground">
+                    {item.dateRangeLabel}
+                  </span>
+                  {item.label !== "" && (
+                    <span className="text-sm text-muted-foreground">
+                      {item.label}
+                    </span>
+                  )}
+                  <span
+                    className={cn(
+                      "ml-auto rounded-full px-3 py-1 text-xs font-bold",
+                      badgeClass(item.badge),
+                    )}
                   >
-                    <Trash2 aria-hidden="true" className="size-4" />
-                  </button>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
+                    {item.badge}
+                  </span>
+                  {/* 祝日行は自動導出なので削除できない(トグルで一括して切り替える) */}
+                  {overrideId !== null && (
+                    <button
+                      type="button"
+                      aria-label={`${item.dateRangeLabel}の登録を削除`}
+                      disabled={isPending}
+                      onClick={() => handleDelete(overrideId)}
+                      className="flex size-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-destructive disabled:opacity-50"
+                    >
+                      <Trash2 aria-hidden="true" className="size-4" />
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
     </section>
   );
 }
