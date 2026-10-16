@@ -18,7 +18,11 @@ import {
   isCalendarDate,
   jstCalendarDate,
 } from "@/lib/availability";
-import { makeIsClosedDay, resolveBusinessDay } from "@/lib/closures";
+import {
+  makeBusinessDayOf,
+  makeIsClosedDay,
+  resolveBusinessDay,
+} from "@/lib/closures";
 import { createAdminAuthClient } from "@/server/admin-auth";
 import {
   fetchActiveMenus,
@@ -114,9 +118,14 @@ export default async function AdminCalendarPage({
     );
     weekView = buildWeekView({
       weekStart,
-      businessHours,
       items,
       isClosedDay,
+      // 軸・営業時間外の帯は曜日の行ではなくその日の実効営業時間で決める
+      // (臨時営業・短縮営業が週表示にも効く)
+      businessDayOf: makeBusinessDayOf({
+        rules: closureRules,
+        weeklyBusinessHours: businessHours,
+      }),
     });
   }
 

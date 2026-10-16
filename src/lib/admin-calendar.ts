@@ -148,6 +148,13 @@ export type PlacedBand = {
   heightPercent: number;
 };
 
+/** 営業時間が引けない日の既定(行が無い曜日・休業日) */
+const CLOSED_BUSINESS_DAY: BusinessDay = {
+  isOpen: false,
+  openTime: null,
+  closeTime: null,
+};
+
 /**
  * 軸([open, close])のうち、その日の営業時間から外れる領域を帯にする。
  *
@@ -161,28 +168,32 @@ export type PlacedBand = {
  * - 帯は最大2本(開店前・閉店後)。軸と営業時間が一致する日は空配列
  * - 定休日(isClosed)は列全体が定休日の表現(下地+「定休日」ラベル)になるため
  *   帯を出さない。重ねて塗ると濃さが変わり、「その日は開かない(定休日)」と
- *   「その日は営業しているが時間外」の区別が付かなくなる。is_open=false の曜日・
- *   営業時間の行が無い曜日も同じ扱い(= その日は開かない)
+ *   「その日は営業しているが時間外」の区別が付かなくなる
+ * - 休業ではないのに営業時間が無い日(定休曜日に時刻なしの臨時営業が残った
+ *   状態。closures.ts の makeBusinessDayOf 参照)は、軸全体を1本の帯にする。
+ *   その日は枠が1つも開かないので、丸ごと営業時間外と示すのが実態に合う
  * - 予約で軸が広がった場合も基準は軸なので、帯は広がった分まで自動で伸びる
  *   (その帯の上に予約が描かれるのは想定どおり)
  */
 export function offHoursBands(params: {
   axis: TimelineAxis;
-  /** その日の営業時間(週表示は business_hours のその曜日の行) */
+  /** その日の実効営業時間(臨時営業・短縮営業を解決済み) */
   businessDay: BusinessDay;
   /** 休業日ルール込みの定休判定(WeekDayColumn.isClosed と同じ値) */
   isClosed: boolean;
 }): PlacedBand[] {
   const { axis, businessDay, isClosed } = params;
-  if (
-    isClosed ||
-    !businessDay.isOpen ||
-    !businessDay.openTime ||
-    !businessDay.closeTime
-  ) {
-    return [];
-  }
+  if (isClosed) return [];
   const { openMinutes, closeMinutes } = axis;
+  if (!businessDay.isOpen || !businessDay.openTime || !businessDay.closeTime) {
+    const whole = placeOnAxis(
+      openMinutes,
+      closeMinutes,
+      openMinutes,
+      closeMinutes,
+    );
+    return whole === null ? [] : [whole];
+  }
   const open = timeToMinutes(businessDay.openTime);
   const close = timeToMinutes(businessDay.closeTime);
   const bands: PlacedBand[] = [];
@@ -720,25 +731,32 @@ export type WeekView = {
  * - 週の範囲外の予約・ブロック(kind=block)は載せない
  * - 休業日判定は入力の isClosedDay に従う(closures.ts の makeIsClosedDay を
  *   渡す。毎週の定休・第◯曜日・祝日・臨時休業が同じ受け口に載る)
- * - 時間軸は週内の営業時間の最小開店〜最大閉店
+ * - 営業時間は曜日の行ではなく入力の businessDayOf(closures.ts の
+ *   makeBusinessDayOf を渡す)で日付ごとに引く。臨時営業・短縮営業
+ *   (date_overrides の open_time/close_time)がそのまま軸・帯に反映される
+ * - 時間軸は週の7日分の実効営業時間の最小開店〜最大閉店に、予約の開始・終了を
+ *   足したもの(営業曜日の範囲外に置いた臨時営業もここに入る)
  * - 軸と日ごとの営業時間のずれ(他の曜日より早く閉まる日の閉店後など)は
  *   日付列ごとに offHoursBands で返す(UIが淡い下地を敷く)。軸そのものは
  *   狭めない(遅くまで開く曜日の予約が軸の外に消えるため)
- * - 1日だけの臨時営業(date_overrides の open_time/close_time)では軸は広がらない。
- *   軸は予約の開始・終了でも広がるため実害が小さく、対応は見送っている
- *   (営業時間外の帯も同じく business_hours のその曜日の行だけを見る)
+ * - isClosedDay と businessDayOf は別入力にする。「休業ではないが営業時間が
+ *   決まらない日」(定休曜日に時刻なしの臨時営業が残った状態)があり、
+ *   isClosed と !businessDayOf(date).isOpen は常には一致しないため
+ *   (closures.test.ts の「makeIsClosedDay との同値性」で確認)
  */
 export function buildWeekView(params: {
   weekStart: string; // 日曜のJST暦日(weekStartOf で求める)
-  businessHours: Array<{ weekday: number } & BusinessDay>;
   items: AdminCalendarItem[]; // 7日分の確定済み予約+ブロック
   isClosedDay: (date: string) => boolean;
+  /** その日の実効営業時間(休業日ルール・臨時営業の時刻を解決済み) */
+  businessDayOf: (date: string) => BusinessDay;
 }): WeekView {
-  const { weekStart, businessHours, items, isClosedDay } = params;
+  const { weekStart, items, isClosedDay, businessDayOf } = params;
 
   // 週の7日分の暦日(範囲外の予約を軸・配置から除くための集合)
   const weekDates = new Set<string>();
   for (let i = 0; i < 7; i++) weekDates.add(addCalendarDays(weekStart, i));
+  const weekDateList = [...weekDates];
 
   // 日別にグルーピング(予約のみ。ブロックは週表示に載せない。範囲外も除く)
   const bookingsByDate = new Map<string, AdminBooking[]>();
@@ -751,11 +769,18 @@ export function buildWeekView(params: {
     bookingsByDate.set(date, list);
   }
 
-  // 週の時間軸 = 営業日の最小開店〜最大閉店に、予約の開始・終了も含める。
-  // (定休日・営業時間外の予約が軸から外れて消えないようにする)
+  // その日の実効営業時間(臨時営業・短縮営業を解決済み)。軸と帯で同じ値を使う
+  const businessDayByDate = new Map(
+    weekDateList.map((date) => [date, businessDayOf(date)] as const),
+  );
+
+  // 週の時間軸 = 7日分の実効営業時間の最小開店〜最大閉店に、予約の開始・終了も
+  // 含める(定休日・営業時間外の予約が軸から外れて消えないようにする)。
+  // 曜日の行ではなく日ごとに引くので、営業曜日の範囲外に置いた臨時営業
+  // (例: 定休の月曜だけ 21:00〜23:00)もここで軸に入る
   let openMinutes = Number.POSITIVE_INFINITY;
   let closeMinutes = Number.NEGATIVE_INFINITY;
-  for (const day of businessHours) {
+  for (const day of businessDayByDate.values()) {
     if (!day.isOpen || !day.openTime || !day.closeTime) continue;
     openMinutes = Math.min(openMinutes, timeToMinutes(day.openTime));
     closeMinutes = Math.max(closeMinutes, timeToMinutes(day.closeTime));
@@ -788,20 +813,8 @@ export function buildWeekView(params: {
   }
   const hasAxis = openMinutes < closeMinutes;
 
-  // 曜日 → その曜日の営業時間(営業時間外の帯を日ごとに出すために引く)。
-  // 行が無い曜日は休業扱い(closures.ts の呼び出し側と同じ既定)
-  const businessDayByWeekday = new Map(
-    businessHours.map((day) => [day.weekday, day]),
-  );
-  const closedDay: BusinessDay = {
-    isOpen: false,
-    openTime: null,
-    closeTime: null,
-  };
-
   const days: WeekDayColumn[] = [];
-  for (let i = 0; i < 7; i++) {
-    const date = addCalendarDays(weekStart, i);
+  for (const date of weekDateList) {
     const [, , dayNumber] = date.split("-").map(Number);
     let dayItems: WeekItem[] = [];
     if (hasAxis) {
@@ -858,8 +871,7 @@ export function buildWeekView(params: {
       offHoursBands: hasAxis
         ? offHoursBands({
             axis: { openMinutes, closeMinutes },
-            businessDay:
-              businessDayByWeekday.get(calendarWeekday(date)) ?? closedDay,
+            businessDay: businessDayByDate.get(date) ?? CLOSED_BUSINESS_DAY,
             isClosed,
           })
         : [],
