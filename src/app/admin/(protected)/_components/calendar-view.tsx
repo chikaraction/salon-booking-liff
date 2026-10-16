@@ -890,6 +890,29 @@ function WeekGrid({
                       定休日
                     </p>
                   )}
+                  {/* その日の営業時間外(軸は週内の最小開店〜最大閉店なので、
+                      他の曜日より早く閉まる日の閉店後などが軸に残る)。
+                      定休日の下地(bg-secondary のべた塗り)と同じ色をちょうど
+                      半分の濃さで敷き、「開かない日(濃い・列全体+定休日ラベル)」と
+                      「営業しているが時間外(淡い・一部の時間帯だけ)」を区別する。
+                      新しい色は足さない(ADR-006: トークンのみ)。
+                      半透明なので下の1時間罫線も透けて読める。
+                      位置(top%/height%)は純粋関数 offHoursBands が決める。
+                      装飾なので aria-hidden(読み上げる意味は無く、登録可否は
+                      ダイアログの空き判定メッセージが担う)。クリックは従来どおり
+                      背後の日付列に通す(pointer-events-none)。予約カード・
+                      グリッド線より背面に置くため、カードより先に描く */}
+                  {day.offHoursBands.map((band) => (
+                    <div
+                      key={band.topPercent}
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-x-0 bg-secondary/50"
+                      style={{
+                        top: `${band.topPercent}%`,
+                        height: `${band.heightPercent}%`,
+                      }}
+                    />
+                  ))}
                   {day.items.map((item) => {
                     const colorIndex =
                       colorIndexByStaffId.get(item.staffId) ?? 0;

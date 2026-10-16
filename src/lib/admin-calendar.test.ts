@@ -819,6 +819,211 @@ describe("buildWeekView: 週表示への集約", () => {
 });
 
 // ---------------------------------------------------------------------------
+// 2-1b. 曜日ごとに閉店時刻が違う週(特性化 → 営業時間外の帯)
+// ---------------------------------------------------------------------------
+
+describe("buildWeekView: 曜日ごとに閉店時刻が違う週", () => {
+  // 水曜だけ21時まで営業し、他の曜日は19時に閉まる(M4bで曜日ごとの営業時間を
+  // 編集できるようにして初めて作れる設定)。日曜は定休。
+  const businessHours = [
+    { weekday: 0, isOpen: false, openTime: null, closeTime: null },
+    ...[1, 2, 3, 4, 5, 6].map((weekday) => ({
+      weekday,
+      isOpen: true,
+      openTime: "09:00:00",
+      closeTime: weekday === 3 ? "21:00:00" : "19:00:00",
+    })),
+  ];
+  const isClosedDay = makeIsClosedDay({
+    businessHours,
+    nthWeekdayClosures: [],
+    closeOnHolidays: false,
+    overrides: [],
+  });
+  const weekStart = "2026-07-12"; // 日曜(水曜は 2026-07-15)
+
+  const base = { weekStart, businessHours, items: [], isClosedDay };
+
+  it("軸は週内の最小開店〜最大閉店(9:00〜21:00)のまま狭めない", () => {
+    const view = buildWeekView(base);
+    expect(view.axis).toEqual({ openMinutes: 540, closeMinutes: 1260 });
+  });
+
+  it("軸を狭めないので、水曜の20:00〜21:00の予約も軸に収まる", () => {
+    const view = buildWeekView({
+      ...base,
+      items: [
+        booking({
+          id: "wed-late",
+          staffId: "tanaka",
+          date: "2026-07-15",
+          start: "20:00",
+          end: "21:00",
+          customerName: "遅番",
+          menus: [cut],
+        }),
+      ],
+    });
+    const wed = view.days[3].items;
+    expect(wed.map((i) => i.id)).toEqual(["wed-late"]);
+    // 軸 9:00〜21:00(720分)基準: 20:00 = 660分 → 91.67%、60分 → 8.33%
+    expect(wed[0].topPercent).toBeCloseTo((660 * 100) / 720);
+    expect(wed[0].heightPercent).toBeCloseTo((60 * 100) / 720);
+  });
+
+  it("他の曜日より早く閉まる日は、閉店後(19:00〜21:00)に営業時間外の帯が出る", () => {
+    const view = buildWeekView(base);
+    // 月曜: 9:00〜19:00 営業 → 19:00(600分)から軸の下端まで
+    expect(view.days[1].offHoursBands).toEqual([
+      { topPercent: (600 * 100) / 720, heightPercent: (120 * 100) / 720 },
+    ]);
+  });
+
+  it("軸と営業時間が一致する日(水曜)は帯が出ない", () => {
+    const view = buildWeekView(base);
+    expect(view.days[3].offHoursBands).toEqual([]);
+  });
+
+  it("定休日は列全体が定休日の表現になるので帯を重ねない", () => {
+    const view = buildWeekView(base);
+    expect(view.days[0].isClosed).toBe(true);
+    expect(view.days[0].offHoursBands).toEqual([]);
+  });
+});
+
+describe("buildWeekView: 営業時間外の帯(offHoursBands)", () => {
+  const isClosedDay = (date: string) => date === "2026-07-12"; // 日曜だけ定休
+  const weekStart = "2026-07-12";
+
+  /** 曜日ごとの営業時間を組み立てる(日曜は定休) */
+  function hoursOf(
+    byWeekday: Record<number, { open: string; close: string } | null>,
+  ) {
+    return [0, 1, 2, 3, 4, 5, 6].map((weekday) => {
+      const row = byWeekday[weekday] ?? null;
+      return row === null
+        ? { weekday, isOpen: false, openTime: null, closeTime: null }
+        : {
+            weekday,
+            isOpen: true,
+            openTime: `${row.open}:00`,
+            closeTime: `${row.close}:00`,
+          };
+    });
+  }
+
+  it("他の曜日より遅く開く日は、開店前に帯が出る", () => {
+    // 月曜だけ11:00開店、他は9:00開店(軸は 9:00〜19:00 = 600分)
+    const view = buildWeekView({
+      weekStart,
+      businessHours: hoursOf({
+        1: { open: "11", close: "19" },
+        2: { open: "09", close: "19" },
+        3: { open: "09", close: "19" },
+        4: { open: "09", close: "19" },
+        5: { open: "09", close: "19" },
+        6: { open: "09", close: "19" },
+      }),
+      items: [],
+      isClosedDay,
+    });
+    expect(view.axis).toEqual({ openMinutes: 540, closeMinutes: 1140 });
+    // 9:00〜11:00(120分)が開店前の帯
+    expect(view.days[1].offHoursBands).toEqual([
+      { topPercent: 0, heightPercent: (120 * 100) / 600 },
+    ]);
+  });
+
+  it("開店が遅く閉店も早い日は、開店前・閉店後の2本が出る", () => {
+    // 軸 9:00〜21:00(720分)。火曜だけ 11:00〜19:00
+    const view = buildWeekView({
+      weekStart,
+      businessHours: hoursOf({
+        1: { open: "09", close: "21" },
+        2: { open: "11", close: "19" },
+        3: { open: "09", close: "21" },
+        4: { open: "09", close: "21" },
+        5: { open: "09", close: "21" },
+        6: { open: "09", close: "21" },
+      }),
+      items: [],
+      isClosedDay,
+    });
+    expect(view.days[2].offHoursBands).toEqual([
+      { topPercent: 0, heightPercent: (120 * 100) / 720 },
+      { topPercent: (600 * 100) / 720, heightPercent: (120 * 100) / 720 },
+    ]);
+  });
+
+  it("営業時間の行が無い曜日は休業扱いなので帯を出さない(定休日と同じ扱い)", () => {
+    // 木曜(weekday=4)の行を落とす
+    const businessHours = hoursOf({
+      1: { open: "09", close: "19" },
+      2: { open: "09", close: "19" },
+      3: { open: "09", close: "21" },
+      5: { open: "09", close: "19" },
+      6: { open: "09", close: "19" },
+    }).filter((row) => row.weekday !== 4);
+    const view = buildWeekView({
+      weekStart,
+      businessHours,
+      items: [],
+      // 行が無い曜日の休業判定は呼び出し側(closures.ts)が持つ
+      isClosedDay: (date) => date === "2026-07-12" || date === "2026-07-16",
+    });
+    expect(view.days[4].isClosed).toBe(true);
+    expect(view.days[4].offHoursBands).toEqual([]);
+  });
+
+  it("予約で軸が広がった場合も、帯は軸基準で正しい位置に出る", () => {
+    // 全曜日 9:00〜19:00。土曜 20:00 終了の予約で軸が 9:00〜20:00(660分)に広がる
+    const view = buildWeekView({
+      weekStart,
+      businessHours: hoursOf({
+        1: { open: "09", close: "19" },
+        2: { open: "09", close: "19" },
+        3: { open: "09", close: "19" },
+        4: { open: "09", close: "19" },
+        5: { open: "09", close: "19" },
+        6: { open: "09", close: "19" },
+      }),
+      items: [
+        booking({
+          id: "sat-late",
+          staffId: "tanaka",
+          date: "2026-07-18",
+          start: "19:00",
+          end: "20:00",
+          customerName: "居残り",
+          menus: [cut],
+        }),
+      ],
+      isClosedDay,
+    });
+    expect(view.axis).toEqual({ openMinutes: 540, closeMinutes: 1200 });
+    // どの営業日も 19:00(600分)から軸の下端(660分)までが営業時間外
+    const expected = [
+      { topPercent: (600 * 100) / 660, heightPercent: (60 * 100) / 660 },
+    ];
+    expect(view.days[1].offHoursBands).toEqual(expected);
+    // 予約が載っている土曜も帯は同じ(予約は帯の上に描かれる)
+    expect(view.days[6].offHoursBands).toEqual(expected);
+    expect(view.days[6].items.map((i) => i.id)).toEqual(["sat-late"]);
+  });
+
+  it("軸が無い週(営業日も予約も無い)は帯も空になる", () => {
+    const view = buildWeekView({
+      weekStart,
+      businessHours: hoursOf({}),
+      items: [],
+      isClosedDay: () => true,
+    });
+    expect(view.axis).toBeNull();
+    expect(view.days.every((d) => d.offHoursBands.length === 0)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 2-2. 週表示の重なりレーン分割
 // ---------------------------------------------------------------------------
 
