@@ -236,6 +236,48 @@ export function resolveBusinessDay(params: {
 }
 
 /**
+ * その日の実効営業時間を1引数の関数にする(makeIsClosedDay と対の受け口)。
+ * business_hours の全行を抱えて、日付から曜日の行を引き resolveBusinessDay に
+ * 渡す。buildWeekView(admin-calendar.ts)の businessDayOf がこの形。
+ *
+ * isClosedDay(makeIsClosedDay)とは別の入力として渡す必要がある。
+ * 「休業ではないが営業時間が決まらない日」= 定休曜日に時刻なしの臨時営業が
+ * 掛かった日(登録後にその曜日を定休へ変えると残る)があり、
+ * isClosed と !businessDayOf(date).isOpen は常には一致しないため
+ * (closures.test.ts の「makeIsClosedDay との同値性」で確認)。
+ */
+export function makeBusinessDayOf(params: {
+  rules: ClosureRules;
+  /** business_hours の全行(時刻付き)。行が無い曜日は休業として扱う */
+  weeklyBusinessHours: Array<{ weekday: number } & BusinessDay>;
+}): (date: string) => BusinessDay {
+  const { rules, weeklyBusinessHours } = params;
+  // 行は weekday を持つので、BusinessDay の3項目だけに整えてから渡す
+  // (resolveBusinessDay は営業日の行をそのまま返すため、余分な項目が漏れる)
+  const byWeekday = new Map(
+    weeklyBusinessHours.map((row) => [
+      row.weekday,
+      {
+        isOpen: row.isOpen,
+        openTime: row.openTime,
+        closeTime: row.closeTime,
+      },
+    ]),
+  );
+  const closed: BusinessDay = {
+    isOpen: false,
+    openTime: null,
+    closeTime: null,
+  };
+  return (date) =>
+    resolveBusinessDay({
+      date,
+      weeklyBusinessDay: byWeekday.get(calendarWeekday(date)) ?? closed,
+      rules,
+    });
+}
+
+/**
  * その日のスタッフの勤務パターンを確定する。
  *
  * 定休曜日には staff_working_hours の行が誰にも無いのが普通なので、

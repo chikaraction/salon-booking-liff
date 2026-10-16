@@ -4,6 +4,7 @@ import type { BusinessDay, StaffWorkingDay } from "./availability";
 import {
   buildClosureListItems,
   japaneseHolidayName,
+  makeBusinessDayOf,
   makeIsClosedDay,
   nthWeekdayOfMonth,
   resolveBusinessDay,
@@ -998,5 +999,194 @@ describe("resolveStaffWorkingDay: 臨時営業日のスタッフ勤務パター�
         businessDay: { isOpen: true, openTime: null, closeTime: null },
       }),
     ).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 8. その日の実効営業時間を1引数の関数にする
+// ---------------------------------------------------------------------------
+
+describe("makeBusinessDayOf: その日の実効営業時間の関数化", () => {
+  /** 月曜定休。他の曜日は 9:00〜21:00(business_hours の全行) */
+  const weeklyBusinessHours = [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
+    weekday,
+    isOpen: weekday !== 1,
+    openTime: weekday === 1 ? null : "09:00:00",
+    closeTime: weekday === 1 ? null : "21:00:00",
+  }));
+  const closed: BusinessDay = {
+    isOpen: false,
+    openTime: null,
+    closeTime: null,
+  };
+
+  function businessDayOf(overrides: ClosureRules["overrides"] = []) {
+    return makeBusinessDayOf({
+      rules: rules({ businessHours: weeklyBusinessHours, overrides }),
+      weeklyBusinessHours,
+    });
+  }
+
+  it("その曜日の行を引いて resolveBusinessDay に渡す", () => {
+    // 2026-07-18 は土曜(営業)
+    expect(businessDayOf()("2026-07-18")).toEqual({
+      isOpen: true,
+      openTime: "09:00:00",
+      closeTime: "21:00:00",
+    });
+    // 2026-07-20 は月曜(定休)
+    expect(businessDayOf()("2026-07-20")).toEqual(closed);
+  });
+
+  it("行が無い曜日は休業扱いにする(business_hours の欠落に落ちない)", () => {
+    const partial = weeklyBusinessHours.filter((row) => row.weekday !== 6);
+    const resolve = makeBusinessDayOf({
+      rules: rules({ businessHours: partial }),
+      weeklyBusinessHours: partial,
+    });
+    expect(resolve("2026-07-18")).toEqual(closed);
+  });
+
+  it("時刻付きの臨時営業はその時刻を返す(定休曜日・短縮営業とも)", () => {
+    const overrides = [
+      {
+        startDate: "2026-07-20", // 月曜(定休)
+        endDate: "2026-07-20",
+        isOpen: true,
+        label: "臨時営業",
+        openTime: "10:00:00",
+        closeTime: "15:00:00",
+      },
+      {
+        startDate: "2026-07-18", // 土曜(営業)の短縮
+        endDate: "2026-07-18",
+        isOpen: true,
+        label: null,
+        openTime: "09:00:00",
+        closeTime: "15:00:00",
+      },
+    ];
+    expect(businessDayOf(overrides)("2026-07-20")).toEqual({
+      isOpen: true,
+      openTime: "10:00:00",
+      closeTime: "15:00:00",
+    });
+    expect(businessDayOf(overrides)("2026-07-18")).toEqual({
+      isOpen: true,
+      openTime: "09:00:00",
+      closeTime: "15:00:00",
+    });
+  });
+
+  describe("makeIsClosedDay との同値性(週表示が入力を1つに減らせるか)", () => {
+    // 週表示は「定休日の表現(列全体)」に isClosedDay、「営業時間外の帯」に
+    // businessDayOf を使う。両者が常に一致するなら入力を1つに減らせるので、
+    // 推測せず代表的なルールで突き合わせる。
+    const cases: Array<{
+      name: string;
+      date: string;
+      overrides?: ClosureRules["overrides"];
+    }> = [
+      { name: "通常の営業日", date: "2026-07-18" },
+      { name: "毎週の定休日(月曜)", date: "2026-07-20" },
+      {
+        name: "臨時休業",
+        date: "2026-07-18",
+        overrides: [
+          {
+            startDate: "2026-07-18",
+            endDate: "2026-07-18",
+            isOpen: false,
+            label: "臨時休業",
+            openTime: null,
+            closeTime: null,
+          },
+        ],
+      },
+      {
+        name: "定休曜日の時刻付き臨時営業",
+        date: "2026-07-20",
+        overrides: [
+          {
+            startDate: "2026-07-20",
+            endDate: "2026-07-20",
+            isOpen: true,
+            label: null,
+            openTime: "10:00:00",
+            closeTime: "15:00:00",
+          },
+        ],
+      },
+      {
+        name: "営業曜日の短縮営業",
+        date: "2026-07-18",
+        overrides: [
+          {
+            startDate: "2026-07-18",
+            endDate: "2026-07-18",
+            isOpen: true,
+            label: null,
+            openTime: "10:00:00",
+            closeTime: "15:00:00",
+          },
+        ],
+      },
+      {
+        name: "営業曜日の時刻なし臨時営業(祝日の打ち消し)",
+        date: "2026-07-18",
+        overrides: [
+          {
+            startDate: "2026-07-18",
+            endDate: "2026-07-18",
+            isOpen: true,
+            label: null,
+            openTime: null,
+            closeTime: null,
+          },
+        ],
+      },
+    ];
+
+    for (const testCase of cases) {
+      it(`一致する: ${testCase.name}`, () => {
+        const ruleSet = rules({
+          businessHours: weeklyBusinessHours,
+          overrides: testCase.overrides ?? [],
+          nthWeekdayClosures: [{ weekday: 0, nth: 3 }],
+          closeOnHolidays: true,
+        });
+        const isClosed = makeIsClosedDay(ruleSet)(testCase.date);
+        const resolved = makeBusinessDayOf({
+          rules: ruleSet,
+          weeklyBusinessHours,
+        })(testCase.date);
+        expect(isClosed).toBe(!resolved.isOpen);
+      });
+    }
+
+    it("一致しない: 定休曜日に時刻なしの臨時営業が掛かった日", () => {
+      // 「休業ではない(上書きで開いている)が、営業時間が決まらない」状態。
+      // validateDateOverride は新規登録を弾くが、登録後にその曜日を定休へ
+      // 変えると残ってしまう。この1ケースがあるため、週表示は isClosedDay と
+      // businessDayOf の両方を受け取る(入力を1つに減らさない)
+      const ruleSet = rules({
+        businessHours: weeklyBusinessHours,
+        overrides: [
+          {
+            startDate: "2026-07-20", // 月曜(定休)
+            endDate: "2026-07-20",
+            isOpen: true,
+            label: null,
+            openTime: null,
+            closeTime: null,
+          },
+        ],
+      });
+      expect(makeIsClosedDay(ruleSet)("2026-07-20")).toBe(false);
+      expect(
+        makeBusinessDayOf({ rules: ruleSet, weeklyBusinessHours })("2026-07-20")
+          .isOpen,
+      ).toBe(false);
+    });
   });
 });
