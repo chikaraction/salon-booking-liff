@@ -11,7 +11,7 @@
 
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 
 import {
   addDateOverride,
@@ -20,10 +20,19 @@ import {
   saveNthWeekdayClosures,
   saveWeeklyBusinessHours,
 } from "@/app/admin/(protected)/settings/actions";
+import {
+  ChangedMark,
+  SectionFooter,
+  UnsavedBadge,
+  changedRowClass,
+  useSavedDraft,
+} from "@/app/admin/(protected)/settings/_components/unsaved-changes";
 import { Button } from "@/components/ui/button";
 import {
   NTH_CHOICES,
   WEEKDAYS,
+  changedNthWeekdayWeekdays,
+  changedWeeklyHourWeekdays,
   describeNthWeekdayClosures,
   flattenNthWeekdayGroups,
   groupNthWeekdayClosures,
@@ -105,7 +114,20 @@ function WeeklyHoursSection({
   businessHours: WeeklyHoursInput[];
 }) {
   const router = useRouter();
-  const [days, setDays] = useState<WeeklyHoursInput[]>(businessHours);
+  // 保存済みの値(props)を基準に編集する。変更の有無・変更された曜日の判定は
+  // 純粋関数(changedWeeklyHourWeekdays)に任せる
+  const {
+    base,
+    draft: days,
+    setDraft: setDays,
+    revert,
+    markSaved,
+  } = useSavedDraft<WeeklyHoursInput[]>(
+    businessHours,
+    (a, b) => changedWeeklyHourWeekdays(a, b).length === 0,
+  );
+  const changedWeekdays = changedWeeklyHourWeekdays(base, days);
+  const isDirty = changedWeekdays.length > 0;
   const [errors, setErrors] = useState<Record<number, string>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -118,6 +140,13 @@ function WeeklyHoursSection({
         day.weekday === weekday ? { ...day, ...patch } : day,
       ),
     );
+  };
+
+  const handleRevert = () => {
+    setErrors({});
+    setMessage(null);
+    setSaved(false);
+    revert();
   };
 
   const handleSave = () => {
@@ -134,6 +163,8 @@ function WeeklyHoursSection({
       const result = await saveWeeklyBusinessHours(days);
       if (result.ok) {
         setSaved(true);
+        // 保存した値が新しい基準になる(= 変更なしの状態に戻る)
+        markSaved();
         // 休業日ルールが変わると下の一覧(サーバーで組み立て)も変わる
         router.refresh();
         return;
@@ -144,10 +175,13 @@ function WeeklyHoursSection({
 
   return (
     <section className="flex flex-col gap-4">
-      <p className={sectionLabelClass}>
-        毎週の定休日{" "}
-        <span className="text-sm font-normal">(毎週固定で休む曜日)</span>
-      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className={sectionLabelClass}>
+          毎週の定休日{" "}
+          <span className="text-sm font-normal">(毎週固定で休む曜日)</span>
+        </p>
+        {isDirty && <UnsavedBadge />}
+      </div>
 
       <div className="flex flex-wrap gap-2">
         {days.map((day) => {
@@ -185,7 +219,14 @@ function WeeklyHoursSection({
           </span>
         </p>
         {days.map((day) => (
-          <div key={day.weekday} className="flex flex-col gap-1">
+          <div
+            key={day.weekday}
+            className={cn(
+              "flex flex-col gap-1",
+              // 触った曜日の行に目印を出す(7曜日×時刻のどこを変えたか追えるように)
+              changedWeekdays.includes(day.weekday) && changedRowClass,
+            )}
+          >
             {/* スマホ幅は曜日を上の行に逃がし、開店〜閉店は1行に収める(ADR-005) */}
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
               <span
@@ -196,6 +237,9 @@ function WeeklyHoursSection({
               >
                 {weekdayLongLabel(day.weekday)}
               </span>
+              {changedWeekdays.includes(day.weekday) && (
+                <ChangedMark className="self-start sm:order-last sm:self-center" />
+              )}
               <div className="flex items-center gap-2">
                 <label className="sr-only" htmlFor={`open-${day.weekday}`}>
                   {weekdayLongLabel(day.weekday)}の開店時刻
@@ -242,9 +286,11 @@ function WeeklyHoursSection({
 
       <SectionFooter
         isPending={isPending}
+        isDirty={isDirty}
         message={message}
         saved={saved}
         onSave={handleSave}
+        onRevert={handleRevert}
       />
     </section>
   );
@@ -260,9 +306,29 @@ function NthWeekdaySection({
   nthWeekdayClosures: NthWeekdayClosureRow[];
 }) {
   const router = useRouter();
-  const [groups, setGroups] = useState<NthWeekdayGroup[]>(() =>
-    groupNthWeekdayClosures(nthWeekdayClosures),
+  // 保存済みの行集合をUIのブロックに畳んだものが基準。props が入れ替わったら
+  // 畳み直す(useSavedDraft が基準値の追従を見るのは props の入れ替わり)
+  const savedGroups = useMemo(
+    () => groupNthWeekdayClosures(nthWeekdayClosures),
+    [nthWeekdayClosures],
   );
+  const {
+    base,
+    draft: groups,
+    setDraft: setGroups,
+    revert,
+    markSaved,
+  } = useSavedDraft<NthWeekdayGroup[]>(
+    savedGroups,
+    (a, b) =>
+      changedNthWeekdayWeekdays(flattenNthWeekdayGroups(a), b).length === 0,
+  );
+  // 空のブロック・重複・並び順の違いは保存結果が変わらないので変更にならない
+  const changedWeekdays = changedNthWeekdayWeekdays(
+    flattenNthWeekdayGroups(base),
+    groups,
+  );
+  const isDirty = changedWeekdays.length > 0;
   const [message, setMessage] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -270,6 +336,11 @@ function NthWeekdaySection({
   const touch = () => {
     setSaved(false);
     setMessage(null);
+  };
+
+  const handleRevert = () => {
+    touch();
+    revert();
   };
 
   const updateGroup = (index: number, patch: Partial<NthWeekdayGroup>) => {
@@ -296,6 +367,8 @@ function NthWeekdaySection({
         // 空のブロック・重複は保存時に落ちるので、画面も同じ形に揃える
         setGroups(groupNthWeekdayClosures(flattenNthWeekdayGroups(groups)));
         setSaved(true);
+        // 揃えたあとの値が新しい基準になる(= 変更なしの状態に戻る)
+        markSaved();
         router.refresh();
         return;
       }
@@ -311,10 +384,13 @@ function NthWeekdaySection({
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className={sectionLabelClass}>
-          特定の週だけの定休日{" "}
-          <span className="text-sm font-normal">(第◯曜日・隔週など)</span>
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className={sectionLabelClass}>
+            特定の週だけの定休日{" "}
+            <span className="text-sm font-normal">(第◯曜日・隔週など)</span>
+          </p>
+          {isDirty && <UnsavedBadge />}
+        </div>
         <Button
           type="button"
           variant="outline"
@@ -338,7 +414,11 @@ function NthWeekdaySection({
           {groups.map((group, index) => (
             <div
               key={index}
-              className="flex flex-wrap items-center gap-2 md:gap-3"
+              className={cn(
+                "flex flex-wrap items-center gap-2 md:gap-3",
+                // 触ったブロックの行に目印を出す
+                changedWeekdays.includes(group.weekday) && changedRowClass,
+              )}
             >
               <label className="sr-only" htmlFor={`nth-weekday-${index}`}>
                 定休にする曜日
@@ -379,6 +459,7 @@ function NthWeekdaySection({
                   );
                 })}
               </div>
+              {changedWeekdays.includes(group.weekday) && <ChangedMark />}
               <button
                 type="button"
                 aria-label={`${weekdayLongLabel(group.weekday)}の設定を削除`}
@@ -403,9 +484,11 @@ function NthWeekdaySection({
 
       <SectionFooter
         isPending={isPending}
+        isDirty={isDirty}
         message={message}
         saved={saved}
         onSave={handleSave}
+        onRevert={handleRevert}
       />
     </section>
   );
@@ -803,47 +886,5 @@ function DateOverrideSection({
         </ul>
       )}
     </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// 節の保存ボタン(共通)
-// ---------------------------------------------------------------------------
-
-function SectionFooter({
-  isPending,
-  message,
-  saved,
-  onSave,
-}: {
-  isPending: boolean;
-  message: string | null;
-  saved: boolean;
-  onSave: () => void;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-3">
-      <Button
-        type="button"
-        onClick={onSave}
-        disabled={isPending}
-        className={saveButtonClass}
-      >
-        {isPending && (
-          <Loader2 aria-hidden="true" className="size-4 animate-spin" />
-        )}
-        保存する
-      </Button>
-      {saved && (
-        <p role="status" className="text-sm text-muted-foreground">
-          保存しました
-        </p>
-      )}
-      {message !== null && (
-        <p role="alert" className="text-sm text-destructive">
-          {message}
-        </p>
-      )}
-    </div>
   );
 }
