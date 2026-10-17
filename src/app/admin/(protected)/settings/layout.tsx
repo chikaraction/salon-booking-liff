@@ -26,8 +26,8 @@ import { getCurrentStaff } from "@/server/admin-auth";
 // 対処できない相手にスキーマの内部構造だけが伝わるのは損でしかないので、
 // 画面では「誰に確認すればよいか」までに留め、具体的な紐付け手順はREADMEに任せる。
 // 原因の切り分けは getCurrentStaff() のサーバーログ(auth ユーザーIDのみ)で行う。
-// オーナー専用のスタッフ設定画面(staff-settings-form.tsx)は読み手が紐付けSQLを
-// 実行する当人なので、あちらは列名を出したままにしてある。
+// オーナー専用のスタッフ設定画面(staff-settings-form.tsx)も読み手はオーナーで
+// アカウントを作る権限がないため、同じ方針(内部構造を出さない)に揃えてある。
 export default async function AdminSettingsLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {

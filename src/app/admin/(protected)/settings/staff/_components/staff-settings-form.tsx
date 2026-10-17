@@ -108,8 +108,14 @@ export function StaffSettingsForm({ today, staff }: Props) {
       <div className="overflow-hidden rounded-2xl bg-card">
         <div className="border-b border-border p-6 md:p-8">
           <h1 className="text-2xl font-bold text-foreground">スタッフ</h1>
+          {/* 1文ごとに <p> を分ける。JSXは行途中の改行を半角スペースに畳むため、
+              1つの <p> の中で日本語を折り返すと文中に空きができてしまう
+              (settings/layout.tsx と同じ作法) */}
           <p className="mt-2 text-base text-muted-foreground">
-            スタッフごとに勤務曜日・時間・休憩と、臨時休を設定します。勤務の設定はお客様の予約画面の空き枠にそのまま反映されます。
+            スタッフごとに勤務曜日・時間・休憩と、臨時休を設定します。
+          </p>
+          <p className="mt-2 text-base text-muted-foreground">
+            勤務の設定はお客様の予約画面の空き枠にそのまま反映されます。
           </p>
         </div>
 
@@ -460,21 +466,35 @@ function StaffEditorSection({
         スタッフの削除はできません。過去の予約が参照しているため、使わなくなったスタッフは「無効」にしてください。無効にすると空き枠・指名候補から外れ、過去の予約はそのまま残ります。
       </p>
 
-      {/* auth_user_id は画面から編集させない(ADR-005・READMEの運用手順) */}
-      {/* ここは列名を出す。オーナー専用画面であり、読み手は紐付けSQLを実行する当人
-          なので、伏せると手順が辿れなくなる(権限不足カード側は逆に出さない) */}
-      <p className="text-sm text-muted-foreground">
-        管理画面へのログイン
-        {staff !== null && (
-          <span className="font-bold text-foreground">
-            {staff.hasAuthUser ? "(紐付け済み)" : "(未紐付け)"}
-          </span>
-        )}
-        :
-        ログインできるユーザーの作成と、このスタッフへの紐付けはこの画面では行いません。Supabaseダッシュボードでユーザーを作成し、SQLで
-        <code className="px-1">staff.auth_user_id</code>
-        に紐付けてください(READMEの「店側スタッフ(管理画面ユーザー)の登録」)。
-      </p>
+      {/* 管理画面のログインアカウントは画面から作らない(ADR-005)。
+          このアクション(saveStaff)が書くのは staff と staff_working_hours だけで、
+          新規スタッフのログイン用の紐付けは未設定のまま。
+          本文にテーブル名・列名・SQLや、ダッシュボードでの操作手順は書かない。
+          この画面の読み手は店のオーナーで、アカウントを作る権限を持たないため、
+          手順が伝わっても実行できる立場にない。画面では「この画面でできること」と
+          「誰に頼めばよいか」までに留め、具体的な手順はREADMEに任せる
+          (settings/layout.tsx の権限不足カードと同じ方針)。 */}
+      <div className="flex flex-col gap-2 text-sm text-muted-foreground">
+        <p>
+          管理画面へのログイン
+          {staff !== null && (
+            <span className="font-bold text-foreground">
+              {staff.hasAuthUser
+                ? "(このスタッフはログインできます)"
+                : "(このスタッフはログインできません)"}
+            </span>
+          )}
+        </p>
+        <p>
+          この画面で追加・編集できるのはスタッフの情報だけで、管理画面にログインできるアカウントは作られません。
+        </p>
+        <p>
+          施術だけを担当し管理画面を使わないスタッフは、この画面の設定だけで完了です。予約の指名候補に並び、勤務曜日として設定した曜日は空き枠の計算に入ります。
+        </p>
+        <p>
+          管理画面にログインさせたい場合は、システムの管理担当者に依頼してください。
+        </p>
+      </div>
 
       <div className="flex flex-wrap items-center gap-3">
         <Button
