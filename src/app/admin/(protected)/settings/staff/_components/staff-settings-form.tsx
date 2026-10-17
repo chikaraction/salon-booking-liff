@@ -39,6 +39,7 @@ import {
   changedStaffFields,
   changedWorkingDayWeekdays,
   describeStaffBlocks,
+  describeStaffLogin,
   resolveStaffBlockRange,
   staffBlockLabel,
   staffHeadingLabel,
@@ -291,6 +292,8 @@ function StaffEditorSection({
   const [errors, setErrors] = useState<StaffErrors>({});
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  // 「管理画面へのログイン」の補足文(状態で変わる部分)。判断は純粋関数に任せる
+  const loginNote = describeStaffLogin(staff);
 
   const update = (patch: Partial<StaffInput>) => {
     setMessage(null);
@@ -472,28 +475,26 @@ function StaffEditorSection({
           本文にテーブル名・列名・SQLや、ダッシュボードでの操作手順は書かない。
           この画面の読み手は店のオーナーで、アカウントを作る権限を持たないため、
           手順が伝わっても実行できる立場にない。画面では「この画面でできること」と
-          「誰に頼めばよいか」までに留め、具体的な手順はREADMEに任せる
-          (settings/layout.tsx の権限不足カードと同じ方針)。 */}
+          「いまどうなっているか」「誰に頼めばよいか」までに留め、
+          具体的な手順はREADMEに任せる
+          (settings/layout.tsx の権限不足カードと同じ方針)。
+
+          文中の名前は保存済みの値(props)を使う。編集中の入力値ではなく props
+          にしたのは、この3文が述べているのが「保存済みのアカウントの状態」で、
+          同じカードの見出し(「田中(オーナー)」)も props の名前だから。
+          編集中に名前欄を書き換えると入力欄と文中の名前がずれるが、
+          この文が指すのは保存済みのその人なので、ずれていても読み違えない。
+          入力値を使うと、名前欄を空にしたとたんに文が壊れる。 */}
       <div className="flex flex-col gap-2 text-sm text-muted-foreground">
+        <p className={fieldLabelClass}>管理画面へのログイン</p>
         <p>
-          管理画面へのログイン
-          {staff !== null && (
-            <span className="font-bold text-foreground">
-              {staff.hasAuthUser
-                ? "(このスタッフはログインできます)"
-                : "(このスタッフはログインできません)"}
-            </span>
-          )}
-        </p>
-        <p>
-          この画面で追加・編集できるのはスタッフの情報だけで、管理画面にログインできるアカウントは作られません。
+          この画面で設定できるのはスタッフの情報と勤務だけで、管理画面にログインできるアカウントは作られません。
         </p>
         <p>
           施術だけを担当し管理画面を使わないスタッフは、この画面の設定だけで完了です。予約の指名候補に並び、勤務曜日として設定した曜日は空き枠の計算に入ります。
         </p>
-        <p>
-          管理画面にログインさせたい場合は、システムの管理担当者に依頼してください。
-        </p>
+        <p className="font-bold text-foreground">{loginNote.status}</p>
+        {loginNote.action !== null && <p>{loginNote.action}</p>}
       </div>
 
       <div className="flex flex-wrap items-center gap-3">

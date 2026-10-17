@@ -11,6 +11,7 @@ import {
   changedStaffFields,
   changedWorkingDayWeekdays,
   describeStaffBlocks,
+  describeStaffLogin,
   diffStaffWorkingHours,
   fillStaffWorkingHours,
   findLastOwnerViolation,
@@ -42,6 +43,67 @@ describe("staffRoleLabel / staffHeadingLabel", () => {
     expect(staffHeadingLabel({ name: "佐藤", role: "staff" })).toBe(
       "佐藤(スタッフ)",
     );
+  });
+});
+
+describe("describeStaffLogin", () => {
+  it("既存スタッフは名前を出して、ログインできることを伝える", () => {
+    expect(describeStaffLogin({ name: "田中", hasAuthUser: true })).toEqual({
+      status: "田中さんは管理画面にログインできます。",
+      action: null,
+    });
+  });
+
+  it("ログインできる既存スタッフには依頼の案内を出さない(もう必要ないため)", () => {
+    expect(
+      describeStaffLogin({ name: "田中", hasAuthUser: true }).action,
+    ).toBeNull();
+  });
+
+  it("ログインできない既存スタッフは、名前と依頼先を伝える", () => {
+    expect(describeStaffLogin({ name: "佐藤", hasAuthUser: false })).toEqual({
+      status: "佐藤さんは管理画面にログインできません。",
+      action:
+        "管理画面にログインさせたい場合は、システムの管理担当者に依頼してください。",
+    });
+  });
+
+  it("新規追加(まだ名前が決まっていない)は、これから追加するスタッフについて述べる", () => {
+    const note = describeStaffLogin(null);
+    expect(note.status).toBe(
+      "ここで追加したスタッフは、管理画面にログインできません。",
+    );
+    expect(note.action).toBe(
+      "管理画面にログインさせたい場合は、システムの管理担当者に依頼してください。",
+    );
+  });
+
+  it("名前の前後の空白は落とす(入力欄と同じ正規化)", () => {
+    expect(describeStaffLogin({ name: " 田中 ", hasAuthUser: true })).toEqual({
+      status: "田中さんは管理画面にログインできます。",
+      action: null,
+    });
+  });
+
+  it("名前に敬称が入っていれば「さん」を重ねない", () => {
+    expect(describeStaffLogin({ name: "田中さん", hasAuthUser: true })).toEqual(
+      {
+        status: "田中さんは管理画面にログインできます。",
+        action: null,
+      },
+    );
+    expect(describeStaffLogin({ name: "田中様", hasAuthUser: true })).toEqual({
+      status: "田中様は管理画面にログインできます。",
+      action: null,
+    });
+  });
+
+  it("名前が空でも文が壊れない(名前の代わりに選択中のスタッフを指す)", () => {
+    expect(describeStaffLogin({ name: "  ", hasAuthUser: false })).toEqual({
+      status: "いま選んでいるスタッフは管理画面にログインできません。",
+      action:
+        "管理画面にログインさせたい場合は、システムの管理担当者に依頼してください。",
+    });
   });
 });
 

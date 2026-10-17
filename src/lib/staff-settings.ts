@@ -54,6 +54,64 @@ export function staffHeadingLabel(staff: {
   return `${staff.name}(${staffRoleLabel(staff.role)})`;
 }
 
+/**
+ * 補足文の中でスタッフを指す呼び方。
+ * 指示語(「このスタッフ」)にしないのは、補足文が名前の入力欄から離れた位置に
+ * あり、何を受けた指示語なのか読み手が追えないため(実機確認での指摘)。
+ */
+function staffLoginSubject(name: string): string {
+  const trimmed = name.trim();
+  // 名前が未入力のまま保存された行(validateStaffInput より前のデータ)でも
+  // 「さんは…」にならないよう逃げ道を置く。スタッフを選ぶチップが
+  // すぐ上にあるので、そこを指して読める言い方にする
+  if (trimmed === "") return "いま選んでいるスタッフ";
+  // すでに敬称が入っている名前に「さん」を重ねない
+  if (/(さん|様)$/.test(trimmed)) return trimmed;
+  return `${trimmed}さん`;
+}
+
+/** 「管理画面へのログイン」の補足文のうち、状態によって変わる部分 */
+export type StaffLoginNote = {
+  /** いまのログイン状態を述べる1文(強調して出す) */
+  status: string;
+  /** 次に取るべき行動。もう要らない場合は null */
+  action: string | null;
+};
+
+/** ログインできるようにする手段(オーナー自身にはできないので依頼先を示す) */
+const STAFF_LOGIN_REQUEST =
+  "管理画面にログインさせたい場合は、システムの管理担当者に依頼してください。";
+
+/**
+ * 「管理画面へのログイン」の補足文を組み立てる。
+ *
+ * この画面の機能(ログインできるアカウントは作られない)は状態によらず
+ * 同じなのでUI側に置き、ここが返すのは状態によって変わる2文だけ。
+ *
+ * - 既存スタッフ … 名前を出して、いまログインできるかどうかを述べる。
+ *   すでにログインできるなら依頼の案内は出さない(やることが無い)
+ * - 新規追加(staff === null)… まだ存在しないスタッフの状態は述べられないので、
+ *   これから追加されるものについて述べる
+ */
+export function describeStaffLogin(
+  staff: { name: string; hasAuthUser: boolean } | null,
+): StaffLoginNote {
+  if (staff === null) {
+    return {
+      status: "ここで追加したスタッフは、管理画面にログインできません。",
+      action: STAFF_LOGIN_REQUEST,
+    };
+  }
+  const subject = staffLoginSubject(staff.name);
+  if (staff.hasAuthUser) {
+    return { status: `${subject}は管理画面にログインできます。`, action: null };
+  }
+  return {
+    status: `${subject}は管理画面にログインできません。`,
+    action: STAFF_LOGIN_REQUEST,
+  };
+}
+
 /** フォームの入力値(select・input の生の文字列) */
 export type StaffInput = {
   name: string;
