@@ -42,6 +42,23 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
+  /* --primary の濃い側。白地にテーマ色の文字を置く用(アウトラインボタンの
+     文字など)。モックは accent と accentDark を対で持ち、アウトラインボタンは
+     枠=accent・文字=accentDark なので、その濃い側に対応する。
+     --primary そのままだと白地で 4.38:1 と WCAG AA(4.5)に届かない。
+     固定値ではなく --primary からの派生なので、M4cでテーマを差し替えるときは
+     --primary だけ替えれば濃い側も追従する(新しい色相は増やさない)。
+     混ぜ先を黒ではなく --foreground にしているのは、暖色の系統を保てるのと、
+     ダークでは --foreground が明るいため自動的に明るい側へ寄るため。
+     :root のトークンではなくここに置いているのは、Lightning CSS が
+     「var() を含む color-mix」をカスタムプロパティの値では落としてしまい
+     (フォールバックを作れないため)、通常の宣言でしか @supports 付きで
+     残せないから。@theme inline なので値はユーティリティ側に展開される */
+  --color-primary-strong: color-mix(
+    in oklch,
+    var(--primary),
+    var(--foreground) 35%
+  );
   --color-primary: var(--primary);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
@@ -68,6 +85,8 @@
   --popover-foreground: oklch(0.28 0.012 35);
   --primary: oklch(0.58 0.05 22); /* モーヴ(主ボタン・選択状態) */
   --primary-foreground: oklch(0.985 0.005 80);
+  /* --primary の濃い側(--color-primary-strong)は @theme inline 側で
+     --primary からの派生として定義している。理由はそちらのコメント参照 */
   --secondary: oklch(0.93 0.012 60); /* チップ・頭文字サークルの背景 */
   --secondary-foreground: oklch(0.38 0.02 30);
   --muted: oklch(0.94 0.008 75);

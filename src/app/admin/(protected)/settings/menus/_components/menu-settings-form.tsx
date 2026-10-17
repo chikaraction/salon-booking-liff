@@ -52,7 +52,7 @@ const fieldLabelClass = "text-sm font-bold text-foreground";
 // 枠=--border・文字=--foreground のニュートラルで、モックの「キャンセル」側が
 // それに当たるため variant は変えず、この箇所だけ上書きする
 const accentOutlineButtonClass =
-  "border-primary bg-card text-primary hover:text-primary aria-expanded:text-primary";
+  "border-primary bg-card text-primary-strong hover:text-primary-strong aria-expanded:text-primary-strong";
 
 /** 一覧の行の列割り(PC幅)。列見出しと行で同じ指定を使って縦を揃える */
 const rowGridClass =

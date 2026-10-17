@@ -59,7 +59,7 @@ const saveButtonClass = "h-11 rounded-xl px-5 text-base font-bold";
 // テーマ色のアウトラインが要る箇所だけここで上書きする。
 // hover:/aria-expanded: も outline の指定を打ち消して文字色を保つ。
 const accentOutlineButtonClass =
-  "border-primary bg-card text-primary hover:text-primary aria-expanded:text-primary";
+  "border-primary bg-card text-primary-strong hover:text-primary-strong aria-expanded:text-primary-strong";
 
 type Props = {
   /** 今日(JSTの暦日)。日付入力の初期値に使う */

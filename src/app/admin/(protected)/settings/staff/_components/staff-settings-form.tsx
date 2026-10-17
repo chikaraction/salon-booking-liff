@@ -64,7 +64,7 @@ const fieldLabelClass = "text-sm font-bold text-foreground";
 // モックの「戻る」「キャンセル」側がそれに当たるため variant は変えず、
 // テーマ色のアウトラインが要る箇所だけここで上書きする
 const accentOutlineButtonClass =
-  "border-primary bg-card text-primary hover:text-primary aria-expanded:text-primary";
+  "border-primary bg-card text-primary-strong hover:text-primary-strong aria-expanded:text-primary-strong";
 
 /** 選べるロール(staff.role の check 制約と同じ2値) */
 const ROLE_CHOICES: readonly StaffRole[] = ["owner", "staff"];
