@@ -193,9 +193,10 @@ function WeeklyHoursSection({
               aria-pressed={isClosed}
               onClick={() => update(day.weekday, { isOpen: !day.isOpen })}
               className={cn(
-                "h-12 w-14 rounded-xl text-base font-medium transition-colors",
+                // モックのトグル・チップ類は選択中・未選択とも font-weight:700
+                "h-12 w-14 rounded-xl text-base font-bold transition-colors",
                 isClosed
-                  ? "bg-primary font-bold text-primary-foreground"
+                  ? "bg-primary text-primary-foreground"
                   : "bg-secondary text-secondary-foreground hover:bg-muted",
               )}
             >
@@ -448,9 +449,9 @@ function NthWeekdaySection({
                       aria-pressed={selected}
                       onClick={() => toggleNth(index, nth)}
                       className={cn(
-                        "h-11 w-14 rounded-xl text-base transition-colors",
+                        "h-11 w-14 rounded-xl text-base font-bold transition-colors",
                         selected
-                          ? "bg-primary font-bold text-primary-foreground"
+                          ? "bg-primary text-primary-foreground"
                           : "bg-secondary text-secondary-foreground hover:bg-muted",
                       )}
                     >
@@ -736,9 +737,9 @@ function DateOverrideSection({
                     )
                   }
                   className={cn(
-                    "h-11 rounded-xl px-5 text-base transition-colors",
+                    "h-11 rounded-xl px-5 text-base font-bold transition-colors",
                     input.isOpen === choice.isOpen
-                      ? "bg-primary font-bold text-primary-foreground"
+                      ? "bg-primary text-primary-foreground"
                       : "bg-secondary text-secondary-foreground hover:bg-muted",
                   )}
                 >

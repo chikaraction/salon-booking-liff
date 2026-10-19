@@ -147,9 +147,10 @@ export function StaffSettingsForm({ today, staff }: Props) {
                         setIsAdding(false);
                       }}
                       className={cn(
-                        "h-11 rounded-xl px-4 text-base transition-colors",
+                        // モックのトグル・チップ類は選択中・未選択とも font-weight:700
+                        "h-11 rounded-xl px-4 text-base font-bold transition-colors",
                         active
-                          ? "bg-primary font-bold text-primary-foreground"
+                          ? "bg-primary text-primary-foreground"
                           : "bg-secondary text-secondary-foreground hover:bg-muted",
                         !member.isActive && "line-through",
                       )}
@@ -634,9 +635,9 @@ function WorkingHoursSection({
               })
             }
             className={cn(
-              "h-12 w-14 rounded-xl text-base transition-colors",
+              "h-12 w-14 rounded-xl text-base font-bold transition-colors",
               day.isWorking
-                ? "bg-primary font-bold text-primary-foreground"
+                ? "bg-primary text-primary-foreground"
                 : "bg-secondary text-secondary-foreground hover:bg-muted",
             )}
           >
@@ -942,9 +943,9 @@ function BlockSection({
                     )
                   }
                   className={cn(
-                    "h-11 rounded-xl px-5 text-base transition-colors",
+                    "h-11 rounded-xl px-5 text-base font-bold transition-colors",
                     input.allDay === choice.allDay
-                      ? "bg-primary font-bold text-primary-foreground"
+                      ? "bg-primary text-primary-foreground"
                       : "bg-secondary text-secondary-foreground hover:bg-muted",
                   )}
                 >

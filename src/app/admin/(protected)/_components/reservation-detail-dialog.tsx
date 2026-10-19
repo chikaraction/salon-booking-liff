@@ -273,7 +273,8 @@ function DetailBody({
         )}
       </div>
 
-      {/* 下部アクション */}
+      {/* 下部アクション。モックは height:46px・角丸10px(rounded-lg = --radius = 10px)。
+          確認ステップの「キャンセルする / 戻る」も同じ位置に入れ替わって出るので高さをそろえる */}
       {confirmingCancel ? (
         <div className="rounded-xl border border-border p-4">
           <p className="text-base font-bold">この予約をキャンセルしますか？</p>
@@ -289,7 +290,7 @@ function DetailBody({
             <Button
               size="lg"
               variant="destructive"
-              className="flex-1 rounded-lg"
+              className="h-[46px] flex-1 rounded-lg"
               disabled={cancelling}
               onClick={() => void confirmCancel()}
             >
@@ -298,7 +299,7 @@ function DetailBody({
             <Button
               size="lg"
               variant="outline"
-              className="flex-1 rounded-lg"
+              className="h-[46px] flex-1 rounded-lg"
               disabled={cancelling}
               onClick={() => {
                 setConfirmingCancel(false);
@@ -316,7 +317,7 @@ function DetailBody({
               再取得しない(呼び出し側が ReservationFormDialog を開く) */}
           <Button
             size="lg"
-            className="flex-1 rounded-lg"
+            className="h-[46px] flex-1 rounded-lg"
             onClick={() => onEdit(detail)}
           >
             変更
@@ -324,7 +325,7 @@ function DetailBody({
           <Button
             size="lg"
             variant="outline-destructive"
-            className="flex-1 rounded-lg"
+            className="h-[46px] flex-1 rounded-lg"
             onClick={() => {
               setCancelError(null);
               setConfirmingCancel(true);

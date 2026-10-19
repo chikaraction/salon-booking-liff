@@ -57,7 +57,8 @@ export function CancelSheet({
 
         <div className="mt-6 flex flex-col gap-3">
           <Button
-            className="h-12 w-full rounded-xl bg-destructive text-base text-white hover:bg-destructive/90"
+            variant="destructive"
+            className="h-12 w-full rounded-xl text-base"
             disabled={busy}
             onClick={onConfirm}
           >

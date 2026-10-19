@@ -295,7 +295,7 @@ export function CalendarView({
           onClick={() => go(view, todayDate)}
           aria-current={isToday ? "date" : undefined}
           className={cn(
-            "h-9 rounded-lg border px-3 text-sm font-medium transition-colors",
+            "h-9 rounded-lg border px-3 text-sm font-bold transition-colors",
             isToday
               ? "border-primary bg-accent text-accent-foreground"
               : "border-border bg-card text-foreground hover:bg-muted",
@@ -330,7 +330,8 @@ export function CalendarView({
               onClick={() => go(option, date)}
               aria-pressed={view === option}
               className={cn(
-                "h-7 rounded-md px-3 text-sm font-medium transition-colors",
+                // モックのトグル・チップ類は選択中・未選択とも font-weight:700
+                "h-7 rounded-md px-3 text-sm font-bold transition-colors",
                 view === option
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -513,7 +514,7 @@ function DayView({
               onClick={() => setMobileMode(mode)}
               aria-pressed={mobileMode === mode}
               className={cn(
-                "h-9 flex-1 rounded-lg text-sm font-medium transition-colors",
+                "h-9 flex-1 rounded-lg text-sm font-bold transition-colors",
                 mobileMode === mode
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground",

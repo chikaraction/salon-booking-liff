@@ -203,11 +203,15 @@ export function CategoryEditDialog({ categories, menuCounts, onClose }: Props) {
             </DndContext>
           )}
 
+          {/* モックの「＋ カテゴリを追加」は、テーマ色の破線の枠・テーマ色を薄く敷いた地・
+              テーマ色の濃い側の文字。ここだけの見た目なので variant は足さず outline-accent に
+              重ねる。hover は outline-accent の bg-muted だと地の色味が抜けて不自然なため、
+              --accent を --primary へ10%寄せて少し濃くする(文字は 5.49:1 → 4.93:1) */}
           <Button
             type="button"
-            variant="outline"
+            variant="outline-accent"
             onClick={handleAdd}
-            className="mt-4 h-11 rounded-xl px-4 text-base"
+            className="mt-4 h-11 rounded-xl border-dashed bg-accent px-4 text-base hover:bg-[color-mix(in_oklab,var(--accent),var(--primary)_10%)]"
           >
             <Plus aria-hidden="true" className="size-4" />
             カテゴリを追加
