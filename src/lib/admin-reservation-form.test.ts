@@ -6,6 +6,7 @@ import {
   isPastStart,
   isWallClockTime,
   restoreSelectableMenuIds,
+  sortMenusForProxyRegistration,
   validateProxyRegistration,
   validateReservationEdit,
   type ProxyRegistrationInput,
@@ -297,5 +298,92 @@ describe("restoreSelectableMenuIds", () => {
 
   it("保存済みが空なら空配列", () => {
     expect(restoreSelectableMenuIds([], ["cut"])).toEqual([]);
+  });
+});
+
+describe("sortMenusForProxyRegistration", () => {
+  // menus.display_order はカテゴリごとに0起点(saveMenuOrder の振り直し)
+  const categories = [
+    { id: "cat-color", displayOrder: 1 },
+    { id: "cat-cut", displayOrder: 0 },
+  ];
+
+  it("カテゴリ順が優先される(後のカテゴリの0番は、先のカテゴリの1番より後ろ)", () => {
+    const menus = [
+      { id: "color-0", categoryId: "cat-color", displayOrder: 0 },
+      { id: "cut-1", categoryId: "cat-cut", displayOrder: 1 },
+      { id: "cut-0", categoryId: "cat-cut", displayOrder: 0 },
+    ];
+    expect(
+      sortMenusForProxyRegistration(categories, menus).map((m) => m.id),
+    ).toEqual(["cut-0", "cut-1", "color-0"]);
+  });
+
+  it("カテゴリ内はメニューの display_order 順", () => {
+    const menus = [
+      { id: "cut-2", categoryId: "cat-cut", displayOrder: 2 },
+      { id: "cut-0", categoryId: "cat-cut", displayOrder: 0 },
+      { id: "cut-1", categoryId: "cat-cut", displayOrder: 1 },
+    ];
+    expect(
+      sortMenusForProxyRegistration(categories, menus).map((m) => m.id),
+    ).toEqual(["cut-0", "cut-1", "cut-2"]);
+  });
+
+  it("カテゴリ順もメニュー順も同じ値なら id 順で決まる(入力の順序に依存しない)", () => {
+    const sameOrderCategories = [
+      { id: "cat-a", displayOrder: 0 },
+      { id: "cat-b", displayOrder: 0 },
+    ];
+    const menus = [
+      { id: "menu-c", categoryId: "cat-a", displayOrder: 0 },
+      { id: "menu-a", categoryId: "cat-b", displayOrder: 0 },
+      { id: "menu-b", categoryId: "cat-a", displayOrder: 0 },
+    ];
+    const expected = ["menu-a", "menu-b", "menu-c"];
+    expect(
+      sortMenusForProxyRegistration(sameOrderCategories, menus).map(
+        (m) => m.id,
+      ),
+    ).toEqual(expected);
+    expect(
+      sortMenusForProxyRegistration(
+        sameOrderCategories,
+        [...menus].reverse(),
+      ).map((m) => m.id),
+    ).toEqual(expected);
+  });
+
+  it("入力の配列を破壊しない", () => {
+    const menus = [
+      { id: "color-0", categoryId: "cat-color", displayOrder: 0 },
+      { id: "cut-0", categoryId: "cat-cut", displayOrder: 0 },
+    ];
+    const before = structuredClone(menus);
+    sortMenusForProxyRegistration(categories, menus);
+    expect(menus).toEqual(before);
+  });
+
+  it("メニューの他のフィールドはそのまま返す", () => {
+    const menus = [
+      {
+        id: "cut-0",
+        categoryId: "cat-cut",
+        displayOrder: 0,
+        name: "カット",
+        price: 4000,
+      },
+    ];
+    expect(sortMenusForProxyRegistration(categories, menus)).toEqual(menus);
+  });
+
+  it("カテゴリ一覧に無いカテゴリのメニューは、既知のカテゴリより後ろに置く", () => {
+    const menus = [
+      { id: "orphan-0", categoryId: "cat-unknown", displayOrder: 0 },
+      { id: "color-5", categoryId: "cat-color", displayOrder: 5 },
+    ];
+    expect(
+      sortMenusForProxyRegistration(categories, menus).map((m) => m.id),
+    ).toEqual(["color-5", "orphan-0"]);
   });
 });
