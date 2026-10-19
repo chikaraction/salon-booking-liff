@@ -323,7 +323,7 @@ function DetailBody({
           </Button>
           <Button
             size="lg"
-            variant="outline"
+            variant="outline-destructive"
             className="flex-1 rounded-lg"
             onClick={() => {
               setCancelError(null);

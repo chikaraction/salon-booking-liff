@@ -59,9 +59,9 @@ export function ReservationCard({
           </Button>
         )}
         <Button
-          variant="outline"
+          variant="outline-destructive"
           disabled={!canModify}
-          className="h-11 flex-1 rounded-xl text-base text-destructive"
+          className="h-11 flex-1 rounded-xl text-base"
           onClick={onCancelClick}
         >
           キャンセル

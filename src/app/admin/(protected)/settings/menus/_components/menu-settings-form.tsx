@@ -48,11 +48,6 @@ import {
 const inputClass =
   "h-11 rounded-xl border border-input bg-card px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50";
 const fieldLabelClass = "text-sm font-bold text-foreground";
-// モックFの「カテゴリを編集」は枠と文字がテーマ色(白地)。shadcnの outline は
-// 枠=--border・文字=--foreground のニュートラルで、モックの「キャンセル」側が
-// それに当たるため variant は変えず、この箇所だけ上書きする
-const accentOutlineButtonClass =
-  "border-primary bg-card text-primary-strong hover:text-primary-strong aria-expanded:text-primary-strong";
 
 /** 一覧の行の列割り(PC幅)。列見出しと行で同じ指定を使って縦を揃える */
 const rowGridClass =
@@ -97,15 +92,12 @@ export function MenuSettingsForm({ groups, menuCounts }: Props) {
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
-              variant="outline"
+              variant="outline-accent"
               onClick={() => {
                 setMessage(null);
                 setIsCategoryOpen(true);
               }}
-              className={cn(
-                "h-11 rounded-xl px-4 text-base",
-                accentOutlineButtonClass,
-              )}
+              className="h-11 rounded-xl px-4 text-base"
             >
               カテゴリを編集
             </Button>

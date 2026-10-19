@@ -574,8 +574,8 @@ export function BookingWizard({
           // 完了画面の導線: マイ予約で内容を確認できる(新規・変更とも)
           <Button
             asChild
-            variant="outline"
-            className="h-12 w-full rounded-xl text-base text-primary"
+            variant="outline-accent"
+            className="h-12 w-full rounded-xl text-base"
           >
             <Link href="/my">マイ予約を見る</Link>
           </Button>

@@ -11,8 +11,21 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/80",
+        // モックのアウトラインはどれも地が白(#fff)で、色は3系統ある。
+        // outline はニュートラル(戻る・変更・キャンセルなど): 枠 #d5d2ca・文字 #5b6270。
+        // 枠は入力欄と同じ --input、文字は --muted-foreground(白地で 5.54:1)で近似する
         outline:
-          "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+          "border-input bg-card text-muted-foreground hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+        // テーマ色のアウトライン(カテゴリを編集・マイ予約を見る・＋ 追加など):
+        // 枠=テーマ色、文字=テーマ色の濃い側(--primary そのままだと白地で 4.38:1 で
+        // AA に届かないため)。hover しても文字色は保つ
+        "outline-accent":
+          "border-primary bg-card text-primary-strong hover:bg-muted hover:text-primary-strong aria-expanded:bg-muted aria-expanded:text-primary-strong",
+        // 破壊的なアウトライン(予約のキャンセルなど): 枠=--destructive の淡い側、
+        // 文字=--destructive(白地で 4.71:1)。hover はうっすら色がつく程度にとどめる
+        // (地の濃さ 3% で 4.53:1。5% にすると 4.41:1 で AA を割る)
+        "outline-destructive":
+          "border-destructive-soft bg-card text-destructive hover:bg-destructive/3 aria-expanded:bg-destructive/3",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:
