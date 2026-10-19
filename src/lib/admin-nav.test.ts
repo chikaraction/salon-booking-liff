@@ -31,4 +31,28 @@ describe("isAdminNavActive(サイドバーのアクティブ判定)", () => {
       isAdminNavActive("/admin/reservations/new/", "/admin/reservations/new"),
     ).toBe(true);
   });
+
+  // M4bで追加: 設定配下の子画面でも親のナビ項目をアクティブにする
+  it("設定ページの配下では親の設定項目がアクティブになる(前方一致)", () => {
+    expect(
+      isAdminNavActive("/admin/settings/staff", "/admin/settings/staff"),
+    ).toBe(true);
+    expect(
+      isAdminNavActive("/admin/settings/staff/abc", "/admin/settings/staff"),
+    ).toBe(true);
+  });
+
+  it("パスの区切りをまたがない部分一致ではアクティブにならない", () => {
+    // /admin/settings/staff-groups は /admin/settings/staff の配下ではない
+    expect(
+      isAdminNavActive("/admin/settings/staffs", "/admin/settings/staff"),
+    ).toBe(false);
+  });
+
+  it("前方一致を足しても /admin は配下でアクティブにならない(既存の回避を維持)", () => {
+    expect(isAdminNavActive("/admin/settings/menus", "/admin")).toBe(false);
+    expect(isAdminNavActive("/admin/reservations/abc/edit", "/admin")).toBe(
+      false,
+    );
+  });
 });

@@ -7,7 +7,6 @@ import {
   buildDayTimeline,
   buildReservationListItems,
   buildWeekView,
-  isClosedByBusinessHours,
   weekStartOf,
   type DayTimeline,
   type ReservationListItem,
@@ -19,12 +18,18 @@ import {
   isCalendarDate,
   jstCalendarDate,
 } from "@/lib/availability";
+import {
+  makeBusinessDayOf,
+  makeIsClosedDay,
+  resolveBusinessDay,
+} from "@/lib/closures";
 import { createAdminAuthClient } from "@/server/admin-auth";
 import {
   fetchActiveMenus,
   fetchAdminBusinessHours,
   fetchAdminCalendarItems,
   fetchAdminStaff,
+  fetchClosureRules,
   fetchSlotIntervalMinutes,
   fetchStaffWorkingHoursForWeekday,
 } from "@/server/admin-data";
@@ -70,6 +75,9 @@ export default async function AdminCalendarPage({
     fetchSlotIntervalMinutes(supabase),
     fetchActiveMenus(supabase),
   ]);
+  // 休業日判定(毎週の定休・第◯曜日・祝日・臨時休業)は closures.ts に一本化する
+  const closureRules = await fetchClosureRules(supabase, businessHours);
+  const isClosedDay = makeIsClosedDay(closureRules);
 
   let timeline: DayTimeline = EMPTY_TIMELINE;
   let listItems: ReservationListItem[] = [];
@@ -77,11 +85,18 @@ export default async function AdminCalendarPage({
 
   if (view === "day") {
     const weekday = calendarWeekday(date);
-    const businessDay = businessHours.find((h) => h.weekday === weekday) ?? {
+    const weeklyDay = businessHours.find((h) => h.weekday === weekday) ?? {
       isOpen: false,
       openTime: null,
       closeTime: null,
     };
+    // 第◯曜日・祝日・臨時休業の休業日も日表示で休業として出し、
+    // 時刻付きの臨時営業の日はその時刻を日表示の時間軸にする
+    const businessDay = resolveBusinessDay({
+      date,
+      weeklyBusinessDay: weeklyDay,
+      rules: closureRules,
+    });
     const [items, workingHours] = await Promise.all([
       fetchAdminCalendarItems(supabase, date, addCalendarDays(date, 1)),
       fetchStaffWorkingHoursForWeekday(supabase, weekday),
@@ -103,9 +118,14 @@ export default async function AdminCalendarPage({
     );
     weekView = buildWeekView({
       weekStart,
-      businessHours,
       items,
-      isClosedDay: (d) => isClosedByBusinessHours(d, businessHours),
+      isClosedDay,
+      // 軸・営業時間外の帯は曜日の行ではなくその日の実効営業時間で決める
+      // (臨時営業・短縮営業が週表示にも効く)
+      businessDayOf: makeBusinessDayOf({
+        rules: closureRules,
+        weeklyBusinessHours: businessHours,
+      }),
     });
   }
 

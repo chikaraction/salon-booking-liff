@@ -67,20 +67,19 @@ export function buildCalendarWeeks(yearMonth: string): CalendarCell[][] {
 
 /**
  * カレンダー上で日付を選択できるかを判定する。
- * 無効: 過去・受付期間(booking_window_days)外・定休日
- * (行がない曜日は休業として扱う: booking-data.ts と同じ判定)。
+ * 無効: 過去・受付期間(booking_window_days)外・休業日。
+ * 休業日の判定は入力の isClosedDay に委ねる(closures.ts の makeIsClosedDay を
+ * 渡す。毎週の定休だけでなく第◯曜日・祝日・臨時休業も同じ関数で効く)。
  */
 export function isSelectableDate(params: {
   date: string;
-  businessHours: Array<{ weekday: number; isOpen: boolean }>;
+  isClosedDay: (date: string) => boolean;
   policy: BookingPolicy;
   now: Date;
 }): boolean {
-  const { date, businessHours, policy, now } = params;
+  const { date, isClosedDay, policy, now } = params;
   if (!isWithinBookingWindow(date, policy, now)) return false;
-  const weekday = calendarWeekday(date);
-  const day = businessHours.find((hours) => hours.weekday === weekday);
-  return day?.isOpen === true;
+  return !isClosedDay(date);
 }
 
 /**
