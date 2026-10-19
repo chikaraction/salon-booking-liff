@@ -705,7 +705,7 @@ type MenuTableRow = {
  * (on delete set null)、消すと過去の予約のメニュー名・料金は残る
  * (スナップショット)ものの、元メニューへの対応が切れる。
  * 使わなくなったメニューは is_active = false(非表示)で表す
- * (MENU_HIDE_INSTEAD_OF_DELETE_MESSAGE を画面にも出している)。
+ * (MENU_HIDE_INSTEAD_OF_DELETE_LINES を画面にも出している)。
  *
  * 表示順は新規のときだけ「そのカテゴリの末尾」を採番する。既存メニューの
  * 表示順はドラッグ&ドロップ(saveMenuOrder)が持つのでここでは触らない。

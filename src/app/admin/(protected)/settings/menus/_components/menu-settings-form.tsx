@@ -18,7 +18,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Loader2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { Fragment, useState, useTransition } from "react";
 
 import {
   saveMenu,
@@ -26,7 +26,7 @@ import {
 } from "@/app/admin/(protected)/settings/actions";
 import { Button } from "@/components/ui/button";
 import {
-  MENU_HIDE_INSTEAD_OF_DELETE_MESSAGE,
+  MENU_HIDE_INSTEAD_OF_DELETE_LINES,
   formatMenuDuration,
   formatMenuPrice,
   validateMenuInput,
@@ -591,7 +591,12 @@ function MenuEditDialog({
 
         {/* 物理削除は提供しない。文言も純粋関数側(lib)に置いて画面と揃える */}
         <p className="rounded-lg bg-accent px-4 py-3 text-sm text-accent-foreground">
-          {MENU_HIDE_INSTEAD_OF_DELETE_MESSAGE}
+          {MENU_HIDE_INSTEAD_OF_DELETE_LINES.map((line, index) => (
+            <Fragment key={line}>
+              {index > 0 && <br />}
+              {line}
+            </Fragment>
+          ))}
         </p>
 
         <div className="flex flex-wrap items-center gap-3">

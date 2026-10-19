@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   CATEGORY_INVALID_MESSAGE,
+  MENU_HIDE_INSTEAD_OF_DELETE_LINES,
   MENU_INVALID_MESSAGE,
   buildMenuAdminGroups,
   categoryDeleteBlockedMessage,
@@ -497,5 +498,19 @@ describe("findCategoryDeleteViolation", () => {
     });
 
     expect(message).toBeNull();
+  });
+});
+
+describe("MENU_HIDE_INSTEAD_OF_DELETE_LINES", () => {
+  it("各行が「。」で終わる(改行位置が文の終わりに一致している)", () => {
+    for (const line of MENU_HIDE_INSTEAD_OF_DELETE_LINES) {
+      expect(line.endsWith("。")).toBe(true);
+    }
+  });
+
+  it("連結すると変更前の本文と一字一句同じ(文言を変えていない)", () => {
+    expect(MENU_HIDE_INSTEAD_OF_DELETE_LINES.join("")).toBe(
+      "メニューの削除はできません。過去の予約が参照しているため、使わなくなったメニューは「表示する」をオフにしてください。オフにするとお客様の予約画面に出なくなり、過去の予約はそのまま残ります。",
+    );
   });
 });
