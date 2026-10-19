@@ -207,7 +207,7 @@ export function CategoryEditDialog({ categories, menuCounts, onClose }: Props) {
             type="button"
             variant="outline"
             onClick={handleAdd}
-            className="mt-4 h-11 rounded-xl px-4 text-base font-medium"
+            className="mt-4 h-11 rounded-xl px-4 text-base"
           >
             <Plus aria-hidden="true" className="size-4" />
             カテゴリを追加
@@ -229,7 +229,7 @@ export function CategoryEditDialog({ categories, menuCounts, onClose }: Props) {
             type="button"
             variant="outline"
             onClick={onClose}
-            className="h-11 rounded-xl px-5 text-base font-medium"
+            className="h-11 rounded-xl px-5 text-base"
           >
             キャンセル
           </Button>
@@ -237,7 +237,7 @@ export function CategoryEditDialog({ categories, menuCounts, onClose }: Props) {
             type="button"
             onClick={handleSave}
             disabled={isPending}
-            className="h-11 rounded-xl px-5 text-base font-bold"
+            className="h-11 rounded-xl px-5 text-base"
           >
             {isPending && (
               <Loader2 aria-hidden="true" className="size-4 animate-spin" />

@@ -249,7 +249,7 @@ function DetailBody({
             <div className="flex gap-2">
               <Button
                 size="lg"
-                className="rounded-lg font-bold"
+                className="rounded-lg"
                 disabled={savingMemo}
                 onClick={() => void saveMemo()}
               >
@@ -258,7 +258,7 @@ function DetailBody({
               <Button
                 size="lg"
                 variant="outline"
-                className="rounded-lg font-bold"
+                className="rounded-lg"
                 disabled={savingMemo}
                 onClick={() => setEditing(false)}
               >
@@ -289,7 +289,7 @@ function DetailBody({
             <Button
               size="lg"
               variant="destructive"
-              className="flex-1 rounded-lg font-bold"
+              className="flex-1 rounded-lg"
               disabled={cancelling}
               onClick={() => void confirmCancel()}
             >
@@ -298,7 +298,7 @@ function DetailBody({
             <Button
               size="lg"
               variant="outline"
-              className="flex-1 rounded-lg font-bold"
+              className="flex-1 rounded-lg"
               disabled={cancelling}
               onClick={() => {
                 setConfirmingCancel(false);
@@ -316,7 +316,7 @@ function DetailBody({
               再取得しない(呼び出し側が ReservationFormDialog を開く) */}
           <Button
             size="lg"
-            className="flex-1 rounded-lg font-bold"
+            className="flex-1 rounded-lg"
             onClick={() => onEdit(detail)}
           >
             変更
@@ -324,7 +324,7 @@ function DetailBody({
           <Button
             size="lg"
             variant="outline"
-            className="flex-1 rounded-lg font-bold"
+            className="flex-1 rounded-lg"
             onClick={() => {
               setCancelError(null);
               setConfirmingCancel(true);

@@ -751,7 +751,7 @@ export function ProxyRegistrationForm({
                 availability?.status === "past" ||
                 availability?.status === "closed"
               }
-              className="h-12 w-full rounded-xl text-base font-bold"
+              className="h-12 w-full rounded-xl text-base"
             >
               {isEdit
                 ? isSubmitting
@@ -771,7 +771,7 @@ export function ProxyRegistrationForm({
                 variant="outline"
                 disabled={isSubmitting}
                 onClick={onBack}
-                className="h-12 w-full rounded-xl text-base font-bold"
+                className="h-12 w-full rounded-xl text-base"
               >
                 <ChevronLeft aria-hidden="true" className="size-5" />
                 詳細に戻る

@@ -41,7 +41,7 @@ export function ReservationCard({
           <Button
             asChild
             variant="outline"
-            className="h-11 flex-1 rounded-xl text-base font-bold"
+            className="h-11 flex-1 rounded-xl text-base"
           >
             <Link
               href={`/booking?change=${encodeURIComponent(reservation.id)}`}
@@ -53,7 +53,7 @@ export function ReservationCard({
           <Button
             variant="outline"
             disabled
-            className="h-11 flex-1 rounded-xl text-base font-bold"
+            className="h-11 flex-1 rounded-xl text-base"
           >
             変更
           </Button>
@@ -61,7 +61,7 @@ export function ReservationCard({
         <Button
           variant="outline"
           disabled={!canModify}
-          className="h-11 flex-1 rounded-xl text-base font-bold text-destructive"
+          className="h-11 flex-1 rounded-xl text-base text-destructive"
           onClick={onCancelClick}
         >
           キャンセル

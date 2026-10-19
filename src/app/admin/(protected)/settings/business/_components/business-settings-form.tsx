@@ -52,7 +52,7 @@ import { cn } from "@/lib/utils";
 const inputClass =
   "h-11 rounded-xl border border-input bg-card px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50";
 const sectionLabelClass = "text-base font-bold text-muted-foreground";
-const saveButtonClass = "h-11 rounded-xl px-5 text-base font-bold";
+const saveButtonClass = "h-11 rounded-xl px-5 text-base";
 // モックE-2の「＋ 追加」「＋ 日付を追加」は枠と文字がテーマ色(白地)。
 // shadcnの outline は枠=--border・文字=--foreground のニュートラルで、
 // モックの「戻る」「キャンセル」側がそれに当たるため variant は変えず、
@@ -406,7 +406,7 @@ function NthWeekdaySection({
             setGroups((current) => [...current, { weekday: 0, nths: [] }]);
           }}
           className={cn(
-            "h-11 rounded-xl px-4 text-base font-medium",
+            "h-11 rounded-xl px-4 text-base",
             accentOutlineButtonClass,
           )}
         >
@@ -664,7 +664,7 @@ function DateOverrideSection({
             setIsAdding((open) => !open);
           }}
           className={cn(
-            "h-11 rounded-xl px-4 text-base font-medium",
+            "h-11 rounded-xl px-4 text-base",
             accentOutlineButtonClass,
           )}
         >

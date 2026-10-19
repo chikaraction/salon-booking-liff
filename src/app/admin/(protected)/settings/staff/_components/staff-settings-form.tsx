@@ -58,7 +58,7 @@ import { cn } from "@/lib/utils";
 const inputClass =
   "h-11 rounded-xl border border-input bg-card px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50";
 const sectionLabelClass = "text-base font-bold text-muted-foreground";
-const saveButtonClass = "h-11 rounded-xl px-5 text-base font-bold";
+const saveButtonClass = "h-11 rounded-xl px-5 text-base";
 const fieldLabelClass = "text-sm font-bold text-foreground";
 // モックEの「臨時休を追加」の「＋ 追加」は枠と文字がテーマ色(白地)。
 // shadcnの outline は枠=--border・文字=--foreground のニュートラルで、
@@ -128,7 +128,7 @@ export function StaffSettingsForm({ today, staff }: Props) {
                 variant="outline"
                 aria-expanded={isAdding}
                 onClick={() => setIsAdding((open) => !open)}
-                className="h-11 rounded-xl px-4 text-base font-medium"
+                className="h-11 rounded-xl px-4 text-base"
               >
                 <Plus aria-hidden="true" className="size-4" />
                 スタッフを追加
@@ -228,7 +228,7 @@ function StaffCardSection({
           variant="outline"
           aria-expanded={isEditing}
           onClick={() => setIsEditing((open) => !open)}
-          className="h-11 rounded-xl px-4 text-base font-medium"
+          className="h-11 rounded-xl px-4 text-base"
         >
           スタッフ情報を編集
         </Button>
@@ -790,7 +790,7 @@ function WorkingHoursSection({
                     applyTimesToWorkingDays(current, firstWorkingDay.weekday),
                   );
                 }}
-                className="h-11 rounded-xl px-4 text-base font-medium"
+                className="h-11 rounded-xl px-4 text-base"
               >
                 {weekdayLongLabel(firstWorkingDay.weekday)}
                 と同じ時刻をすべての勤務日に適用
@@ -903,7 +903,7 @@ function BlockSection({
             setIsAdding((open) => !open);
           }}
           className={cn(
-            "h-11 shrink-0 rounded-xl px-4 text-base font-medium",
+            "h-11 shrink-0 rounded-xl px-4 text-base",
             accentOutlineButtonClass,
           )}
         >

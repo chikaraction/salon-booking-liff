@@ -366,10 +366,7 @@ export function BookingWizard({
         <p className="text-base text-muted-foreground">
           既に取り消されているか、変更できない予約です。マイ予約からやり直してください。
         </p>
-        <Button
-          asChild
-          className="mt-3 h-12 w-full rounded-xl text-base font-bold"
-        >
+        <Button asChild className="mt-3 h-12 w-full rounded-xl text-base">
           <Link href="/my">マイ予約へ戻る</Link>
         </Button>
       </div>
@@ -386,7 +383,7 @@ export function BookingWizard({
         <Button
           asChild
           variant="outline"
-          className="mt-3 h-12 w-full rounded-xl text-base font-bold"
+          className="mt-3 h-12 w-full rounded-xl text-base"
         >
           <Link href="/my">マイ予約へ戻る</Link>
         </Button>
@@ -523,7 +520,7 @@ export function BookingWizard({
               </p>
             </div>
             <Button
-              className="h-12 w-full rounded-xl text-base font-bold"
+              className="h-12 w-full rounded-xl text-base"
               disabled={summary.count === 0}
               onClick={() => setStep("staff")}
             >
@@ -551,7 +548,7 @@ export function BookingWizard({
         )}
         {step === "info" && (
           <Button
-            className="h-12 w-full rounded-xl text-base font-bold"
+            className="h-12 w-full rounded-xl text-base"
             onClick={proceedFromInfo}
           >
             確認画面へ
@@ -578,7 +575,7 @@ export function BookingWizard({
           <Button
             asChild
             variant="outline"
-            className="h-12 w-full rounded-xl text-base font-bold text-primary"
+            className="h-12 w-full rounded-xl text-base text-primary"
           >
             <Link href="/my">マイ予約を見る</Link>
           </Button>
@@ -603,13 +600,13 @@ function FooterNav({
     <div className="flex gap-3">
       <Button
         variant="outline"
-        className="h-12 w-28 rounded-xl text-base font-bold"
+        className="h-12 w-28 rounded-xl text-base"
         onClick={onBack}
       >
         戻る
       </Button>
       <Button
-        className="h-12 flex-1 rounded-xl text-base font-bold"
+        className="h-12 flex-1 rounded-xl text-base"
         disabled={nextDisabled}
         onClick={onNext}
       >

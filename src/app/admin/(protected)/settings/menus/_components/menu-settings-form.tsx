@@ -103,7 +103,7 @@ export function MenuSettingsForm({ groups, menuCounts }: Props) {
                 setIsCategoryOpen(true);
               }}
               className={cn(
-                "h-11 rounded-xl px-4 text-base font-medium",
+                "h-11 rounded-xl px-4 text-base",
                 accentOutlineButtonClass,
               )}
             >
@@ -116,7 +116,7 @@ export function MenuSettingsForm({ groups, menuCounts }: Props) {
                 setMessage(null);
                 setEditing({ menu: null });
               }}
-              className="h-11 rounded-xl px-4 text-base font-bold"
+              className="h-11 rounded-xl px-4 text-base"
             >
               <Plus aria-hidden="true" className="size-4" />
               新規メニュー
@@ -604,7 +604,7 @@ function MenuEditDialog({
             type="button"
             onClick={handleSave}
             disabled={isPending}
-            className="h-11 rounded-xl px-5 text-base font-bold"
+            className="h-11 rounded-xl px-5 text-base"
           >
             {isPending && (
               <Loader2 aria-hidden="true" className="size-4 animate-spin" />

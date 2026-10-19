@@ -75,7 +75,7 @@ export function LoginForm() {
         type="submit"
         size="lg"
         disabled={isPending}
-        className="h-12 w-full rounded-xl text-base font-bold"
+        className="h-12 w-full rounded-xl text-base"
       >
         {isPending ? "ログイン中…" : "ログイン"}
       </Button>
