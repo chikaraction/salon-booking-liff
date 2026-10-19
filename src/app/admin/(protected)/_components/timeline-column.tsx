@@ -32,29 +32,18 @@ export function timelineHeight(tickMarks: TickMark[]): string {
   return `${Math.max(tickMarks.length - 1, 1) * 4}rem`;
 }
 
-/** 左端の時間目盛りラベル(親要素は relative + timelineHeight であること) */
-export function TimeGutter({ tickMarks }: { tickMarks: TickMark[] }) {
-  const lastIndex = tickMarks.length - 1;
+/**
+ * 左端の時間目盛りラベル(親要素は relative + timelineHeight であること)。
+ * モックどおり、どのラベルも上端を罫線にそろえて罫線の直下に置く。
+ * 出す目盛りの選別は lib(labelMarks)が済ませている。
+ */
+export function TimeGutter({ labelMarks }: { labelMarks: TickMark[] }) {
   return (
     <>
-      {tickMarks.map((mark, index) => (
+      {labelMarks.map((mark) => (
         <span
           key={mark.label}
-          className={cn(
-            "absolute right-2 text-xs text-muted-foreground",
-            // 中央合わせのままだと、先頭(top 0%)は上半分・末尾(top 100%)は
-            // 下半分が時間軸コンテナの外へ出る。週表示のラッパーは
-            // overflow-y-hidden なので末尾の「18:00」が切れて読めなかった。
-            // 端の2つだけ軸の内側へ寄せる(罫線の位置は変えないので、
-            // 端以外は従来どおり中央合わせ=罫線とラベルの対応は保たれる)。
-            // topPercent の浮動小数誤差に依存しないよう、値ではなく
-            // 先頭要素/末尾要素かどうかで判定する
-            index === 0
-              ? "translate-y-0"
-              : index === lastIndex
-                ? "-translate-y-full"
-                : "-translate-y-1/2",
-          )}
+          className="absolute right-2.5 mt-0.5 text-xs tabular-nums text-muted-foreground"
           style={{ top: `${mark.topPercent}%` }}
         >
           {mark.label}

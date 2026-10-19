@@ -196,6 +196,61 @@ describe("buildDayTimeline: 日表示の配置計算", () => {
       items: [],
     });
     expect(timeline.tickMarks).toEqual([]);
+    expect(timeline.labelMarks).toEqual([]);
+  });
+
+  describe("時刻ラベルを出す目盛り(labelMarks)", () => {
+    function timelineFor(openTime: string, closeTime: string) {
+      return buildDayTimeline({
+        ...base,
+        businessDay: { isOpen: true, openTime, closeTime },
+        items: [],
+      });
+    }
+
+    it("閉店が正時なら、閉店ちょうどの末尾の目盛り(19:00)にはラベルを出さない", () => {
+      const timeline = timelineFor("09:00:00", "19:00:00");
+      expect(timeline.labelMarks.map((m) => m.label)).toEqual([
+        "9:00",
+        "10:00",
+        "11:00",
+        "12:00",
+        "13:00",
+        "14:00",
+        "15:00",
+        "16:00",
+        "17:00",
+        "18:00",
+      ]);
+    });
+
+    it("ラベルの位置は罫線(tickMarks)の同じ目盛りと一致する", () => {
+      const timeline = timelineFor("09:00:00", "19:00:00");
+      expect(timeline.labelMarks).toEqual(timeline.tickMarks.slice(0, -1));
+    });
+
+    it("開店が正時でなくても、最初の目盛り(10:00)にはラベルを出す", () => {
+      const timeline = timelineFor("09:30:00", "19:00:00");
+      expect(timeline.labelMarks[0]).toEqual(timeline.tickMarks[0]);
+      expect(timeline.labelMarks[0].label).toBe("10:00");
+      expect(timeline.labelMarks[0].topPercent).toBeGreaterThan(0);
+    });
+
+    it("閉店まで15分未満の目盛り(閉店19:10の19:00)にはラベルを出さない", () => {
+      const timeline = timelineFor("09:00:00", "19:10:00");
+      // 罫線は引く
+      expect(timeline.ticks[timeline.ticks.length - 1]).toBe("19:00");
+      const labels = timeline.labelMarks.map((m) => m.label);
+      expect(labels).not.toContain("19:00");
+      expect(labels[labels.length - 1]).toBe("18:00");
+    });
+
+    it("閉店までちょうど15分の目盛り(閉店19:15の19:00)にはラベルを出す", () => {
+      const timeline = timelineFor("09:00:00", "19:15:00");
+      const labels = timeline.labelMarks.map((m) => m.label);
+      expect(labels[labels.length - 1]).toBe("19:00");
+      expect(labels).toEqual(timeline.ticks);
+    });
   });
 
   it("スタッフ列は入力順で、見出しは「田中(オーナー)」形式", () => {
@@ -655,6 +710,76 @@ describe("buildWeekView: 週表示への集約", () => {
       topPercent: 100,
     });
     expect(view.tickMarks.map((m) => m.label)).toEqual(view.ticks);
+  });
+
+  describe("時刻ラベルを出す目盛り(labelMarks)", () => {
+    /** 週7日とも同じ営業時間の週表示を組む */
+    function weekViewFor(openTime: string, closeTime: string) {
+      const hours = [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
+        weekday,
+        isOpen: true,
+        openTime,
+        closeTime,
+      }));
+      return buildWeekView({
+        weekStart,
+        businessDayOf: weeklyBusinessDayOf(hours),
+        items: [],
+        isClosedDay: () => false,
+      });
+    }
+
+    it("閉店が正時なら、閉店ちょうどの末尾の目盛り(19:00)にはラベルを出さない", () => {
+      const view = weekViewFor("09:00:00", "19:00:00");
+      expect(view.labelMarks.map((m) => m.label)).toEqual([
+        "9:00",
+        "10:00",
+        "11:00",
+        "12:00",
+        "13:00",
+        "14:00",
+        "15:00",
+        "16:00",
+        "17:00",
+        "18:00",
+      ]);
+      expect(view.labelMarks).toEqual(view.tickMarks.slice(0, -1));
+    });
+
+    it("開店が正時でなくても、最初の目盛り(10:00)にはラベルを出す", () => {
+      const view = weekViewFor("09:30:00", "19:00:00");
+      expect(view.labelMarks[0]).toEqual(view.tickMarks[0]);
+      expect(view.labelMarks[0].label).toBe("10:00");
+      expect(view.labelMarks[0].topPercent).toBeGreaterThan(0);
+    });
+
+    it("閉店まで15分未満の目盛り(閉店19:10の19:00)にはラベルを出さない", () => {
+      const view = weekViewFor("09:00:00", "19:10:00");
+      expect(view.ticks[view.ticks.length - 1]).toBe("19:00");
+      const labels = view.labelMarks.map((m) => m.label);
+      expect(labels).not.toContain("19:00");
+      expect(labels[labels.length - 1]).toBe("18:00");
+    });
+
+    it("閉店までちょうど15分の目盛り(閉店19:15の19:00)にはラベルを出す", () => {
+      const view = weekViewFor("09:00:00", "19:15:00");
+      expect(view.labelMarks.map((m) => m.label)).toEqual(view.ticks);
+    });
+
+    it("営業日も予約もない週はラベルも空", () => {
+      const view = buildWeekView({
+        weekStart,
+        businessDayOf: () => ({
+          isOpen: false,
+          openTime: null,
+          closeTime: null,
+        }),
+        items: [],
+        isClosedDay: () => true,
+      });
+      expect(view.tickMarks).toEqual([]);
+      expect(view.labelMarks).toEqual([]);
+    });
   });
 
   it("各アイテムは開始時刻+客名のラベルとスタッフID(色分け用)を持つ", () => {

@@ -581,7 +581,7 @@ function DayTimelineGrid({
     <div className="min-w-max md:min-w-0">
       {/* 列見出し */}
       <div className="flex border-b border-border">
-        <div className="w-14 shrink-0" />
+        <div className="w-16 shrink-0" />
         <div
           className="grid flex-1"
           style={{ gridTemplateColumns: gridColumns }}
@@ -599,8 +599,8 @@ function DayTimelineGrid({
 
       {/* 本体 */}
       <div className="flex" style={{ height }}>
-        <div className="relative w-14 shrink-0">
-          <TimeGutter tickMarks={timeline.tickMarks} />
+        <div className="relative w-16 shrink-0">
+          <TimeGutter labelMarks={timeline.labelMarks} />
         </div>
         <div className="relative flex-1">
           <HourLines tickMarks={timeline.tickMarks} />
@@ -698,8 +698,8 @@ function MobileTimeline({
       </div>
 
       <div className="flex px-3 pb-6" style={{ height }}>
-        <div className="relative w-12 shrink-0">
-          <TimeGutter tickMarks={timeline.tickMarks} />
+        <div className="relative w-16 shrink-0">
+          <TimeGutter labelMarks={timeline.labelMarks} />
         </div>
         {/* 空きをタップすると代行登録ダイアログ(スタッフは上のセグメントで選択中の1名) */}
         <div
@@ -831,7 +831,7 @@ function WeekGrid({
       <div className="min-w-[48rem]">
         {/* 曜日見出し */}
         <div className="flex border-b border-border">
-          <div className="w-12 shrink-0" />
+          <div className="w-16 shrink-0" />
           <div className="grid flex-1 grid-cols-7">
             {weekView.days.map((day) => (
               <div
@@ -850,8 +850,8 @@ function WeekGrid({
 
         {/* 本体 */}
         <div className="flex" style={{ height }}>
-          <div className="relative w-12 shrink-0">
-            <TimeGutter tickMarks={weekView.tickMarks} />
+          <div className="relative w-16 shrink-0">
+            <TimeGutter labelMarks={weekView.labelMarks} />
           </div>
           <div className="relative flex-1">
             <HourLines tickMarks={weekView.tickMarks} />
