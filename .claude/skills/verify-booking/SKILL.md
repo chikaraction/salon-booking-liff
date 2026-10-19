@@ -9,6 +9,43 @@ description: ローカルの自動テストだけでは検証できない項目(
 のみ確認できる。tendledgeのverify-tauriスキルと同じ運用: **機能を追加したら
 対応するチェック項目をここに追記する**。
 
+## 画面のURL一覧
+
+確認の入口。開発サーバーは `npm run dev`(既定で http://localhost:3000)。
+見た目の正は `docs/mockups/` のスクリーンショット。
+
+### 店側(管理画面)
+
+| URL | 画面 | 備考 |
+| --- | --- | --- |
+| `/admin/login` | ログイン | 招待制。この画面からアカウントは作れない(ADR-005) |
+| `/admin` | 予約カレンダー | ログイン後の着地点。日表示・週表示 |
+| `/admin/reservations/new` | 代行登録(ページ版) | カレンダーからはダイアログで開く。直URLだとページ版 |
+| `/admin/reservations/[id]/edit` | 予約の編集(ページ版) | 同上。`[id]` は reservations.id |
+| `/admin/settings/business` | 営業日・営業時間 | オーナーのみ。モックE-2 |
+| `/admin/settings/staff` | スタッフ | オーナーのみ。モックE |
+| `/admin/settings/menus` | メニュー | オーナーのみ。モックF |
+| `/admin/settings/salon` | 店舗・予約設定 | オーナーのみ |
+
+`/admin` 配下はすべてログインが必要(`src/proxy.ts` の matcher が `/admin/:path*`)。
+設定の4画面はサイドバーの「設定」グループから開けるが、スタッフロールでは
+リンクが出ず、直URLでも弾かれる。`/admin/settings` 自体のページは無い(404)。
+
+### 客側(LIFF)
+
+| URL | 画面 | 備考 |
+| --- | --- | --- |
+| `/booking` | 予約フロー | メニュー → スタッフ → 日時 → お客様情報 → 確認 → 完了 |
+| `/my` | マイ予約 | 予約の変更・キャンセル |
+
+LINEを通さずブラウザで開くには `NEXT_PUBLIC_LIFF_STUB=1`(LINEログインの代わりに
+`stub:<userId>` のダミートークンを使う。本番では必ず拒否される)。
+
+### まだ手を付けていないURL
+
+- `/` — create-next-app のテンプレートのまま。客側の入口はLINEのリッチメニューから
+  `/booking`・`/my` を直接開く形なので、ここは使っていない
+
 ## ダブルブッキング防止(ADR-004)
 
 - [ ] 2つのブラウザで同じスタッフ・同じ時間帯の予約画面を開き、ほぼ同時に
