@@ -211,3 +211,44 @@ export function restoreSelectableMenuIds(
   const active = new Set(activeMenuIds);
   return [...new Set(savedMenuIds)].filter((id) => active.has(id));
 }
+
+/** 代行登録のメニュー並べ替えに使うカテゴリ(表示順だけを見る) */
+export type MenuCategoryOrder = { id: string; displayOrder: number };
+
+/** 並べ替えの対象になるメニュー(並べ替えに使う列だけを要求する) */
+export type ProxyRegistrationMenuOrder = {
+  id: string;
+  categoryId: string;
+  /** カテゴリ内の表示順(カテゴリごとに0起点。saveMenuOrder が振り直す) */
+  displayOrder: number;
+};
+
+/**
+ * 代行登録のメニュー一覧(平らなリスト)の並び順を決める。
+ * (カテゴリの表示順, メニューの表示順, id)の3段で並べる。
+ * menus.display_order はカテゴリごとに0起点なので、それだけで並べると
+ * カテゴリ横断の持ち回りになる。第3キーの id で同値どうしの順序も確定させ、
+ * 入力の順序(取得順)に依存しないようにする。
+ * カテゴリ一覧に見つからないカテゴリのメニューは、既知のカテゴリより後ろに置く。
+ * 入力の配列は変更せず、新しい配列を返す(要素はそのまま)。
+ */
+export function sortMenusForProxyRegistration<
+  T extends ProxyRegistrationMenuOrder,
+>(categories: readonly MenuCategoryOrder[], menus: readonly T[]): T[] {
+  const categoryOrder = new Map(
+    categories.map((category) => [category.id, category.displayOrder]),
+  );
+  const categoryOrderOf = (menu: T): number =>
+    categoryOrder.get(menu.categoryId) ?? Number.POSITIVE_INFINITY;
+
+  return [...menus].sort((a, b) => {
+    const byCategory = categoryOrderOf(a) - categoryOrderOf(b);
+    if (byCategory !== 0 && !Number.isNaN(byCategory)) return byCategory;
+    if (a.displayOrder !== b.displayOrder)
+      return a.displayOrder - b.displayOrder;
+    // ロケールに左右されないよう、コード単位の比較で決める
+    if (a.id < b.id) return -1;
+    if (a.id > b.id) return 1;
+    return 0;
+  });
+}

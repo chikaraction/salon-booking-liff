@@ -8,6 +8,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { AdminCalendarItem, AdminStaff } from "@/lib/admin-calendar";
+import { sortMenusForProxyRegistration } from "@/lib/admin-reservation-form";
 import {
   addCalendarDays,
   jstCalendarDate,
@@ -461,19 +462,48 @@ type ActiveMenuRow = {
   name: string;
   price: number;
   duration_minutes: number;
+  category_id: string;
+  display_order: number;
 };
 
-/** 有効メニュー一覧(display_order順)を取得する(代行登録の複数選択用) */
+type ActiveMenuCategoryRow = {
+  id: string;
+  display_order: number;
+};
+
+/**
+ * 有効メニュー一覧を取得する(代行登録の複数選択用)。
+ * 並び順(カテゴリ順 → カテゴリ内の表示順 → id)は純粋関数
+ * sortMenusForProxyRegistration に任せ、ここは取得と形の変換だけにする。
+ * カテゴリは客側(getBookingPageData)と同じく別に取得する。
+ */
 export async function fetchActiveMenus(
   supabase: SupabaseClient,
 ): Promise<ActiveMenu[]> {
-  const result = await supabase
-    .from("menus")
-    .select("id, name, price, duration_minutes")
-    .eq("is_active", true)
-    .order("display_order");
-  const rows: ActiveMenuRow[] = must(result, "メニュー");
-  return rows.map((row) => ({
+  const [categoriesRes, menusRes] = await Promise.all([
+    supabase.from("menu_categories").select("id, display_order"),
+    supabase
+      .from("menus")
+      .select("id, name, price, duration_minutes, category_id, display_order")
+      .eq("is_active", true),
+  ]);
+  const categories: ActiveMenuCategoryRow[] = must(
+    categoriesRes,
+    "メニューカテゴリ",
+  );
+  const rows: ActiveMenuRow[] = must(menusRes, "メニュー");
+  const sorted = sortMenusForProxyRegistration(
+    categories.map((category) => ({
+      id: category.id,
+      displayOrder: category.display_order,
+    })),
+    rows.map((row) => ({
+      ...row,
+      categoryId: row.category_id,
+      displayOrder: row.display_order,
+    })),
+  );
+  return sorted.map((row) => ({
     id: row.id,
     name: row.name,
     price: row.price,

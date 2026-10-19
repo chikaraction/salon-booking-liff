@@ -490,9 +490,17 @@ M4で作った代行登録の画面にある。
 `/admin/reservations/[id]/edit`)。描画側は取得順をそのまま出しているだけなので、
 取得側を直せば足りる。
 
-客側は `buildMenuGroups`(`src/lib/booking.ts`)がカテゴリ順のカテゴリへ
+客側は `groupMenusByCategory`(`src/lib/booking.ts`)がカテゴリ順のカテゴリへ
 メニューを振り分け直すため、この3つとも表に出ない(実機確認済み)。
+(当初ここに `buildMenuGroups` と書いていたが、その名前の関数は無い。2026-10-19 訂正)
 
 直し方: `fetchActiveMenus` に `category_id` とカテゴリの `display_order` を
 持たせ、(カテゴリ順, メニュー順, id)の3段で並べる。第3キーに `id` を入れると
 同値でも順序が決まる。並べ替え自体は純粋関数に置いてテストを併置する。
+
+**対応済み(2026-10-19、ブランチ feature/admin-menu-order)**:
+- 並べ替えは純粋関数 `sortMenusForProxyRegistration`(`src/lib/admin-reservation-form.ts`)に置き、テストを併置した
+- `fetchActiveMenus` は、客側の `getBookingPageData` と同じくカテゴリを別に取得し、この関数に渡す
+- 画面は平らなリストのまま。モックDでもメニューは1つのドロップダウンで、カテゴリの見出しは無い
+- 実機で確認した: 代行登録のページと、カレンダーの変更ダイアログが、メニュー管理と同じ
+  カテゴリ順で並ぶ。予約の編集ページは同じ関数で取得しているので、ブラウザでは見ていない
