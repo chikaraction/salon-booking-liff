@@ -35,6 +35,19 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  /* --destructive の淡い側。破壊的アウトラインボタンの枠に使う(モックの枠
+     #e6c3bd に対応)。--color-primary-strong と同じく --destructive からの派生で、
+     ここに置く理由もそちらのコメントと同じ。
+     混合比 35% は、#e6c3bd との OKLab での色差が最小になる値(結果は #eec2ba、
+     色差 0.012)。混ぜる色空間を oklch ではなく oklab にしているのは、
+     --card(oklch(1 0 0))の色相 0 が oklch の混合ではそのまま色相として補間され、
+     ピンク寄り(色相 10.8・#eec1c6)にずれるため。oklab なら --destructive の
+     色相のまま白へ寄る */
+  --color-destructive-soft: color-mix(
+    in oklab,
+    var(--destructive) 35%,
+    var(--card)
+  );
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -93,7 +106,11 @@
   --muted-foreground: oklch(0.52 0.015 45);
   --accent: oklch(0.93 0.022 30); /* 合計行・案内ボックスの淡いモーヴ */
   --accent-foreground: oklch(0.38 0.035 25);
-  --destructive: oklch(0.577 0.245 27.325);
+  /* 警告・破壊的な色。モックは #c0503f(落ち着いたテラコッタ)を、破壊的ボタン・
+     必須マーク・休業バッジ・日曜の文字など、警告系のすべてに一貫して使っている。
+     白地(--card)で 4.71:1 と WCAG AA(4.5)を満たす。破壊的アウトラインの枠
+     (--color-destructive-soft)は @theme inline 側でここからの派生として定義している */
+  --destructive: oklch(0.574 0.148 30.8); /* #c0503f */
   --border: oklch(0.9 0.01 60);
   --input: oklch(0.88 0.012 50);
   --ring: oklch(0.58 0.05 22);

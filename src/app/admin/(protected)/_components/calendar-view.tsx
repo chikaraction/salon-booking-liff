@@ -295,7 +295,7 @@ export function CalendarView({
           onClick={() => go(view, todayDate)}
           aria-current={isToday ? "date" : undefined}
           className={cn(
-            "h-9 rounded-lg border px-3 text-sm font-medium transition-colors",
+            "h-9 rounded-lg border px-3 text-sm font-bold transition-colors",
             isToday
               ? "border-primary bg-accent text-accent-foreground"
               : "border-border bg-card text-foreground hover:bg-muted",
@@ -330,7 +330,8 @@ export function CalendarView({
               onClick={() => go(option, date)}
               aria-pressed={view === option}
               className={cn(
-                "h-7 rounded-md px-3 text-sm font-medium transition-colors",
+                // モックのトグル・チップ類は選択中・未選択とも font-weight:700
+                "h-7 rounded-md px-3 text-sm font-bold transition-colors",
                 view === option
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -513,7 +514,7 @@ function DayView({
               onClick={() => setMobileMode(mode)}
               aria-pressed={mobileMode === mode}
               className={cn(
-                "h-9 flex-1 rounded-lg text-sm font-medium transition-colors",
+                "h-9 flex-1 rounded-lg text-sm font-bold transition-colors",
                 mobileMode === mode
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground",
@@ -578,10 +579,13 @@ function DayTimelineGrid({
   );
 
   return (
-    <div className="min-w-max md:min-w-0">
+    // pb-5: 末尾(閉店時刻)のラベルは罫線の直下=時間軸の外へ1行分
+    // (mt-0.5 + text-xs ≒ 1.125rem)はみ出すので、本体の外側の下に余白を取る。
+    // 本体の高さを増やすと列の矩形(空き枠クリックの縦比率→時刻)がずれるため外側に置く
+    <div className="min-w-max pb-5 md:min-w-0">
       {/* 列見出し */}
       <div className="flex border-b border-border">
-        <div className="w-14 shrink-0" />
+        <div className="w-16 shrink-0" />
         <div
           className="grid flex-1"
           style={{ gridTemplateColumns: gridColumns }}
@@ -599,7 +603,7 @@ function DayTimelineGrid({
 
       {/* 本体 */}
       <div className="flex" style={{ height }}>
-        <div className="relative w-14 shrink-0">
+        <div className="relative w-16 shrink-0">
           <TimeGutter tickMarks={timeline.tickMarks} />
         </div>
         <div className="relative flex-1">
@@ -697,8 +701,12 @@ function MobileTimeline({
         ))}
       </div>
 
+      {/* pb-6 が末尾(閉店時刻)のラベルの余白を兼ねる。box-sizing: border-box
+          なので pb-6 は height の内側にあり、列・目盛りは pb-6 の上で終わる。
+          罫線の直下=時間軸の外へ1行分(mt-0.5 + text-xs ≒ 1.125rem)はみ出す
+          末尾のラベルは、この 1.5rem に収まる(余白を足すと二重になるので足さない) */}
       <div className="flex px-3 pb-6" style={{ height }}>
-        <div className="relative w-12 shrink-0">
+        <div className="relative w-16 shrink-0">
           <TimeGutter tickMarks={timeline.tickMarks} />
         </div>
         {/* 空きをタップすると代行登録ダイアログ(スタッフは上のセグメントで選択中の1名) */}
@@ -828,10 +836,14 @@ function WeekGrid({
     // auto に格上げしてしまい(CSS仕様)、横スクロールバー出現時に不要な
     // 縦スクロールバーを生む。縦は親(overflow-auto)に委ね、ここでは固定する。
     <div className="overflow-x-auto overflow-y-hidden">
-      <div className="min-w-[48rem]">
+      {/* pb-5: 末尾(閉店時刻)のラベルは罫線の直下=時間軸の外へ1行分
+          (mt-0.5 + text-xs ≒ 1.125rem)はみ出し、このままでは上の
+          overflow-y-hidden で切れる。本体の外側の下に余白を取って収める
+          (本体の高さを増やすと列の矩形=空き枠クリックの時刻がずれるため外側) */}
+      <div className="min-w-[48rem] pb-5">
         {/* 曜日見出し */}
         <div className="flex border-b border-border">
-          <div className="w-12 shrink-0" />
+          <div className="w-16 shrink-0" />
           <div className="grid flex-1 grid-cols-7">
             {weekView.days.map((day) => (
               <div
@@ -850,7 +862,7 @@ function WeekGrid({
 
         {/* 本体 */}
         <div className="flex" style={{ height }}>
-          <div className="relative w-12 shrink-0">
+          <div className="relative w-16 shrink-0">
             <TimeGutter tickMarks={weekView.tickMarks} />
           </div>
           <div className="relative flex-1">

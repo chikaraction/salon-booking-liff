@@ -58,14 +58,8 @@ import { cn } from "@/lib/utils";
 const inputClass =
   "h-11 rounded-xl border border-input bg-card px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50";
 const sectionLabelClass = "text-base font-bold text-muted-foreground";
-const saveButtonClass = "h-11 rounded-xl px-5 text-base font-bold";
+const saveButtonClass = "h-11 rounded-xl px-5 text-base";
 const fieldLabelClass = "text-sm font-bold text-foreground";
-// モックEの「臨時休を追加」の「＋ 追加」は枠と文字がテーマ色(白地)。
-// shadcnの outline は枠=--border・文字=--foreground のニュートラルで、
-// モックの「戻る」「キャンセル」側がそれに当たるため variant は変えず、
-// テーマ色のアウトラインが要る箇所だけここで上書きする
-const accentOutlineButtonClass =
-  "border-primary bg-card text-primary-strong hover:text-primary-strong aria-expanded:text-primary-strong";
 
 /** 選べるロール(staff.role の check 制約と同じ2値) */
 const ROLE_CHOICES: readonly StaffRole[] = ["owner", "staff"];
@@ -128,7 +122,7 @@ export function StaffSettingsForm({ today, staff }: Props) {
                 variant="outline"
                 aria-expanded={isAdding}
                 onClick={() => setIsAdding((open) => !open)}
-                className="h-11 rounded-xl px-4 text-base font-medium"
+                className="h-11 rounded-xl px-4 text-base"
               >
                 <Plus aria-hidden="true" className="size-4" />
                 スタッフを追加
@@ -153,9 +147,10 @@ export function StaffSettingsForm({ today, staff }: Props) {
                         setIsAdding(false);
                       }}
                       className={cn(
-                        "h-11 rounded-xl px-4 text-base transition-colors",
+                        // モックのトグル・チップ類は選択中・未選択とも font-weight:700
+                        "h-11 rounded-xl px-4 text-base font-bold transition-colors",
                         active
-                          ? "bg-primary font-bold text-primary-foreground"
+                          ? "bg-primary text-primary-foreground"
                           : "bg-secondary text-secondary-foreground hover:bg-muted",
                         !member.isActive && "line-through",
                       )}
@@ -228,7 +223,7 @@ function StaffCardSection({
           variant="outline"
           aria-expanded={isEditing}
           onClick={() => setIsEditing((open) => !open)}
-          className="h-11 rounded-xl px-4 text-base font-medium"
+          className="h-11 rounded-xl px-4 text-base"
         >
           スタッフ情報を編集
         </Button>
@@ -640,9 +635,9 @@ function WorkingHoursSection({
               })
             }
             className={cn(
-              "h-12 w-14 rounded-xl text-base transition-colors",
+              "h-12 w-14 rounded-xl text-base font-bold transition-colors",
               day.isWorking
-                ? "bg-primary font-bold text-primary-foreground"
+                ? "bg-primary text-primary-foreground"
                 : "bg-secondary text-secondary-foreground hover:bg-muted",
             )}
           >
@@ -790,7 +785,7 @@ function WorkingHoursSection({
                     applyTimesToWorkingDays(current, firstWorkingDay.weekday),
                   );
                 }}
-                className="h-11 rounded-xl px-4 text-base font-medium"
+                className="h-11 rounded-xl px-4 text-base"
               >
                 {weekdayLongLabel(firstWorkingDay.weekday)}
                 と同じ時刻をすべての勤務日に適用
@@ -895,17 +890,14 @@ function BlockSection({
         </div>
         <Button
           type="button"
-          variant="outline"
+          variant="outline-accent"
           aria-expanded={isAdding}
           onClick={() => {
             setErrors({});
             setMessage(null);
             setIsAdding((open) => !open);
           }}
-          className={cn(
-            "h-11 shrink-0 rounded-xl px-4 text-base font-medium",
-            accentOutlineButtonClass,
-          )}
+          className="h-11 shrink-0 rounded-xl px-4 text-base"
         >
           <Plus aria-hidden="true" className="size-4" />
           追加
@@ -951,9 +943,9 @@ function BlockSection({
                     )
                   }
                   className={cn(
-                    "h-11 rounded-xl px-5 text-base transition-colors",
+                    "h-11 rounded-xl px-5 text-base font-bold transition-colors",
                     input.allDay === choice.allDay
-                      ? "bg-primary font-bold text-primary-foreground"
+                      ? "bg-primary text-primary-foreground"
                       : "bg-secondary text-secondary-foreground hover:bg-muted",
                   )}
                 >

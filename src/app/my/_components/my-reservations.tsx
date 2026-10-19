@@ -185,7 +185,7 @@ export function MyReservations() {
             </p>
             <Button
               variant="outline"
-              className="h-12 w-full rounded-xl text-base font-bold"
+              className="h-12 w-full rounded-xl text-base"
               onClick={() => {
                 if (idToken !== null) void load(idToken);
               }}
@@ -200,10 +200,7 @@ export function MyReservations() {
             <p className="text-base text-muted-foreground">
               今後のご予約はありません
             </p>
-            <Button
-              asChild
-              className="h-12 w-full rounded-xl text-base font-bold"
-            >
+            <Button asChild className="h-12 w-full rounded-xl text-base">
               <Link href="/booking">予約する</Link>
             </Button>
           </div>

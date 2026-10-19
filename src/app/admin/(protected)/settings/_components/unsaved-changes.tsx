@@ -19,8 +19,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const saveButtonClass = "h-11 rounded-xl px-5 text-base font-bold";
-const subButtonClass = "h-11 rounded-xl px-4 text-base font-medium";
+const saveButtonClass = "h-11 rounded-xl px-5 text-base";
+const subButtonClass = "h-11 rounded-xl px-4 text-base";
 
 /**
  * 変更された行・項目の下地。
