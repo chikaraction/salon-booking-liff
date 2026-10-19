@@ -113,9 +113,7 @@ export function StaffSettingsForm({ today, staff }: Props) {
               1つの <p> の中で日本語を折り返すと文中に空きができてしまう
               (settings/layout.tsx と同じ作法) */}
           <p className="mt-2 text-base text-muted-foreground">
-            スタッフごとに勤務曜日・時間・休憩と、臨時休を設定します。
-          </p>
-          <p className="mt-2 text-base text-muted-foreground">
+            スタッフごとに勤務曜日・時間・休憩と、臨時休を設定します。<br></br>
             勤務の設定はお客様の予約画面の空き枠にそのまま反映されます。
           </p>
         </div>
@@ -466,7 +464,10 @@ function StaffEditorSection({
 
       {/* 退職などで使わなくなったスタッフは「無効」にする。物理削除は提供しない */}
       <p className="rounded-lg bg-accent px-4 py-3 text-sm text-accent-foreground">
-        スタッフの削除はできません。過去の予約が参照しているため、使わなくなったスタッフは「無効」にしてください。無効にすると空き枠・指名候補から外れ、過去の予約はそのまま残ります。
+        スタッフの削除はできません。<br></br>
+        過去の予約が参照しているため、使わなくなったスタッフは「無効」にしてください。
+        <br></br>
+        無効にすると空き枠・指名候補から外れ、過去の予約はそのまま残ります。
       </p>
 
       {/* 管理画面のログインアカウントは画面から作らない(ADR-005)。
@@ -491,7 +492,9 @@ function StaffEditorSection({
           この画面で設定できるのはスタッフの情報と勤務だけで、管理画面にログインできるアカウントは作られません。
         </p>
         <p>
-          施術だけを担当し管理画面を使わないスタッフは、この画面の設定だけで完了です。予約の指名候補に並び、勤務曜日として設定した曜日は空き枠の計算に入ります。
+          施術だけを担当し管理画面を使わないスタッフは、この画面の設定だけで完了です。
+          <br></br>
+          予約の指名候補に並び、勤務曜日として設定した曜日は空き枠の計算に入ります。
         </p>
         <p className="font-bold text-foreground">{loginNote.status}</p>
         {loginNote.action !== null && <p>{loginNote.action}</p>}
@@ -959,7 +962,8 @@ function BlockSection({
               ))}
             </div>
             <p className="mt-2 text-sm text-muted-foreground">
-              終日はその日の勤務時間ぜんぶを休みにします。勤務の無い曜日は時間帯を指定してください。
+              終日はその日の勤務時間ぜんぶを休みにします。<br></br>
+              勤務の無い曜日は時間帯を指定してください。
             </p>
           </fieldset>
 
