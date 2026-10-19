@@ -103,53 +103,21 @@ export type TickMark = {
   topPercent: number;
 };
 
-// 時刻ラベルは目盛りの罫線の直下(上端を罫線にそろえる)に置くため、
-// その目盛りから閉店(軸の末尾)までに文字1行分の高さが要る。
-// timelineHeight(timeline-column.tsx)は1時間 ≒ 4rem で見積もるので、
-// 15分 ≒ 1rem = text-xs の1行分。これ未満しかない目盛りにはラベルを出さない
-// (閉店ちょうどの末尾の目盛りは残り0分なので、常にラベルなし)。
-const TICK_LABEL_MIN_MINUTES_BEFORE_CLOSE = 15;
-
-/** 営業時間(分数)内の1時間刻みの目盛りの時刻(分数)。開店の次の正時から閉店まで */
-function hourTickMinutes(openMinutes: number, closeMinutes: number): number[] {
-  if (closeMinutes - openMinutes <= 0) return [];
-  const minutes: number[] = [];
-  for (let t = Math.ceil(openMinutes / 60) * 60; t <= closeMinutes; t += 60) {
-    minutes.push(t);
-  }
-  return minutes;
-}
-
-function tickMarkAt(
-  minutes: number,
-  openMinutes: number,
-  closeMinutes: number,
-): TickMark {
-  return {
-    label: minutesLabel(minutes),
-    topPercent: ((minutes - openMinutes) * 100) / (closeMinutes - openMinutes),
-  };
-}
-
 /**
- * 営業時間(分数)に合わせた1時間刻みの目盛りを生成する(罫線用。全目盛り)。
+ * 営業時間(分数)に合わせた1時間刻みの目盛りを生成する。
  * 開店が正時でない場合、最初の目盛りは開店位置(0%)より下になる。
  */
 function hourTickMarks(openMinutes: number, closeMinutes: number): TickMark[] {
-  return hourTickMinutes(openMinutes, closeMinutes).map((t) =>
-    tickMarkAt(t, openMinutes, closeMinutes),
-  );
-}
-
-/**
- * 時刻ラベルを出す目盛りだけを返す(hourTickMarks の部分集合。位置は同一)。
- * 閉店まで TICK_LABEL_MIN_MINUTES_BEFORE_CLOSE 分未満の目盛りは、罫線の直下に
- * 置くラベルが軸の外へはみ出すため除く。
- */
-function hourLabelMarks(openMinutes: number, closeMinutes: number): TickMark[] {
-  return hourTickMinutes(openMinutes, closeMinutes)
-    .filter((t) => closeMinutes - t >= TICK_LABEL_MIN_MINUTES_BEFORE_CLOSE)
-    .map((t) => tickMarkAt(t, openMinutes, closeMinutes));
+  const total = closeMinutes - openMinutes;
+  if (total <= 0) return [];
+  const marks: TickMark[] = [];
+  for (let t = Math.ceil(openMinutes / 60) * 60; t <= closeMinutes; t += 60) {
+    marks.push({
+      label: minutesLabel(t),
+      topPercent: ((t - openMinutes) * 100) / total,
+    });
+  }
+  return marks;
 }
 
 /** 時間軸([open, close] 分数)上の区間を top%・height% に変換する。範囲外は null */
@@ -287,11 +255,6 @@ export type DayTimeline = {
   ticks: string[];
   /** 目盛りの位置付き(グリッド線の描画用。ラベルは ticks と同一) */
   tickMarks: TickMark[];
-  /**
-   * 時刻ラベルを出す目盛り(tickMarks の部分集合。閉店ちょうど・閉店直前の
-   * 目盛りは除く。hourLabelMarks 参照)
-   */
-  labelMarks: TickMark[];
   /** スタッフ列(入力の staff と同順) */
   columns: DayColumn[];
 };
@@ -444,7 +407,6 @@ export function buildDayTimeline(params: {
       axis: null,
       ticks: [],
       tickMarks: [],
-      labelMarks: [],
       columns: staff.map((member) => ({
         staffId: member.id,
         heading: staffHeading(member),
@@ -479,7 +441,6 @@ export function buildDayTimeline(params: {
     axis: { openMinutes, closeMinutes },
     ticks: marks.map((mark) => mark.label),
     tickMarks: marks,
-    labelMarks: hourLabelMarks(openMinutes, closeMinutes),
     columns,
   };
 }
@@ -761,8 +722,6 @@ export type WeekView = {
   ticks: string[];
   /** 目盛りの位置付き(グリッド線の描画用。ラベルは ticks と同一) */
   tickMarks: TickMark[];
-  /** 時刻ラベルを出す目盛り(DayTimeline.labelMarks と同じ規則) */
-  labelMarks: TickMark[];
   /** 日曜から7日分 */
   days: WeekDayColumn[];
 };
@@ -925,7 +884,6 @@ export function buildWeekView(params: {
     axis: hasAxis ? { openMinutes, closeMinutes } : null,
     ticks: marks.map((mark) => mark.label),
     tickMarks: marks,
-    labelMarks: hasAxis ? hourLabelMarks(openMinutes, closeMinutes) : [],
     days,
   };
 }

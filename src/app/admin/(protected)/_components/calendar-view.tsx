@@ -578,7 +578,10 @@ function DayTimelineGrid({
   );
 
   return (
-    <div className="min-w-max md:min-w-0">
+    // pb-5: 末尾(閉店時刻)のラベルは罫線の直下=時間軸の外へ1行分
+    // (mt-0.5 + text-xs ≒ 1.125rem)はみ出すので、本体の外側の下に余白を取る。
+    // 本体の高さを増やすと列の矩形(空き枠クリックの縦比率→時刻)がずれるため外側に置く
+    <div className="min-w-max pb-5 md:min-w-0">
       {/* 列見出し */}
       <div className="flex border-b border-border">
         <div className="w-16 shrink-0" />
@@ -600,7 +603,7 @@ function DayTimelineGrid({
       {/* 本体 */}
       <div className="flex" style={{ height }}>
         <div className="relative w-16 shrink-0">
-          <TimeGutter labelMarks={timeline.labelMarks} />
+          <TimeGutter tickMarks={timeline.tickMarks} />
         </div>
         <div className="relative flex-1">
           <HourLines tickMarks={timeline.tickMarks} />
@@ -697,9 +700,13 @@ function MobileTimeline({
         ))}
       </div>
 
+      {/* pb-6 が末尾(閉店時刻)のラベルの余白を兼ねる。box-sizing: border-box
+          なので pb-6 は height の内側にあり、列・目盛りは pb-6 の上で終わる。
+          罫線の直下=時間軸の外へ1行分(mt-0.5 + text-xs ≒ 1.125rem)はみ出す
+          末尾のラベルは、この 1.5rem に収まる(余白を足すと二重になるので足さない) */}
       <div className="flex px-3 pb-6" style={{ height }}>
         <div className="relative w-16 shrink-0">
-          <TimeGutter labelMarks={timeline.labelMarks} />
+          <TimeGutter tickMarks={timeline.tickMarks} />
         </div>
         {/* 空きをタップすると代行登録ダイアログ(スタッフは上のセグメントで選択中の1名) */}
         <div
@@ -828,7 +835,11 @@ function WeekGrid({
     // auto に格上げしてしまい(CSS仕様)、横スクロールバー出現時に不要な
     // 縦スクロールバーを生む。縦は親(overflow-auto)に委ね、ここでは固定する。
     <div className="overflow-x-auto overflow-y-hidden">
-      <div className="min-w-[48rem]">
+      {/* pb-5: 末尾(閉店時刻)のラベルは罫線の直下=時間軸の外へ1行分
+          (mt-0.5 + text-xs ≒ 1.125rem)はみ出し、このままでは上の
+          overflow-y-hidden で切れる。本体の外側の下に余白を取って収める
+          (本体の高さを増やすと列の矩形=空き枠クリックの時刻がずれるため外側) */}
+      <div className="min-w-[48rem] pb-5">
         {/* 曜日見出し */}
         <div className="flex border-b border-border">
           <div className="w-16 shrink-0" />
@@ -851,7 +862,7 @@ function WeekGrid({
         {/* 本体 */}
         <div className="flex" style={{ height }}>
           <div className="relative w-16 shrink-0">
-            <TimeGutter labelMarks={weekView.labelMarks} />
+            <TimeGutter tickMarks={weekView.tickMarks} />
           </div>
           <div className="relative flex-1">
             <HourLines tickMarks={weekView.tickMarks} />

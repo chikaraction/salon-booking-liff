@@ -42,14 +42,12 @@ const EMPTY_TIMELINE: DayTimeline = {
   axis: null,
   ticks: [],
   tickMarks: [],
-  labelMarks: [],
   columns: [],
 };
 const EMPTY_WEEK: WeekView = {
   axis: null,
   ticks: [],
   tickMarks: [],
-  labelMarks: [],
   days: [],
 };
 

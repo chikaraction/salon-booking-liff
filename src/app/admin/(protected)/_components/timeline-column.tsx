@@ -35,12 +35,13 @@ export function timelineHeight(tickMarks: TickMark[]): string {
 /**
  * 左端の時間目盛りラベル(親要素は relative + timelineHeight であること)。
  * モックどおり、どのラベルも上端を罫線にそろえて罫線の直下に置く。
- * 出す目盛りの選別は lib(labelMarks)が済ませている。
+ * 末尾(閉店時刻)のラベルは時間軸の下へ1行分はみ出すので、呼び出し側で
+ * 時間軸の外側の下に余白を取ること(calendar-view.tsx の各レイアウト参照)。
  */
-export function TimeGutter({ labelMarks }: { labelMarks: TickMark[] }) {
+export function TimeGutter({ tickMarks }: { tickMarks: TickMark[] }) {
   return (
     <>
-      {labelMarks.map((mark) => (
+      {tickMarks.map((mark) => (
         <span
           key={mark.label}
           className="absolute right-2.5 mt-0.5 text-xs tabular-nums text-muted-foreground"
