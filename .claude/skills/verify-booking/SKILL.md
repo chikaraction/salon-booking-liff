@@ -462,6 +462,22 @@ M4bの主眼は「店側が自力で店舗固有値を変えられること」(A
       「150通を超えました」が出る。150件ちょうどでは出ない。201件で
       「無料枠を超えました」。**確認後はテスト行を必ず削除する**(リモートDBへの
       書き込みなのでユーザー作業)
+      Supabase の SQL Editor で実行する。M5(プッシュ送信)より前は `push_messages`
+      の行がすべてテスト用なので、後片付けで消してよい。**M5 以降は実データが
+      入るので、テスト行を見分けられる条件(例: 実行時刻の範囲)で消すこと**
+      ```sql
+      -- 1. 151件にする(警告: バーと文言が赤、サイドバーに「150通を超えました」)
+      insert into public.push_messages (type, sent_at)
+      select 'other', now() from generate_series(1, 151);
+
+      -- 2. さらに50件足して201件にする(「無料枠の200通を超えました。…」)
+      insert into public.push_messages (type, sent_at)
+      select 'other', now() from generate_series(1, 50);
+
+      -- 3. 後片付け(必ず実行。ダッシュボードが 0 / 200 通に戻れば完了)
+      delete from public.push_messages
+      where type = 'other' and reservation_id is null;
+      ```
 - [ ] M5(LINE通知)実装前は送信数が常に0件であることを認識しておく
 
 ## レスポンシブ(ADR-005)
