@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #eceae5; }
+  * { box-sizing: border-box; }
+  @font-face {
+    font-family: 'LINE Seed JP';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url(https://cdn.jsdelivr.net/npm/line-seed-jp@0.0.5/woff2/LINESeedJP_OTF_Rg.woff2) format('woff2');
+  }
+  @font-face {
+    font-family: 'LINE Seed JP';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url(https://cdn.jsdelivr.net/npm/line-seed-jp@0.0.5/woff2/LINESeedJP_OTF_Bd.woff2) format('woff2');
+  }
+</style>
+</helmet>
+<div style="--accent: {{ accent }}; --accent-dark: {{ accentDark }}; --accent-tint: {{ accentTint }}; --ff: {{ fontFamily }}; font-family: var(--ff, 'Noto Sans JP', sans-serif); padding: 56px; color: #1f2430; -webkit-font-smoothing: antialiased;">
+
+  <div style="max-width: 900px; margin-bottom: 48px;">
+    <div style="font-size: 13px; letter-spacing: 0.14em; font-weight: 700; color: var(--accent, #5B7B6F); text-transform: uppercase;">LINE予約システム / 画面モック</div>
+    <h1 style="font-size: 40px; font-weight: 700; margin: 10px 0 14px; letter-spacing: -0.01em;">hair &amp; make LUCE — 予約システム</h1>
+    <p style="font-size: 16px; line-height: 1.7; color: #5b6270; margin: 0; max-width: 720px;">実装前の操作イメージ確認用モックです。ロジックは動きません。まずカラー候補をご確認いただき、その下に客側フロー・店側管理画面の順で並んでいます。現在はテーマ B（モーヴ）を採用。右上の Tweaks からテーマ（3案＋カスタム色）・フォントを切り替えられます。</p>
+  </div>
+
+  <!-- COLOR CANDIDATES -->
+  <div style="margin-bottom: 56px;">
+    <div style="font-size: 12px; font-weight: 700; letter-spacing: 0.1em; color: #8a909c; margin-bottom: 16px;">テーマカラー候補（1色 + ニュートラル）</div>
+    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+      <sc-for list="{{ palettes }}" as="p" hint-placeholder-count="3">
+        <div style="background: #fff; border: 1px solid #e4e2dc; border-radius: 16px; padding: 18px; width: 250px; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
+          <div style="display: flex; gap: 8px; margin-bottom: 14px;">
+            <div style="width: 46px; height: 46px; border-radius: 10px; background: {{ p.accent }};"></div>
+            <div style="width: 46px; height: 46px; border-radius: 10px; background: {{ p.tint }};"></div>
+            <div style="width: 46px; height: 46px; border-radius: 10px; background: #f4f4f2; border: 1px solid #e4e2dc;"></div>
+            <div style="width: 46px; height: 46px; border-radius: 10px; background: #1f2430;"></div>
+          </div>
+          <div style="font-size: 16px; font-weight: 700;">{{ p.name }}</div>
+          <div style="font-size: 13px; color: #8a909c; margin-top: 2px;">{{ p.note }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <!-- CUSTOMER FLOW -->
+  <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 24px;">
+    <div style="font-size: 22px; font-weight: 700;">客側 — LIFF（スマホ縦）</div>
+    <div style="font-size: 13px; background: var(--accent-tint, #EEF2F0); color: var(--accent-dark, #48645A); padding: 5px 12px; border-radius: 999px; font-weight: 700;">予約フロー 1 → 5（初回のみ 6 を挟む）</div>
+  </div>
+  <div style="display: flex; gap: 32px; flex-wrap: wrap; margin-bottom: 64px;" data-screen-label="客側フロー">
+
+    <!-- 1. MENU SELECT -->
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 14px; font-weight: 700; color: #5b6270;">1. メニュー選択</div>
+      <div style="width: 375px; height: 780px; background: #1a1c22; border-radius: 44px; padding: 10px; box-shadow: 0 24px 60px rgba(20,22,30,0.22);">
+        <div style="width: 100%; height: 100%; background: #f7f6f3; border-radius: 34px; overflow: hidden; display: flex; flex-direction: column; position: relative;">
+          <div style="height: 26px; display: flex; align-items: center; justify-content: space-between; padding: 0 26px; font-size: 12px; font-weight: 700; color: #1f2430; flex-shrink: 0;"><span>9:41</span><span>LINE ●●●</span></div>
+          <div style="padding: 8px 20px 14px; border-bottom: 1px solid #ece9e3; background: #fff; flex-shrink: 0;">
+            <div style="font-size: 12px; color: #9aa0ab; font-weight: 700;">STEP 1 / 4</div>
+            <div style="font-size: 22px; font-weight: 700; margin-top: 2px;">メニューを選ぶ</div>
+            <div style="font-size: 14px; color: #7b818d; margin-top: 2px;">複数選べます（例: カット + カラー）</div>
+          </div>
+          <div style="flex: 1; overflow-y: auto; padding: 16px 18px 132px;">
+            <div style="font-size: 12px; color: #9aa0ab; margin-bottom: 14px;">※ 表示価格は税込です</div>
+
+            <div style="font-size: 13px; font-weight: 700; color: var(--accent-dark, #48645A); margin: 2px 0 4px;">カット</div>
+            <div style="font-size: 11px; color: #9aa0ab; margin-bottom: 10px;">シャンプー・ブロー込み（前髪カットは含まれません）</div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="background: #fff; border: 1.5px solid #e7e4dd; border-radius: 14px; padding: 13px 15px; display: flex; justify-content: space-between; align-items: center;"><div><div style="font-size: 16px; font-weight: 700;">ショート（鎖骨上）</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 3px;">約60分</div></div><div style="display: flex; align-items: center; gap: 12px;"><div style="font-size: 16px; font-weight: 700;">¥4,620</div><div style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid #d5d2ca; flex-shrink: 0;"></div></div></div>
+              <div style="background: #fff; border: 2px solid var(--accent, #5B7B6F); border-radius: 14px; padding: 13px 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 6px rgba(91,123,111,0.12);"><div><div style="font-size: 16px; font-weight: 700;">ロング（鎖骨下）</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 3px;">約60分</div></div><div style="display: flex; align-items: center; gap: 12px;"><div style="font-size: 16px; font-weight: 700;">¥4,950</div><div style="width: 24px; height: 24px; border-radius: 999px; background: var(--accent, #5B7B6F); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0;">✓</div></div></div>
+              <div style="background: #fff; border: 1.5px solid #e7e4dd; border-radius: 14px; padding: 13px 15px; display: flex; justify-content: space-between; align-items: center;"><div><div style="font-size: 16px; font-weight: 700;">キッズ</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 3px;">約40分</div></div><div style="display: flex; align-items: center; gap: 12px;"><div style="font-size: 16px; font-weight: 700;">¥3,080</div><div style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid #d5d2ca; flex-shrink: 0;"></div></div></div>
+              <div style="background: #fff; border: 1.5px solid #e7e4dd; border-radius: 14px; padding: 13px 15px; display: flex; justify-content: space-between; align-items: center;"><div><div style="font-size: 16px; font-weight: 700;">中・高生 ショート</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 3px;">約50分</div></div><div style="display: flex; align-items: center; gap: 12px;"><div style="font-size: 16px; font-weight: 700;">¥3,630</div><div style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid #d5d2ca; flex-shrink: 0;"></div></div></div>
+              <div style="background: #fff; border: 1.5px solid #e7e4dd; border-radius: 14px; padding: 13px 15px; display: flex; justify-content: space-between; align-items: center;"><div><div style="font-size: 16px; font-weight: 700;">前髪カット</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 3px;">約15分</div></div><div style="display: flex; align-items: center; gap: 12px;"><div style="font-size: 16px; font-weight: 700;">¥1,100</div><div style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid #d5d2ca; flex-shrink: 0;"></div></div></div>
+            </div>
+
+            <div style="font-size: 13px; font-weight: 700; color: var(--accent-dark, #48645A); margin: 22px 0 4px;">カラー（髪質改善カラー・ゼロテク）</div>
+            <div style="font-size: 11px; color: #9aa0ab; margin-bottom: 10px;">前・後処理、頭皮保護込み</div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="background: #fff; border: 1.5px solid #e7e4dd; border-radius: 14px; padding: 13px 15px; display: flex; justify-content: space-between; align-items: center;"><div><div style="font-size: 16px; font-weight: 700;">リタッチ（2cm以内）</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 3px;">約80分</div></div><div style="display: flex; align-items: center; gap: 12px;"><div style="font-size: 16px; font-weight: 700;">¥6,050</div><div style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid #d5d2ca; flex-shrink: 0;"></div></div></div>
+              <div style="background: #fff; border: 2px solid var(--accent, #5B7B6F); border-radius: 14px; padding: 13px 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 6px rgba(91,123,111,0.12);"><div><div style="font-size: 16px; font-weight: 700;">ミディアム</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 3px;">約90分</div></div><div style="display: flex; align-items: center; gap: 12px;"><div style="font-size: 16px; font-weight: 700;">¥6,600</div><div style="width: 24px; height: 24px; border-radius: 999px; background: var(--accent, #5B7B6F); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0;">✓</div></div></div>
+              <div style="background: #fff; border: 1.5px solid #e7e4dd; border-radius: 14px; padding: 13px 15px; display: flex; justify-content: space-between; align-items: center;"><div><div style="font-size: 16px; font-weight: 700;">ロング</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 3px;">約100分</div></div><div style="display: flex; align-items: center; gap: 12px;"><div style="font-size: 16px; font-weight: 700;">¥7,150</div><div style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid #d5d2ca; flex-shrink: 0;"></div></div></div>
+            </div>
+
+            <div style="font-size: 13px; font-weight: 700; color: var(--accent-dark, #48645A); margin: 22px 0 10px;">ヘアマニキュア</div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="background: #fff; border: 1.5px solid #e7e4dd; border-radius: 14px; padding: 13px 15px; display: flex; justify-content: space-between; align-items: center;"><div><div style="font-size: 16px; font-weight: 700;">ショート</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 3px;">約80分</div></div><div style="display: flex; align-items: center; gap: 12px;"><div style="font-size: 16px; font-weight: 700;">¥6,050</div><div style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid #d5d2ca; flex-shrink: 0;"></div></div></div>
+              <div style="background: #fff; border: 1.5px solid #e7e4dd; border-radius: 14px; padding: 13px 15px; display: flex; justify-content: space-between; align-items: center;"><div><div style="font-size: 16px; font-weight: 700;">ミディアム</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 3px;">約90分</div></div><div style="display: flex; align-items: center; gap: 12px;"><div style="font-size: 16px; font-weight: 700;">¥6,600</div><div style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid #d5d2ca; flex-shrink: 0;"></div></div></div>
+              <div style="background: #fff; border: 1.5px solid #e7e4dd; border-radius: 14px; padding: 13px 15px; display: flex; justify-content: space-between; align-items: center;"><div><div style="font-size: 16px; font-weight: 700;">ロング</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 3px;">約100分</div></div><div style="display: flex; align-items: center; gap: 12px;"><div style="font-size: 16px; font-weight: 700;">¥7,150</div><div style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid #d5d2ca; flex-shrink: 0;"></div></div></div>
+            </div>
+
+            <div style="font-size: 13px; font-weight: 700; color: var(--accent-dark, #48645A); margin: 22px 0 10px;">パーマ</div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="background: #fff; border: 1.5px solid #e7e4dd; border-radius: 14px; padding: 13px 15px; display: flex; justify-content: space-between; align-items: center;"><div><div style="font-size: 16px; font-weight: 700;">ショート</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 3px;">約90分</div></div><div style="display: flex; align-items: center; gap: 12px;"><div style="font-size: 16px; font-weight: 700;">¥6,050</div><div style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid #d5d2ca; flex-shrink: 0;"></div></div></div>
+              <div style="background: #fff; border: 1.5px solid #e7e4dd; border-radius: 14px; padding: 13px 15px; display: flex; justify-content: space-between; align-items: center;"><div><div style="font-size: 16px; font-weight: 700;">ミディアム</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 3px;">約100分</div></div><div style="display: flex; align-items: center; gap: 12px;"><div style="font-size: 16px; font-weight: 700;">¥6,600</div><div style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid #d5d2ca; flex-shrink: 0;"></div></div></div>
+              <div style="background: #fff; border: 1.5px solid #e7e4dd; border-radius: 14px; padding: 13px 15px; display: flex; justify-content: space-between; align-items: center;"><div><div style="font-size: 16px; font-weight: 700;">ロング</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 3px;">約110分</div></div><div style="display: flex; align-items: center; gap: 12px;"><div style="font-size: 16px; font-weight: 700;">¥7,150</div><div style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid #d5d2ca; flex-shrink: 0;"></div></div></div>
+              <div style="background: #fff; border: 1.5px solid #e7e4dd; border-radius: 14px; padding: 13px 15px; display: flex; justify-content: space-between; align-items: center;"><div><div style="font-size: 16px; font-weight: 700;">クリープパーマ</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 3px;">オプション追加</div></div><div style="display: flex; align-items: center; gap: 12px;"><div style="font-size: 16px; font-weight: 700;">＋¥1,100</div><div style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid #d5d2ca; flex-shrink: 0;"></div></div></div>
+              <div style="background: #fff; border: 1.5px solid #e7e4dd; border-radius: 14px; padding: 13px 15px; display: flex; justify-content: space-between; align-items: center;"><div><div style="font-size: 16px; font-weight: 700;">縮毛矯正</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 3px;">約180分〜（長さにより変動）</div></div><div style="display: flex; align-items: center; gap: 12px;"><div style="font-size: 15px; font-weight: 700;">¥11,000〜</div><div style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid #d5d2ca; flex-shrink: 0;"></div></div></div>
+              <div style="background: #fff; border: 1.5px solid #e7e4dd; border-radius: 14px; padding: 13px 15px; display: flex; justify-content: space-between; align-items: center;"><div><div style="font-size: 16px; font-weight: 700;">前髪</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 3px;">約60分</div></div><div style="display: flex; align-items: center; gap: 12px;"><div style="font-size: 16px; font-weight: 700;">¥4,400〜</div><div style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid #d5d2ca; flex-shrink: 0;"></div></div></div>
+            </div>
+
+            <div style="font-size: 13px; font-weight: 700; color: var(--accent-dark, #48645A); margin: 22px 0 10px;">ヘッドスパ</div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="background: #fff; border: 1.5px solid #e7e4dd; border-radius: 14px; padding: 13px 15px; display: flex; justify-content: space-between; align-items: center;"><div><div style="font-size: 16px; font-weight: 700;">MOYUシャンプースパ</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 3px;">約20分</div></div><div style="display: flex; align-items: center; gap: 12px;"><div style="font-size: 16px; font-weight: 700;">¥2,200</div><div style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid #d5d2ca; flex-shrink: 0;"></div></div></div>
+              <div style="background: #fff; border: 1.5px solid #e7e4dd; border-radius: 14px; padding: 13px 15px; display: flex; justify-content: space-between; align-items: center;"><div><div style="font-size: 16px; font-weight: 700;">ヘッドパック</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 3px;">頭皮保湿トリートメント＋簡単マッサージ</div></div><div style="display: flex; align-items: center; gap: 12px;"><div style="font-size: 16px; font-weight: 700;">¥2,200</div><div style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid #d5d2ca; flex-shrink: 0;"></div></div></div>
+              <div style="background: #fff; border: 1.5px solid #e7e4dd; border-radius: 14px; padding: 13px 15px; display: flex; justify-content: space-between; align-items: center;"><div><div style="font-size: 16px; font-weight: 700;">幹細胞リフトアップ スパ</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 3px;">約30分</div></div><div style="display: flex; align-items: center; gap: 12px;"><div style="font-size: 16px; font-weight: 700;">¥2,750</div><div style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid #d5d2ca; flex-shrink: 0;"></div></div></div>
+            </div>
+
+            <div style="font-size: 13px; font-weight: 700; color: var(--accent-dark, #48645A); margin: 22px 0 10px;">トリートメント</div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="background: #fff; border: 1.5px solid #e7e4dd; border-radius: 14px; padding: 13px 15px; display: flex; justify-content: space-between; align-items: center;"><div><div style="font-size: 16px; font-weight: 700;">クイック</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 3px;">約20分</div></div><div style="display: flex; align-items: center; gap: 12px;"><div style="font-size: 15px; font-weight: 700;">¥2,200〜</div><div style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid #d5d2ca; flex-shrink: 0;"></div></div></div>
+              <div style="background: #fff; border: 1.5px solid #e7e4dd; border-radius: 14px; padding: 13px 15px; display: flex; justify-content: space-between; align-items: center;"><div><div style="font-size: 16px; font-weight: 700;">しっかりタイプ</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 3px;">約30分</div></div><div style="display: flex; align-items: center; gap: 12px;"><div style="font-size: 15px; font-weight: 700;">¥2,200〜</div><div style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid #d5d2ca; flex-shrink: 0;"></div></div></div>
+              <div style="background: #fff; border: 1.5px solid #e7e4dd; border-radius: 14px; padding: 13px 15px; display: flex; justify-content: space-between; align-items: center;"><div><div style="font-size: 16px; font-weight: 700;">メテオトリートメント</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 3px;">約40分</div></div><div style="display: flex; align-items: center; gap: 12px;"><div style="font-size: 15px; font-weight: 700;">¥3,300〜</div><div style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid #d5d2ca; flex-shrink: 0;"></div></div></div>
+            </div>
+
+            <div style="font-size: 13px; font-weight: 700; color: var(--accent-dark, #48645A); margin: 22px 0 10px;">オプション</div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="background: #fff; border: 1.5px solid #e7e4dd; border-radius: 14px; padding: 13px 15px; display: flex; justify-content: space-between; align-items: center;"><div style="font-size: 16px; font-weight: 700;">シャンプーブロー</div><div style="display: flex; align-items: center; gap: 12px;"><div style="font-size: 15px; font-weight: 700;">¥2,200〜</div><div style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid #d5d2ca; flex-shrink: 0;"></div></div></div>
+              <div style="background: #fff; border: 1.5px solid #e7e4dd; border-radius: 14px; padding: 13px 15px; display: flex; justify-content: space-between; align-items: center;"><div style="font-size: 16px; font-weight: 700;">ヘアセット</div><div style="display: flex; align-items: center; gap: 12px;"><div style="font-size: 16px; font-weight: 700;">¥4,950</div><div style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid #d5d2ca; flex-shrink: 0;"></div></div></div>
+              <div style="background: #fff; border: 1.5px solid #e7e4dd; border-radius: 14px; padding: 13px 15px; display: flex; justify-content: space-between; align-items: center;"><div style="font-size: 16px; font-weight: 700;">着付け 訪問着</div><div style="display: flex; align-items: center; gap: 12px;"><div style="font-size: 16px; font-weight: 700;">¥7,700</div><div style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid #d5d2ca; flex-shrink: 0;"></div></div></div>
+              <div style="background: #fff; border: 1.5px solid #e7e4dd; border-radius: 14px; padding: 13px 15px; display: flex; justify-content: space-between; align-items: center;"><div style="font-size: 16px; font-weight: 700;">着付け 振袖</div><div style="display: flex; align-items: center; gap: 12px;"><div style="font-size: 16px; font-weight: 700;">¥11,000</div><div style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid #d5d2ca; flex-shrink: 0;"></div></div></div>
+            </div>
+          </div>
+          <div style="position: absolute; left: 0; right: 0; bottom: 0; background: #fff; border-top: 1px solid #ece9e3; padding: 14px 20px 22px; box-shadow: 0 -6px 20px rgba(0,0,0,0.04);">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 12px;"><span style="font-size: 14px; color: #7b818d;">選択中 2件・合計 約150分</span><span style="font-size: 20px; font-weight: 700;">¥11,550</span></div>
+            <button style="width: 100%; height: 52px; border: none; border-radius: 14px; background: var(--accent, #5B7B6F); color: #fff; font-size: 17px; font-weight: 700; font-family: inherit; cursor: pointer;">次へ（スタッフ選択）</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. STAFF SELECT -->
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 14px; font-weight: 700; color: #5b6270;">2. スタッフ選択</div>
+      <div style="width: 375px; height: 780px; background: #1a1c22; border-radius: 44px; padding: 10px; box-shadow: 0 24px 60px rgba(20,22,30,0.22);">
+        <div style="width: 100%; height: 100%; background: #f7f6f3; border-radius: 34px; overflow: hidden; display: flex; flex-direction: column; position: relative;">
+          <div style="height: 26px; display: flex; align-items: center; justify-content: space-between; padding: 0 26px; font-size: 12px; font-weight: 700; flex-shrink: 0;"><span>9:41</span><span>LINE ●●●</span></div>
+          <div style="padding: 8px 20px 12px; background: #fff; border-bottom: 1px solid #ece9e3; flex-shrink: 0;">
+            <div style="font-size: 12px; color: #9aa0ab; font-weight: 700;">STEP 2 / 4</div>
+            <div style="font-size: 22px; font-weight: 700; margin-top: 2px;">スタッフを選ぶ</div>
+            <div style="display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap;">
+              <span style="font-size: 12px; background: var(--accent-tint, #EEF2F0); color: var(--accent-dark, #48645A); padding: 4px 10px; border-radius: 999px; font-weight: 700;">カット + カラー</span>
+              <span style="font-size: 12px; background: #f0eee9; color: #7b818d; padding: 4px 10px; border-radius: 999px; font-weight: 700;">¥11,550 / 150分</span>
+            </div>
+          </div>
+          <div style="flex: 1; overflow-y: auto; padding: 18px 20px;">
+            <div style="display: flex; flex-direction: column; gap: 14px;">
+              <div style="background: #fff; border: 2px solid var(--accent, #5B7B6F); border-radius: 16px; padding: 16px; display: flex; gap: 14px; align-items: center; box-shadow: 0 2px 6px rgba(91,123,111,0.12);">
+                <div style="width: 64px; height: 64px; border-radius: 999px; background: var(--accent-tint, #EEF2F0); display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; color: var(--accent-dark, #48645A); flex-shrink: 0;">田</div>
+                <div style="flex: 1;"><div style="font-size: 17px; font-weight: 700;">田中（オーナー）</div><div style="font-size: 13px; color: #7b818d; margin-top: 3px;">トレンドカラーとショートが得意です</div></div>
+                <div style="width: 24px; height: 24px; border-radius: 999px; background: var(--accent, #5B7B6F); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 15px;">✓</div>
+              </div>
+              <div style="background: #fff; border: 1.5px solid #e7e4dd; border-radius: 16px; padding: 16px; display: flex; gap: 14px; align-items: center;">
+                <div style="width: 64px; height: 64px; border-radius: 999px; background: #f0eee9; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; color: #9aa0ab; flex-shrink: 0;">佐</div>
+                <div style="flex: 1;"><div style="font-size: 17px; font-weight: 700;">佐藤（スタッフ）</div><div style="font-size: 13px; color: #7b818d; margin-top: 3px;">丁寧なカウンセリングが好評です</div></div>
+                <div style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid #d5d2ca;"></div>
+              </div>
+              <div style="background: #fff; border: 1.5px solid #e7e4dd; border-radius: 16px; padding: 16px; display: flex; gap: 14px; align-items: center;">
+                <div style="width: 64px; height: 64px; border-radius: 999px; background: #f0eee9; display: flex; align-items: center; justify-content: center; font-size: 26px; color: #9aa0ab; flex-shrink: 0;">◎</div>
+                <div style="flex: 1;"><div style="font-size: 17px; font-weight: 700;">どちらでも</div><div style="font-size: 13px; color: #7b818d; margin-top: 3px;">空いているスタッフにお任せ</div></div>
+                <div style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid #d5d2ca;"></div>
+              </div>
+            </div>
+          </div>
+          <div style="background: #fff; border-top: 1px solid #ece9e3; padding: 14px 20px 22px; flex-shrink: 0; display: flex; gap: 12px;">
+            <button style="width: 96px; height: 52px; border: 1.5px solid #d5d2ca; border-radius: 14px; background: #fff; color: #5b6270; font-size: 16px; font-weight: 700; font-family: inherit; cursor: pointer;">戻る</button>
+            <button style="flex: 1; height: 52px; border: none; border-radius: 14px; background: var(--accent, #5B7B6F); color: #fff; font-size: 17px; font-weight: 700; font-family: inherit; cursor: pointer;">次へ（日時選択）</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. DATETIME SELECT -->
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 14px; font-weight: 700; color: #5b6270;">3. 日時選択</div>
+      <div style="width: 375px; height: 780px; background: #1a1c22; border-radius: 44px; padding: 10px; box-shadow: 0 24px 60px rgba(20,22,30,0.22);">
+        <div style="width: 100%; height: 100%; background: #f7f6f3; border-radius: 34px; overflow: hidden; display: flex; flex-direction: column; position: relative;">
+          <div style="height: 26px; display: flex; align-items: center; justify-content: space-between; padding: 0 26px; font-size: 12px; font-weight: 700; flex-shrink: 0;"><span>9:41</span><span>LINE ●●●</span></div>
+          <div style="padding: 8px 20px 12px; background: #fff; border-bottom: 1px solid #ece9e3; flex-shrink: 0;">
+            <div style="font-size: 12px; color: #9aa0ab; font-weight: 700;">STEP 3 / 4</div>
+            <div style="font-size: 22px; font-weight: 700; margin-top: 2px;">日時を選ぶ</div>
+            <div style="display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap;">
+              <span style="font-size: 12px; background: var(--accent-tint, #EEF2F0); color: var(--accent-dark, #48645A); padding: 4px 10px; border-radius: 999px; font-weight: 700;">カット + カラー</span>
+              <span style="font-size: 12px; background: #f0eee9; color: #7b818d; padding: 4px 10px; border-radius: 999px; font-weight: 700;">田中</span>
+            </div>
+          </div>
+          <div style="flex: 1; overflow-y: auto; padding: 16px 20px 30px;">
+            <div style="background: #fff; border: 1px solid #ece9e3; border-radius: 16px; padding: 14px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;"><span style="font-size: 15px; color: #9aa0ab;">‹</span><span style="font-size: 16px; font-weight: 700;">2026年 7月</span><span style="font-size: 15px; color: #1f2430;">›</span></div>
+              <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center;">
+                <div style="font-size: 11px; color: #c0503f; padding: 4px 0;">日</div><div style="font-size: 11px; color: #9aa0ab;">月</div><div style="font-size: 11px; color: #9aa0ab;">火</div><div style="font-size: 11px; color: #9aa0ab;">水</div><div style="font-size: 11px; color: #9aa0ab;">木</div><div style="font-size: 11px; color: #9aa0ab;">金</div><div style="font-size: 11px; color: #3f7fc0;">土</div>
+                <div style="padding: 9px 0; font-size: 14px; color: #cfccc4;">13</div><div style="padding: 9px 0; font-size: 14px; color: #cfccc4;">14</div><div style="padding: 9px 0; font-size: 14px;">15</div><div style="padding: 9px 0; font-size: 14px;">16</div><div style="padding: 9px 0; font-size: 14px;">17</div>
+                <div style="padding: 9px 0; font-size: 14px; background: var(--accent, #5B7B6F); color: #fff; border-radius: 10px; font-weight: 700;">18</div>
+                <div style="padding: 9px 0; font-size: 14px;">19</div><div style="padding: 9px 0; font-size: 14px; color: #cfccc4;">20</div><div style="padding: 9px 0; font-size: 14px;">21</div><div style="padding: 9px 0; font-size: 14px;">22</div><div style="padding: 9px 0; font-size: 14px;">23</div><div style="padding: 9px 0; font-size: 14px;">24</div><div style="padding: 9px 0; font-size: 14px;">25</div><div style="padding: 9px 0; font-size: 14px;">26</div>
+              </div>
+            </div>
+            <div style="font-size: 15px; font-weight: 700; margin: 20px 0 12px;">7月18日（土）の空き時間</div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+              <div style="height: 48px; border: 1.5px solid #d5d2ca; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700;">10:00</div>
+              <div style="height: 48px; border: 2px solid var(--accent, #5B7B6F); background: var(--accent, #5B7B6F); color: #fff; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700;">11:00</div>
+              <div style="height: 48px; border: 1.5px solid #eceae4; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #cfccc4; text-decoration: line-through;">13:00</div>
+              <div style="height: 48px; border: 1.5px solid #eceae4; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #cfccc4; text-decoration: line-through;">14:00</div>
+              <div style="height: 48px; border: 1.5px solid #d5d2ca; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700;">15:30</div>
+              <div style="height: 48px; border: 1.5px solid #d5d2ca; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700;">17:00</div>
+            </div>
+            <div style="font-size: 12px; color: #9aa0ab; margin-top: 12px;">※ 所要150分の枠が確保できる時間のみ表示</div>
+          </div>
+          <div style="background: #fff; border-top: 1px solid #ece9e3; padding: 14px 20px 22px; flex-shrink: 0; display: flex; gap: 12px;">
+            <button style="width: 96px; height: 52px; border: 1.5px solid #d5d2ca; border-radius: 14px; background: #fff; color: #5b6270; font-size: 16px; font-weight: 700; font-family: inherit; cursor: pointer;">戻る</button>
+            <button style="flex: 1; height: 52px; border: none; border-radius: 14px; background: var(--accent, #5B7B6F); color: #fff; font-size: 17px; font-weight: 700; font-family: inherit; cursor: pointer;">確認へ進む</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. FIRST-TIME INFO (shown before confirm on first booking) -->
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 14px; font-weight: 700; color: #5b6270;">6. 初回情報入力 <span style="color: #9aa0ab; font-weight: 500;">（初回のみ・確認の前）</span></div>
+      <div style="width: 375px; height: 780px; background: #1a1c22; border-radius: 44px; padding: 10px; box-shadow: 0 24px 60px rgba(20,22,30,0.22);">
+        <div style="width: 100%; height: 100%; background: #f7f6f3; border-radius: 34px; overflow: hidden; display: flex; flex-direction: column;">
+          <div style="height: 26px; display: flex; align-items: center; justify-content: space-between; padding: 0 26px; font-size: 12px; font-weight: 700; flex-shrink: 0;"><span>9:41</span><span>LINE ●●●</span></div>
+          <div style="padding: 8px 20px 12px; background: #fff; border-bottom: 1px solid #ece9e3; flex-shrink: 0;">
+            <div style="font-size: 22px; font-weight: 700; margin-top: 2px;">お客様情報の入力</div>
+            <div style="font-size: 14px; color: #7b818d; margin-top: 4px;">初回のみ。次回からは入力不要です</div>
+          </div>
+          <div style="flex: 1; overflow-y: auto; padding: 24px 20px;">
+            <div style="display: flex; flex-direction: column; gap: 22px;">
+              <div>
+                <label style="font-size: 15px; font-weight: 700; display: block; margin-bottom: 8px;">お名前 <span style="color: #c0503f;">*</span></label>
+                <div style="height: 54px; border: 1.5px solid #d5d2ca; border-radius: 12px; background: #fff; display: flex; align-items: center; padding: 0 16px; font-size: 17px;">山田 花子</div>
+              </div>
+              <div>
+                <label style="font-size: 15px; font-weight: 700; display: block; margin-bottom: 8px;">電話番号 <span style="color: #c0503f;">*</span></label>
+                <div style="height: 54px; border: 1.5px solid #d5d2ca; border-radius: 12px; background: #fff; display: flex; align-items: center; padding: 0 16px; font-size: 17px;">090-1234-5678</div>
+                <div style="font-size: 13px; color: #9aa0ab; margin-top: 8px;">当日のご連絡に使用します</div>
+              </div>
+              <div style="background: var(--accent-tint, #EEF2F0); border-radius: 12px; padding: 14px 16px; font-size: 13px; color: var(--accent-dark, #48645A); line-height: 1.6;">LINEアカウントと紐づくため、次回以降はログインだけで予約できます。</div>
+            </div>
+          </div>
+          <div style="background: #fff; border-top: 1px solid #ece9e3; padding: 14px 20px 22px; flex-shrink: 0;">
+            <button style="width: 100%; height: 52px; border: none; border-radius: 14px; background: var(--accent, #5B7B6F); color: #fff; font-size: 17px; font-weight: 700; font-family: inherit; cursor: pointer;">確認画面へ</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. CONFIRM -->
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 14px; font-weight: 700; color: #5b6270;">4. 予約確認</div>
+      <div style="width: 375px; height: 780px; background: #1a1c22; border-radius: 44px; padding: 10px; box-shadow: 0 24px 60px rgba(20,22,30,0.22);">
+        <div style="width: 100%; height: 100%; background: #f7f6f3; border-radius: 34px; overflow: hidden; display: flex; flex-direction: column;">
+          <div style="height: 26px; display: flex; align-items: center; justify-content: space-between; padding: 0 26px; font-size: 12px; font-weight: 700; flex-shrink: 0;"><span>9:41</span><span>LINE ●●●</span></div>
+          <div style="padding: 8px 20px 12px; background: #fff; border-bottom: 1px solid #ece9e3; flex-shrink: 0;">
+            <div style="font-size: 12px; color: #9aa0ab; font-weight: 700;">STEP 4 / 4</div>
+            <div style="font-size: 22px; font-weight: 700; margin-top: 2px;">内容の確認</div>
+          </div>
+          <div style="flex: 1; overflow-y: auto; padding: 20px;">
+            <div style="background: #fff; border: 1px solid #ece9e3; border-radius: 16px; overflow: hidden;">
+              <div style="padding: 16px 18px; border-bottom: 1px solid #f0eee9;"><div style="font-size: 13px; color: #9aa0ab; font-weight: 700; margin-bottom: 6px;">メニュー</div><div style="display: flex; justify-content: space-between;"><span style="font-size: 16px; font-weight: 700;">カット（ロング）</span><span style="font-size: 15px; color: #5b6270;">¥4,950</span></div><div style="display: flex; justify-content: space-between; margin-top: 4px;"><span style="font-size: 16px; font-weight: 700;">カラー（ミディアム）</span><span style="font-size: 15px; color: #5b6270;">¥6,600</span></div></div>
+              <div style="padding: 16px 18px; border-bottom: 1px solid #f0eee9;"><div style="font-size: 13px; color: #9aa0ab; font-weight: 700; margin-bottom: 6px;">スタッフ</div><div style="font-size: 16px; font-weight: 700;">田中（オーナー）</div></div>
+              <div style="padding: 16px 18px; border-bottom: 1px solid #f0eee9;"><div style="font-size: 13px; color: #9aa0ab; font-weight: 700; margin-bottom: 6px;">日時</div><div style="font-size: 16px; font-weight: 700;">7月18日（土）11:00〜</div><div style="font-size: 14px; color: #7b818d; margin-top: 2px;">所要時間 約150分</div></div>
+              <div style="padding: 18px; display: flex; justify-content: space-between; align-items: center; background: var(--accent-tint, #EEF2F0);"><span style="font-size: 15px; font-weight: 700; color: var(--accent-dark, #48645A);">合計</span><span style="font-size: 24px; font-weight: 700; color: var(--accent-dark, #48645A);">¥11,550</span></div>
+            </div>
+            <div style="margin-top: 16px;">
+              <label style="font-size: 14px; font-weight: 700; display: block; margin-bottom: 8px;">ご要望・ご相談 <span style="color: #9aa0ab; font-weight: 500;">（任意）</span></label>
+              <div style="min-height: 72px; border: 1.5px solid #d5d2ca; border-radius: 12px; background: #fff; padding: 12px 14px; font-size: 15px; color: #5b6270; line-height: 1.5;">明るめのアッシュ希望。前回より少し短めでお願いします。</div>
+              <div style="font-size: 12px; color: #9aa0ab; margin-top: 6px;">入力内容は店側の予約詳細にメモとして表示されます</div>
+            </div>
+            <div style="font-size: 13px; color: #9aa0ab; margin-top: 16px; line-height: 1.6;">前日にLINEでリマインドをお送りします。ご都合が変わった場合は「マイ予約」から変更・キャンセルできます。</div>
+          </div>
+          <div style="background: #fff; border-top: 1px solid #ece9e3; padding: 14px 20px 22px; flex-shrink: 0; display: flex; gap: 12px;">
+            <button style="width: 96px; height: 52px; border: 1.5px solid #d5d2ca; border-radius: 14px; background: #fff; color: #5b6270; font-size: 16px; font-weight: 700; font-family: inherit; cursor: pointer;">戻る</button>
+            <button style="flex: 1; height: 52px; border: none; border-radius: 14px; background: var(--accent, #5B7B6F); color: #fff; font-size: 17px; font-weight: 700; font-family: inherit; cursor: pointer;">予約を確定する</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. DONE -->
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 14px; font-weight: 700; color: #5b6270;">5. 予約完了</div>
+      <div style="width: 375px; height: 780px; background: #1a1c22; border-radius: 44px; padding: 10px; box-shadow: 0 24px 60px rgba(20,22,30,0.22);">
+        <div style="width: 100%; height: 100%; background: #f7f6f3; border-radius: 34px; overflow: hidden; display: flex; flex-direction: column;">
+          <div style="height: 26px; display: flex; align-items: center; justify-content: space-between; padding: 0 26px; font-size: 12px; font-weight: 700; flex-shrink: 0;"><span>9:41</span><span>LINE ●●●</span></div>
+          <div style="flex: 1; overflow-y: auto; padding: 40px 24px; display: flex; flex-direction: column; align-items: center; text-align: center;">
+            <div style="width: 84px; height: 84px; border-radius: 999px; background: var(--accent, #5B7B6F); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 42px; margin-top: 20px;">✓</div>
+            <div style="font-size: 24px; font-weight: 700; margin-top: 24px;">ご予約が完了しました</div>
+            <div style="font-size: 15px; color: #7b818d; margin-top: 8px; line-height: 1.6;">確認のメッセージをLINEにお送りしました</div>
+            <div style="width: 100%; background: #fff; border: 1px solid #ece9e3; border-radius: 16px; padding: 18px; margin-top: 28px; text-align: left;">
+              <div style="font-size: 16px; font-weight: 700;">7月18日（土）11:00〜</div>
+              <div style="font-size: 14px; color: #7b818d; margin-top: 6px;">カット + カラー ／ 田中</div>
+              <div style="font-size: 14px; color: #7b818d; margin-top: 2px;">¥11,550 ・ 約150分</div>
+            </div>
+            <div style="width: 100%; background: var(--accent-tint, #EEF2F0); border-radius: 12px; padding: 14px 16px; margin-top: 16px; font-size: 13px; color: var(--accent-dark, #48645A); line-height: 1.6; text-align: left;">変更・キャンセルはリッチメニューの「マイ予約」からいつでも行えます。</div>
+          </div>
+          <div style="background: #fff; border-top: 1px solid #ece9e3; padding: 14px 20px 22px; flex-shrink: 0;">
+            <button style="width: 100%; height: 52px; border: 1.5px solid var(--accent, #5B7B6F); border-radius: 14px; background: #fff; color: var(--accent-dark, #48645A); font-size: 17px; font-weight: 700; font-family: inherit; cursor: pointer;">マイ予約を見る</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 7. MY RESERVATIONS -->
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 14px; font-weight: 700; color: #5b6270;">7. マイ予約 <span style="color: #9aa0ab; font-weight: 500;">（リッチメニューから直接）</span></div>
+      <div style="width: 375px; height: 780px; background: #1a1c22; border-radius: 44px; padding: 10px; box-shadow: 0 24px 60px rgba(20,22,30,0.22);">
+        <div style="width: 100%; height: 100%; background: #f7f6f3; border-radius: 34px; overflow: hidden; display: flex; flex-direction: column; position: relative;">
+          <div style="height: 26px; display: flex; align-items: center; justify-content: space-between; padding: 0 26px; font-size: 12px; font-weight: 700; flex-shrink: 0;"><span>9:41</span><span>LINE ●●●</span></div>
+          <div style="padding: 8px 20px 12px; background: #fff; border-bottom: 1px solid #ece9e3; flex-shrink: 0;">
+            <div style="font-size: 22px; font-weight: 700; margin-top: 2px;">マイ予約</div>
+            <div style="font-size: 14px; color: #7b818d; margin-top: 2px;">今後のご予約</div>
+          </div>
+          <div style="flex: 1; overflow-y: auto; padding: 18px 20px;">
+            <div style="background: #fff; border: 1px solid #ece9e3; border-radius: 16px; padding: 18px; margin-bottom: 14px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 12px; background: var(--accent-tint, #EEF2F0); color: var(--accent-dark, #48645A); padding: 4px 10px; border-radius: 999px; font-weight: 700;">確定</span><span style="font-size: 13px; color: #9aa0ab;">あと3日</span></div>
+              <div style="font-size: 18px; font-weight: 700; margin-top: 12px;">7月18日（土）11:00〜</div>
+              <div style="font-size: 14px; color: #7b818d; margin-top: 4px;">カット + カラー ／ 田中</div>
+              <div style="font-size: 14px; color: #7b818d; margin-top: 2px;">¥11,550 ・ 約150分</div>
+              <div style="display: flex; gap: 10px; margin-top: 16px;">
+                <button style="flex: 1; height: 48px; border: 1.5px solid #d5d2ca; border-radius: 12px; background: #fff; color: #5b6270; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer;">変更</button>
+                <button style="flex: 1; height: 48px; border: 1.5px solid #e6c3bd; border-radius: 12px; background: #fff; color: #c0503f; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer;">キャンセル</button>
+              </div>
+            </div>
+            <div style="background: #fff; border: 1px solid #ece9e3; border-radius: 16px; padding: 18px; opacity: 0.9;">
+              <div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-size: 12px; background: #f0eee9; color: #7b818d; padding: 4px 10px; border-radius: 999px; font-weight: 700;">確定</span><span style="font-size: 13px; color: #9aa0ab;">8月2日</span></div>
+              <div style="font-size: 18px; font-weight: 700; margin-top: 12px;">8月2日（日）14:00〜</div>
+              <div style="font-size: 14px; color: #7b818d; margin-top: 4px;">カット（ショート） ／ 佐藤</div>
+              <div style="font-size: 14px; color: #7b818d; margin-top: 2px;">¥4,620 ・ 約60分</div>
+              <div style="display: flex; gap: 10px; margin-top: 16px;">
+                <button style="flex: 1; height: 48px; border: 1.5px solid #d5d2ca; border-radius: 12px; background: #fff; color: #5b6270; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer;">変更</button>
+                <button style="flex: 1; height: 48px; border: 1.5px solid #e6c3bd; border-radius: 12px; background: #fff; color: #c0503f; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer;">キャンセル</button>
+              </div>
+            </div>
+          </div>
+          <!-- cancel confirm dialog overlay -->
+          <div style="position: absolute; inset: 0; background: rgba(20,22,30,0.42); display: flex; align-items: flex-end; border-radius: 34px;">
+            <div style="width: 100%; background: #fff; border-radius: 22px 22px 34px 34px; padding: 26px 22px 26px;">
+              <div style="font-size: 19px; font-weight: 700; text-align: center;">予約をキャンセルしますか？</div>
+              <div style="font-size: 14px; color: #7b818d; text-align: center; margin-top: 10px; line-height: 1.6;">7月18日（土）11:00〜<br>カット + カラー ／ 田中</div>
+              <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 22px;">
+                <button style="width: 100%; height: 52px; border: none; border-radius: 14px; background: #c0503f; color: #fff; font-size: 17px; font-weight: 700; font-family: inherit; cursor: pointer;">キャンセルする</button>
+                <button style="width: 100%; height: 52px; border: 1.5px solid #d5d2ca; border-radius: 14px; background: #fff; color: #5b6270; font-size: 17px; font-weight: 700; font-family: inherit; cursor: pointer;">戻る</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ADMIN -->
+  <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 24px;">
+    <div style="font-size: 22px; font-weight: 700;">店側 — 管理画面（PC / タブレット）</div>
+    <div style="font-size: 13px; background: var(--accent-tint, #EEF2F0); color: var(--accent-dark, #48645A); padding: 5px 12px; border-radius: 999px; font-weight: 700;">ログイン → 予約カレンダーがホーム</div>
+  </div>
+  <div style="display: flex; gap: 40px; flex-wrap: wrap; margin-bottom: 40px;" data-screen-label="店側管理画面">
+
+    <!-- LOGIN -->
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 14px; font-weight: 700; color: #5b6270;">A. ログイン</div>
+      <div style="width: 560px; border-radius: 14px; overflow: hidden; box-shadow: 0 20px 50px rgba(20,22,30,0.16); border: 1px solid #dfdcd4;">
+        <div style="height: 38px; background: #e9e6df; display: flex; align-items: center; gap: 8px; padding: 0 16px;"><div style="width: 12px; height: 12px; border-radius: 999px; background: #e0655b;"></div><div style="width: 12px; height: 12px; border-radius: 999px; background: #e6b13e;"></div><div style="width: 12px; height: 12px; border-radius: 999px; background: #57a862;"></div></div>
+        <div style="background: #f7f6f3; padding: 60px 40px; display: flex; flex-direction: column; align-items: center;">
+          <div style="font-size: 13px; letter-spacing: 0.14em; font-weight: 700; color: var(--accent, #5B7B6F);">HAIR &amp; MAKE LUCE</div>
+          <div style="font-size: 24px; font-weight: 700; margin-top: 10px;">管理画面ログイン</div>
+          <div style="width: 100%; max-width: 340px; margin-top: 32px; display: flex; flex-direction: column; gap: 18px;">
+            <div><label style="font-size: 14px; font-weight: 700; display: block; margin-bottom: 7px;">メールアドレス</label><div style="height: 48px; border: 1.5px solid #d5d2ca; border-radius: 10px; background: #fff; display: flex; align-items: center; padding: 0 14px; font-size: 15px; color: #5b6270;">owner@luce.jp</div></div>
+            <div><label style="font-size: 14px; font-weight: 700; display: block; margin-bottom: 7px;">パスワード</label><div style="height: 48px; border: 1.5px solid #d5d2ca; border-radius: 10px; background: #fff; display: flex; align-items: center; padding: 0 14px; font-size: 15px; color: #9aa0ab;">••••••••</div></div>
+            <button style="height: 48px; border: none; border-radius: 10px; background: var(--accent, #5B7B6F); color: #fff; font-size: 16px; font-weight: 700; font-family: inherit; cursor: pointer; margin-top: 6px;">ログイン</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CALENDAR (MAIN) -->
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 14px; font-weight: 700; color: #5b6270;">B. 予約カレンダー（メイン画面）</div>
+      <div style="width: 1180px; border-radius: 14px; overflow: hidden; box-shadow: 0 20px 50px rgba(20,22,30,0.16); border: 1px solid #dfdcd4;">
+        <div style="height: 38px; background: #e9e6df; display: flex; align-items: center; gap: 8px; padding: 0 16px;"><div style="width: 12px; height: 12px; border-radius: 999px; background: #e0655b;"></div><div style="width: 12px; height: 12px; border-radius: 999px; background: #e6b13e;"></div><div style="width: 12px; height: 12px; border-radius: 999px; background: #57a862;"></div></div>
+        <div style="display: flex; height: 700px; background: #fff;">
+          <!-- sidebar -->
+          <div style="width: 214px; background: #f4f2ec; border-right: 1px solid #e6e3dc; padding: 22px 16px; flex-shrink: 0; display: flex; flex-direction: column;">
+            <div style="font-size: 12px; letter-spacing: 0.12em; font-weight: 700; color: var(--accent, #5B7B6F); padding: 0 10px;">LUCE 管理</div>
+            <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 24px;">
+              <div style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; background: var(--accent, #5B7B6F); color: #fff; font-size: 15px; font-weight: 700;">📅 予約カレンダー</div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; color: #5b6270; font-size: 15px;">➕ 代行登録</div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; color: #5b6270; font-size: 15px;">👥 スタッフ設定</div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; color: #5b6270; font-size: 15px;">✂️ メニュー管理</div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; color: #5b6270; font-size: 15px;">🗓 定休日・祝日</div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; color: #5b6270; font-size: 15px;">⚙ 表示設定</div>
+            </div>
+            <div style="margin-top: auto; background: #fff; border: 1px solid #e6e3dc; border-radius: 12px; padding: 14px;">
+              <div style="font-size: 12px; color: #9aa0ab; font-weight: 700;">今日の予約</div>
+              <div style="font-size: 26px; font-weight: 700; margin-top: 2px;">6<span style="font-size: 14px; color: #9aa0ab; font-weight: 500;"> 件</span></div>
+              <div style="font-size: 12px; color: #9aa0ab; font-weight: 700; margin-top: 14px;">LINEプッシュ（今月）</div>
+              <div style="font-size: 15px; font-weight: 700; margin-top: 2px;">128 / 200 通</div>
+              <div style="height: 7px; border-radius: 999px; background: #ece9e2; margin-top: 6px; overflow: hidden;"><div style="width: 64%; height: 100%; background: var(--accent, #5B7B6F);"></div></div>
+            </div>
+          </div>
+          <!-- calendar body -->
+          <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+            <div style="padding: 18px 24px; border-bottom: 1px solid #eceae4; display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 14px;">
+                <div style="display: flex; gap: 4px;"><div style="width: 34px; height: 34px; border: 1px solid #d5d2ca; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #7b818d;">‹</div><div style="width: 34px; height: 34px; border: 1px solid #d5d2ca; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #7b818d;">›</div></div>
+                <div style="font-size: 20px; font-weight: 700;">2026年 7月18日（土）</div>
+                <span style="font-size: 12px; background: var(--accent-tint, #EEF2F0); color: var(--accent-dark, #48645A); padding: 4px 10px; border-radius: 999px; font-weight: 700;">今日</span>
+              </div>
+              <div style="display: flex; gap: 0; border: 1px solid #d5d2ca; border-radius: 9px; overflow: hidden;"><div style="padding: 8px 18px; background: var(--accent, #5B7B6F); color: #fff; font-size: 14px; font-weight: 700;">日</div><div style="padding: 8px 18px; color: #5b6270; font-size: 14px; font-weight: 700;">週</div></div>
+            </div>
+            <div style="flex: 1; overflow-y: auto; display: flex;">
+              <!-- time gutter -->
+              <div style="width: 62px; flex-shrink: 0; border-right: 1px solid #eceae4; padding-top: 34px;">
+                <div style="height: 64px; font-size: 12px; color: #9aa0ab; text-align: right; padding-right: 10px;">9:00</div>
+                <div style="height: 64px; font-size: 12px; color: #9aa0ab; text-align: right; padding-right: 10px;">10:00</div>
+                <div style="height: 64px; font-size: 12px; color: #9aa0ab; text-align: right; padding-right: 10px;">11:00</div>
+                <div style="height: 64px; font-size: 12px; color: #9aa0ab; text-align: right; padding-right: 10px;">12:00</div>
+                <div style="height: 64px; font-size: 12px; color: #9aa0ab; text-align: right; padding-right: 10px;">13:00</div>
+                <div style="height: 64px; font-size: 12px; color: #9aa0ab; text-align: right; padding-right: 10px;">14:00</div>
+                <div style="height: 64px; font-size: 12px; color: #9aa0ab; text-align: right; padding-right: 10px;">15:00</div>
+                <div style="height: 64px; font-size: 12px; color: #9aa0ab; text-align: right; padding-right: 10px;">16:00</div>
+                <div style="height: 64px; font-size: 12px; color: #9aa0ab; text-align: right; padding-right: 10px;">17:00</div>
+                <div style="height: 64px; font-size: 12px; color: #9aa0ab; text-align: right; padding-right: 10px;">18:00</div>
+              </div>
+              <!-- staff col: 田中 -->
+              <div style="flex: 1; border-right: 1px solid #eceae4;">
+                <div style="height: 34px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; border-bottom: 1px solid #eceae4; background: #faf9f6; position: sticky; top: 0;">田中（オーナー）</div>
+                <div style="position: relative; height: 640px; background-image: repeating-linear-gradient(#f2f0ea 0 1px, transparent 1px 64px);">
+                  <div style="position: absolute; top: 32px; left: 8px; right: 8px; height: 56px; background: var(--accent-tint, #EEF2F0); border-left: 4px solid var(--accent, #5B7B6F); border-radius: 8px; padding: 8px 12px;"><div style="font-size: 13px; font-weight: 700;">9:30 佐々木様</div><div style="font-size: 12px; color: #7b818d;">カット</div></div>
+                  <div style="position: absolute; top: 128px; left: 8px; right: 8px; height: 160px; background: var(--accent-tint, #EEF2F0); border-left: 4px solid var(--accent, #5B7B6F); border-radius: 8px; padding: 10px 12px;"><div style="font-size: 13px; font-weight: 700;">11:00 山田様</div><div style="font-size: 12px; color: #7b818d; margin-top: 2px;">カット + カラー（150分）</div><div style="font-size: 11px; color: var(--accent-dark,#48645A); margin-top: 8px; font-weight: 700;">¥11,550</div></div>
+                  <div style="position: absolute; top: 384px; left: 8px; right: 8px; height: 120px; background: var(--accent-tint, #EEF2F0); border-left: 4px solid var(--accent, #5B7B6F); border-radius: 8px; padding: 8px 12px;"><div style="font-size: 13px; font-weight: 700;">15:00 井上様</div><div style="font-size: 12px; color: #7b818d;">カラー（120分）</div></div>
+                </div>
+              </div>
+              <!-- staff col: 佐藤 -->
+              <div style="flex: 1;">
+                <div style="height: 34px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; border-bottom: 1px solid #eceae4; background: #faf9f6; position: sticky; top: 0;">佐藤（スタッフ）</div>
+                <div style="position: relative; height: 640px; background-image: repeating-linear-gradient(#f2f0ea 0 1px, transparent 1px 64px);">
+                  <div style="position: absolute; top: 64px; left: 8px; right: 8px; height: 120px; background: #f0efe9; border-left: 4px solid #b7b2a6; border-radius: 8px; padding: 8px 12px;"><div style="font-size: 13px; font-weight: 700;">10:00 鈴木様</div><div style="font-size: 12px; color: #7b818d;">パーマ（120分）</div></div>
+                  <div style="position: absolute; top: 216px; left: 8px; right: 8px; height: 40px; background: #efe6e0; border-left: 4px solid #c99a86; border-radius: 8px; padding: 6px 12px; display: flex; align-items: center;"><div style="font-size: 12px; font-weight: 700; color: #9c6b4f;">☕ 休憩 13:00–13:30</div></div>
+                  <div style="position: absolute; top: 320px; left: 8px; right: 8px; height: 56px; background: #f0efe9; border-left: 4px solid #b7b2a6; border-radius: 8px; padding: 8px 12px;"><div style="font-size: 13px; font-weight: 700;">14:00 高橋様</div><div style="font-size: 12px; color: #7b818d;">カット</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CALENDAR WEEK VIEW -->
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 14px; font-weight: 700; color: #5b6270;">B-2. 予約カレンダー（週表示）</div>
+      <div style="width: 1180px; border-radius: 14px; overflow: hidden; box-shadow: 0 20px 50px rgba(20,22,30,0.16); border: 1px solid #dfdcd4;">
+        <div style="height: 38px; background: #e9e6df; display: flex; align-items: center; gap: 8px; padding: 0 16px;"><div style="width: 12px; height: 12px; border-radius: 999px; background: #e0655b;"></div><div style="width: 12px; height: 12px; border-radius: 999px; background: #e6b13e;"></div><div style="width: 12px; height: 12px; border-radius: 999px; background: #57a862;"></div></div>
+        <div style="display: flex; height: 700px; background: #fff;">
+          <div style="width: 214px; background: #f4f2ec; border-right: 1px solid #e6e3dc; padding: 22px 16px; flex-shrink: 0; display: flex; flex-direction: column;">
+            <div style="font-size: 12px; letter-spacing: 0.12em; font-weight: 700; color: var(--accent, #5B7B6F); padding: 0 10px;">LUCE 管理</div>
+            <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 24px;">
+              <div style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; background: var(--accent, #5B7B6F); color: #fff; font-size: 15px; font-weight: 700;">📅 予約カレンダー</div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; color: #5b6270; font-size: 15px;">➕ 代行登録</div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; color: #5b6270; font-size: 15px;">👥 スタッフ設定</div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; color: #5b6270; font-size: 15px;">✂️ メニュー管理</div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; color: #5b6270; font-size: 15px;">🗓 定休日・祝日</div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 10px; color: #5b6270; font-size: 15px;">⚙ 表示設定</div>
+            </div>
+            <div style="margin-top: auto; background: #fff; border: 1px solid #e6e3dc; border-radius: 12px; padding: 14px;">
+              <div style="font-size: 12px; color: #9aa0ab; font-weight: 700;">今週の予約</div>
+              <div style="font-size: 26px; font-weight: 700; margin-top: 2px;">31<span style="font-size: 14px; color: #9aa0ab; font-weight: 500;"> 件</span></div>
+              <div style="font-size: 12px; color: #9aa0ab; font-weight: 700; margin-top: 14px;">LINEプッシュ（今月）</div>
+              <div style="font-size: 15px; font-weight: 700; margin-top: 2px;">128 / 200 通</div>
+              <div style="height: 7px; border-radius: 999px; background: #ece9e2; margin-top: 6px; overflow: hidden;"><div style="width: 64%; height: 100%; background: var(--accent, #5B7B6F);"></div></div>
+            </div>
+          </div>
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden;">
+          <div style="padding: 16px 24px; border-bottom: 1px solid #eceae4; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 14px;">
+              <div style="display: flex; gap: 4px;"><div style="width: 34px; height: 34px; border: 1px solid #d5d2ca; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #7b818d;">‹</div><div style="width: 34px; height: 34px; border: 1px solid #d5d2ca; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #7b818d;">›</div></div>
+              <div style="font-size: 20px; font-weight: 700;">2026年 7月13日 〜 19日</div>
+              <div style="display: flex; align-items: center; gap: 12px; margin-left: 8px;"><span style="display: flex; align-items: center; gap: 5px; font-size: 12px; color: #7b818d;"><span style="width: 12px; height: 12px; border-radius: 3px; background: var(--accent, #5B7B6F);"></span>田中</span><span style="display: flex; align-items: center; gap: 5px; font-size: 12px; color: #7b818d;"><span style="width: 12px; height: 12px; border-radius: 3px; background: #b7b2a6;"></span>佐藤</span></div>
+            </div>
+            <div style="display: flex; gap: 0; border: 1px solid #d5d2ca; border-radius: 9px; overflow: hidden;"><div style="padding: 8px 18px; color: #5b6270; font-size: 14px; font-weight: 700;">日</div><div style="padding: 8px 18px; background: var(--accent, #5B7B6F); color: #fff; font-size: 14px; font-weight: 700;">週</div></div>
+          </div>
+          <div style="display: flex;">
+            <div style="width: 56px; flex-shrink: 0; border-right: 1px solid #eceae4; padding-top: 40px;">
+              <div style="height: 40px; font-size: 11px; color: #9aa0ab; text-align: right; padding-right: 8px;">9:00</div>
+              <div style="height: 40px; font-size: 11px; color: #9aa0ab; text-align: right; padding-right: 8px;">10:00</div>
+              <div style="height: 40px; font-size: 11px; color: #9aa0ab; text-align: right; padding-right: 8px;">11:00</div>
+              <div style="height: 40px; font-size: 11px; color: #9aa0ab; text-align: right; padding-right: 8px;">12:00</div>
+              <div style="height: 40px; font-size: 11px; color: #9aa0ab; text-align: right; padding-right: 8px;">13:00</div>
+              <div style="height: 40px; font-size: 11px; color: #9aa0ab; text-align: right; padding-right: 8px;">14:00</div>
+              <div style="height: 40px; font-size: 11px; color: #9aa0ab; text-align: right; padding-right: 8px;">15:00</div>
+              <div style="height: 40px; font-size: 11px; color: #9aa0ab; text-align: right; padding-right: 8px;">16:00</div>
+              <div style="height: 40px; font-size: 11px; color: #9aa0ab; text-align: right; padding-right: 8px;">17:00</div>
+              <div style="height: 40px; font-size: 11px; color: #9aa0ab; text-align: right; padding-right: 8px;">18:00</div>
+            </div>
+            <div style="flex: 1; display: grid; grid-template-columns: repeat(7, 1fr);">
+              <!-- 日 (定休) -->
+              <div style="border-right: 1px solid #eceae4; position: relative;"><div style="height: 40px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #c0503f; border-bottom: 1px solid #eceae4; background: #faf9f6;">13 日</div><div style="height: 400px; position: relative; background: repeating-linear-gradient(45deg, #f5f2ee, #f5f2ee 8px, #efeae4 8px, #efeae4 16px);"><div style="position: absolute; top: 50%; left: 0; right: 0; text-align: center; font-size: 12px; color: #b1a89c; font-weight: 700;">定休日</div></div></div>
+              <!-- 月 -->
+              <div style="border-right: 1px solid #eceae4;"><div style="height: 40px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; border-bottom: 1px solid #eceae4; background: #faf9f6;">14 月</div><div style="height: 400px; position: relative; background-image: repeating-linear-gradient(#f2f0ea 0 1px, transparent 1px 40px);"><div style="position: absolute; top: 40px; left: 4px; right: 4px; height: 40px; background: var(--accent-tint, #EEF2F0); border-left: 3px solid var(--accent, #5B7B6F); border-radius: 6px; padding: 4px 6px;"><div style="font-size: 11px; font-weight: 700; line-height: 1.2;">10:00 森様</div></div><div style="position: absolute; top: 160px; left: 4px; right: 4px; height: 80px; background: #f0efe9; border-left: 3px solid #b7b2a6; border-radius: 6px; padding: 4px 6px;"><div style="font-size: 11px; font-weight: 700; line-height: 1.2;">13:00 林様</div></div></div></div>
+              <!-- 火 -->
+              <div style="border-right: 1px solid #eceae4;"><div style="height: 40px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; border-bottom: 1px solid #eceae4; background: #faf9f6;">15 火</div><div style="height: 400px; position: relative; background-image: repeating-linear-gradient(#f2f0ea 0 1px, transparent 1px 40px);"><div style="position: absolute; top: 80px; left: 4px; right: 4px; height: 100px; background: #f0efe9; border-left: 3px solid #b7b2a6; border-radius: 6px; padding: 4px 6px;"><div style="font-size: 11px; font-weight: 700; line-height: 1.2;">11:00 岡様</div><div style="font-size: 10px; color: #9aa0ab;">パーマ</div></div></div></div>
+              <!-- 水 (田中休) -->
+              <div style="border-right: 1px solid #eceae4;"><div style="height: 40px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; border-bottom: 1px solid #eceae4; background: #faf9f6;">16 水</div><div style="height: 400px; position: relative; background-image: repeating-linear-gradient(#f2f0ea 0 1px, transparent 1px 40px);"><div style="position: absolute; top: 200px; left: 4px; right: 4px; height: 40px; background: var(--accent-tint, #EEF2F0); border-left: 3px solid var(--accent, #5B7B6F); border-radius: 6px; padding: 4px 6px;"><div style="font-size: 11px; font-weight: 700; line-height: 1.2;">14:00 谷様</div></div></div></div>
+              <!-- 木 -->
+              <div style="border-right: 1px solid #eceae4;"><div style="height: 40px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; border-bottom: 1px solid #eceae4; background: #faf9f6;">17 木</div><div style="height: 400px; position: relative; background-image: repeating-linear-gradient(#f2f0ea 0 1px, transparent 1px 40px);"><div style="position: absolute; top: 160px; left: 4px; right: 4px; height: 60px; background: var(--accent-tint, #EEF2F0); border-left: 3px solid var(--accent, #5B7B6F); border-radius: 6px; padding: 4px 6px;"><div style="font-size: 11px; font-weight: 700; line-height: 1.2;">13:00 西様</div><div style="font-size: 10px; color: #9aa0ab;">カラー</div></div></div></div>
+              <!-- 金 -->
+              <div style="border-right: 1px solid #eceae4;"><div style="height: 40px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #3f7fc0; border-bottom: 1px solid #eceae4; background: #faf9f6;">18 金</div><div style="height: 400px; position: relative; background-image: repeating-linear-gradient(#f2f0ea 0 1px, transparent 1px 40px);"><div style="position: absolute; top: 40px; left: 4px; right: 4px; height: 40px; background: #f0efe9; border-left: 3px solid #b7b2a6; border-radius: 6px; padding: 4px 6px;"><div style="font-size: 11px; font-weight: 700; line-height: 1.2;">10:00 原様</div></div></div></div>
+              <!-- 土 (today) -->
+              <div style="position: relative;"><div style="height: 40px; display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 13px; font-weight: 700; color: #c0503f; border-bottom: 1px solid #eceae4; background: var(--accent-tint, #EEF2F0);">19 土</div><div style="height: 400px; position: relative; background-image: repeating-linear-gradient(#f2f0ea 0 1px, transparent 1px 40px);"><div style="position: absolute; top: 80px; left: 4px; right: 4px; height: 100px; background: var(--accent-tint, #EEF2F0); border-left: 3px solid var(--accent, #5B7B6F); border-radius: 6px; padding: 4px 6px;"><div style="font-size: 11px; font-weight: 700; line-height: 1.2;">11:00 山田様</div><div style="font-size: 10px; color: #9aa0ab;">カット+カラー</div></div><div style="position: absolute; top: 200px; left: 4px; right: 4px; height: 40px; background: #f0efe9; border-left: 3px solid #b7b2a6; border-radius: 6px; padding: 4px 6px;"><div style="font-size: 11px; font-weight: 700; line-height: 1.2;">14:00 高橋様</div></div></div></div>
+            </div>
+          </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESERVATION DETAIL -->
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 14px; font-weight: 700; color: #5b6270;">C. 予約詳細（ブロックをタップ）</div>
+      <div style="width: 420px; background: #fff; border-radius: 16px; box-shadow: 0 20px 50px rgba(20,22,30,0.16); border: 1px solid #dfdcd4; overflow: hidden;">
+        <div style="padding: 20px 24px; border-bottom: 1px solid #eceae4; display: flex; justify-content: space-between; align-items: center;"><div style="font-size: 18px; font-weight: 700;">予約詳細</div><div style="width: 30px; height: 30px; border-radius: 8px; background: #f2f0ea; display: flex; align-items: center; justify-content: center; color: #9aa0ab;">✕</div></div>
+        <div style="padding: 22px 24px;">
+          <div style="display: flex; flex-direction: column; gap: 16px;">
+            <div><div style="font-size: 12px; color: #9aa0ab; font-weight: 700;">お客様</div><div style="font-size: 17px; font-weight: 700; margin-top: 3px;">山田 花子 様</div></div>
+            <div><div style="font-size: 12px; color: #9aa0ab; font-weight: 700;">連絡先</div><div style="font-size: 16px; margin-top: 3px;">090-1234-5678</div></div>
+            <div><div style="font-size: 12px; color: #9aa0ab; font-weight: 700;">日時 / 担当</div><div style="font-size: 16px; margin-top: 3px;">7月18日（土）11:00〜　田中</div></div>
+            <div><div style="font-size: 12px; color: #9aa0ab; font-weight: 700;">メニュー</div><div style="font-size: 16px; margin-top: 3px;">カット + カラー（150分）　<span style="font-weight: 700;">¥11,550</span></div></div>
+            <div style="background: var(--accent-tint, #EEF2F0); border-radius: 10px; padding: 12px 14px;"><div style="font-size: 12px; color: var(--accent-dark, #48645A); font-weight: 700;">お客様からのご要望 <span style="color: #9aa0ab; font-weight: 500;">（予約時に入力）</span></div><div style="font-size: 14px; margin-top: 4px; color: #5b6270; line-height: 1.5;">明るめのアッシュ希望。前回より少し短めに。</div></div>
+            <div style="background: #f7f6f3; border-radius: 10px; padding: 12px 14px;"><div style="display: flex; justify-content: space-between; align-items: center;"><div style="font-size: 12px; color: #9aa0ab; font-weight: 700;">スタッフメモ <span style="color: #b7b2a6; font-weight: 500;">（店内用・スタッフが記入）</span></div><span style="font-size: 12px; color: var(--accent, #5B7B6F); font-weight: 700;">編集</span></div><div style="font-size: 14px; margin-top: 4px; color: #5b6270; line-height: 1.5;">アレルギーなし。次回は根元リタッチ提案。</div></div>
+          </div>
+          <div style="display: flex; gap: 10px; margin-top: 24px;">
+            <button style="flex: 1; height: 46px; border: none; border-radius: 10px; background: var(--accent, #5B7B6F); color: #fff; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer;">変更</button>
+            <button style="flex: 1; height: 46px; border: 1.5px solid #e6c3bd; border-radius: 10px; background: #fff; color: #c0503f; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer;">店側でキャンセル</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROXY REGISTRATION -->
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 14px; font-weight: 700; color: #5b6270;">D. 代行登録（電話予約用）</div>
+      <div style="width: 560px; background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 20px 50px rgba(20,22,30,0.16); border: 1px solid #dfdcd4;">
+        <div style="padding: 28px 32px;">
+          <div style="font-size: 20px; font-weight: 700;">電話予約の代行登録</div>
+          <div style="font-size: 14px; color: #7b818d; margin-top: 4px;">オーナーが電話で受けた予約を登録します</div>
+          <div style="margin-top: 24px; display: flex; flex-direction: column; gap: 18px;">
+            <div>
+              <label style="font-size: 14px; font-weight: 700; display: block; margin-bottom: 7px;">お客様名（既存顧客を検索）</label>
+              <div style="height: 46px; border: 1.5px solid var(--accent, #5B7B6F); border-radius: 10px; background: #fff; display: flex; align-items: center; padding: 0 14px; font-size: 15px; gap: 8px;"><span style="color: #9aa0ab;">🔍</span>山田</div>
+              <div style="border: 1px solid #eceae4; border-radius: 10px; margin-top: 6px; overflow: hidden;">
+                <div style="padding: 10px 14px; font-size: 14px; background: var(--accent-tint, #EEF2F0); display: flex; justify-content: space-between;"><span style="font-weight: 700;">山田 花子</span><span style="color: #7b818d;">090-1234-5678</span></div>
+                <div style="padding: 10px 14px; font-size: 14px; border-top: 1px solid #f0eee9; display: flex; justify-content: space-between;"><span>山田 太郎</span><span style="color: #7b818d;">080-9876-5432</span></div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 14px;">
+              <div style="flex: 1;"><label style="font-size: 14px; font-weight: 700; display: block; margin-bottom: 7px;">メニュー</label><div style="height: 46px; border: 1.5px solid #d5d2ca; border-radius: 10px; background: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; font-size: 15px;">カット + カラー <span style="color: #9aa0ab;">▾</span></div></div>
+              <div style="flex: 1;"><label style="font-size: 14px; font-weight: 700; display: block; margin-bottom: 7px;">スタッフ</label><div style="height: 46px; border: 1.5px solid #d5d2ca; border-radius: 10px; background: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; font-size: 15px;">田中 <span style="color: #9aa0ab;">▾</span></div></div>
+            </div>
+            <div style="display: flex; gap: 14px;">
+              <div style="flex: 1.4;"><label style="font-size: 14px; font-weight: 700; display: block; margin-bottom: 7px;">日付</label><div style="height: 46px; border: 1.5px solid #d5d2ca; border-radius: 10px; background: #fff; display: flex; align-items: center; padding: 0 14px; font-size: 15px;">2026 / 07 / 18</div></div>
+              <div style="flex: 1;"><label style="font-size: 14px; font-weight: 700; display: block; margin-bottom: 7px;">時間</label><div style="height: 46px; border: 1.5px solid #d5d2ca; border-radius: 10px; background: #fff; display: flex; align-items: center; padding: 0 14px; font-size: 15px;">11:00</div></div>
+            </div>
+            <div style="font-size: 13px; color: var(--accent-dark, #48645A); background: var(--accent-tint, #EEF2F0); border-radius: 10px; padding: 10px 14px;">この枠は空いています。150分確保できます。</div>
+            <div>
+              <label style="font-size: 14px; font-weight: 700; display: block; margin-bottom: 7px;">メモ <span style="color: #9aa0ab; font-weight: 500;">（任意・店内用）</span></label>
+              <div style="min-height: 68px; border: 1.5px solid #d5d2ca; border-radius: 10px; background: #fff; padding: 11px 14px; font-size: 15px; color: #5b6270; line-height: 1.5;">電話で「白髪が気になる」とのこと。カウンセリング長めに。</div>
+            </div>
+            <button style="height: 48px; border: none; border-radius: 10px; background: var(--accent, #5B7B6F); color: #fff; font-size: 16px; font-weight: 700; font-family: inherit; cursor: pointer; margin-top: 4px;">この内容で登録</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STAFF SETTINGS -->
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 14px; font-weight: 700; color: #5b6270;">E. スタッフ設定</div>
+      <div style="width: 560px; background: #fff; border-radius: 14px; box-shadow: 0 20px 50px rgba(20,22,30,0.16); border: 1px solid #dfdcd4; overflow: hidden;">
+        <div style="padding: 22px 28px; border-bottom: 1px solid #eceae4;"><div style="font-size: 18px; font-weight: 700;">田中（オーナー）</div><div style="font-size: 13px; color: #7b818d; margin-top: 2px;">勤務・休憩・臨時休の設定</div></div>
+        <div style="padding: 24px 28px;">
+          <div style="font-size: 13px; font-weight: 700; color: #9aa0ab; margin-bottom: 12px;">勤務曜日・時間</div>
+          <div style="display: flex; gap: 8px; margin-bottom: 18px;">
+            <div style="width: 40px; height: 40px; border-radius: 8px; background: #f2f0ea; color: #c0503f; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;">日</div>
+            <div style="width: 40px; height: 40px; border-radius: 8px; background: var(--accent, #5B7B6F); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;">月</div>
+            <div style="width: 40px; height: 40px; border-radius: 8px; background: var(--accent, #5B7B6F); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;">火</div>
+            <div style="width: 40px; height: 40px; border-radius: 8px; background: #f2f0ea; color: #cfccc4; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;">水</div>
+            <div style="width: 40px; height: 40px; border-radius: 8px; background: var(--accent, #5B7B6F); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;">木</div>
+            <div style="width: 40px; height: 40px; border-radius: 8px; background: var(--accent, #5B7B6F); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;">金</div>
+            <div style="width: 40px; height: 40px; border-radius: 8px; background: var(--accent, #5B7B6F); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;">土</div>
+          </div>
+          <div style="display: flex; gap: 14px; margin-bottom: 20px;">
+            <div style="flex: 1;"><label style="font-size: 13px; font-weight: 700; color: #9aa0ab; display: block; margin-bottom: 6px;">開始</label><div style="height: 44px; border: 1.5px solid #d5d2ca; border-radius: 10px; display: flex; align-items: center; padding: 0 14px; font-size: 15px;">9:00</div></div>
+            <div style="flex: 1;"><label style="font-size: 13px; font-weight: 700; color: #9aa0ab; display: block; margin-bottom: 6px;">終了</label><div style="height: 44px; border: 1.5px solid #d5d2ca; border-radius: 10px; display: flex; align-items: center; padding: 0 14px; font-size: 15px;">19:00</div></div>
+            <div style="flex: 1;"><label style="font-size: 13px; font-weight: 700; color: #9aa0ab; display: block; margin-bottom: 6px;">休憩</label><div style="height: 44px; border: 1.5px solid #d5d2ca; border-radius: 10px; display: flex; align-items: center; padding: 0 14px; font-size: 15px;">13:00〜14:00</div></div>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: #f7f6f3; border-radius: 10px;">
+            <div><div style="font-size: 14px; font-weight: 700;">臨時休を追加</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 2px;">7/29（水）は休診に設定済み</div></div>
+            <button style="height: 40px; padding: 0 16px; border: 1.5px solid var(--accent, #5B7B6F); border-radius: 10px; background: #fff; color: var(--accent-dark, #48645A); font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer;">＋ 追加</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HOLIDAY / CLOSED DAYS -->
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 14px; font-weight: 700; color: #5b6270;">E-2. 定休日・祝日の設定</div>
+      <div style="width: 560px; background: #fff; border-radius: 14px; box-shadow: 0 20px 50px rgba(20,22,30,0.16); border: 1px solid #dfdcd4; overflow: hidden;">
+        <div style="padding: 22px 28px; border-bottom: 1px solid #eceae4;"><div style="font-size: 18px; font-weight: 700;">定休日・祝日</div><div style="font-size: 13px; color: #7b818d; margin-top: 4px; line-height: 1.5;">休業日を登録すると、その日はお客様の予約画面に表示されず、予約を受け付けません（予約枠が開かない）。</div></div>
+        <div style="padding: 24px 28px;">
+          <div style="font-size: 13px; font-weight: 700; color: #9aa0ab; margin-bottom: 12px;">毎週の定休日 <span style="color: #b7b2a6; font-weight: 500;">（毎週固定で休む曜日）</span></div>
+          <div style="display: flex; gap: 8px; margin-bottom: 24px;">
+            <div style="width: 44px; height: 44px; border-radius: 8px; background: #f2f0ea; color: #7b818d; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;">日</div>
+            <div style="width: 44px; height: 44px; border-radius: 8px; background: #f2f0ea; color: #7b818d; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;">月</div>
+            <div style="width: 44px; height: 44px; border-radius: 8px; background: #f2f0ea; color: #7b818d; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;">火</div>
+            <div style="width: 44px; height: 44px; border-radius: 8px; background: var(--accent, #5B7B6F); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;">水</div>
+            <div style="width: 44px; height: 44px; border-radius: 8px; background: #f2f0ea; color: #7b818d; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;">木</div>
+            <div style="width: 44px; height: 44px; border-radius: 8px; background: #f2f0ea; color: #7b818d; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;">金</div>
+            <div style="width: 44px; height: 44px; border-radius: 8px; background: #f2f0ea; color: #7b818d; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;">土</div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;"><div style="font-size: 13px; font-weight: 700; color: #9aa0ab;">特定の週だけの定休日 <span style="color: #b7b2a6; font-weight: 500;">（第○曜日・隔週など）</span></div><button style="height: 36px; padding: 0 14px; border: 1.5px solid var(--accent, #5B7B6F); border-radius: 9px; background: #fff; color: var(--accent-dark, #48645A); font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer;">＋ 追加</button></div>
+          <div style="border: 1px solid #eceae4; border-radius: 10px; padding: 14px 16px; margin-bottom: 24px;">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <div style="height: 40px; padding: 0 14px; border: 1.5px solid #d5d2ca; border-radius: 9px; background: #fff; display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 700;">日曜日 <span style="color: #9aa0ab; font-weight: 500;">▾</span></div>
+              <span style="font-size: 14px; color: #7b818d;">の</span>
+              <div style="display: flex; gap: 6px;">
+                <div style="width: 42px; height: 40px; border-radius: 9px; background: #f2f0ea; color: #7b818d; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;">第1</div>
+                <div style="width: 42px; height: 40px; border-radius: 9px; background: #f2f0ea; color: #7b818d; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;">第2</div>
+                <div style="width: 42px; height: 40px; border-radius: 9px; background: var(--accent, #5B7B6F); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;">第3</div>
+                <div style="width: 42px; height: 40px; border-radius: 9px; background: #f2f0ea; color: #7b818d; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;">第4</div>
+                <div style="width: 42px; height: 40px; border-radius: 9px; background: #f2f0ea; color: #7b818d; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;">第5</div>
+              </div>
+            </div>
+            <div style="font-size: 12px; color: var(--accent-dark, #48645A); background: var(--accent-tint, #EEF2F0); border-radius: 8px; padding: 8px 12px; margin-top: 12px;">毎月 第3日曜日 を定休に設定中。カレンダーの該当日は自動で休業になります。</div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: #f7f6f3; border-radius: 10px; margin-bottom: 24px;">
+            <div><div style="font-size: 14px; font-weight: 700;">祝日を休業にする</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 2px;">日本の祝日を自動で休業扱いにします</div></div>
+            <div style="width: 48px; height: 28px; border-radius: 999px; background: var(--accent, #5B7B6F); position: relative; flex-shrink: 0;"><div style="position: absolute; top: 3px; right: 3px; width: 22px; height: 22px; border-radius: 999px; background: #fff;"></div></div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;"><div style="font-size: 13px; font-weight: 700; color: #9aa0ab;">臨時休業・指定日</div><button style="height: 36px; padding: 0 14px; border: 1.5px solid var(--accent, #5B7B6F); border-radius: 9px; background: #fff; color: var(--accent-dark, #48645A); font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer;">＋ 日付を追加</button></div>
+          <div style="border: 1px solid #eceae4; border-radius: 10px; overflow: hidden;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 13px 16px; border-bottom: 1px solid #f2f0ea;"><div><span style="font-size: 15px; font-weight: 700;">7月21日（月）</span><span style="font-size: 12px; color: #7b818d; margin-left: 8px;">海の日・祝日</span></div><span style="font-size: 12px; background: #f0eee9; color: #7b818d; padding: 3px 10px; border-radius: 999px; font-weight: 700;">休業</span></div>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 13px 16px; border-bottom: 1px solid #f2f0ea;"><div><span style="font-size: 15px; font-weight: 700;">7月29日（水）</span><span style="font-size: 12px; color: #7b818d; margin-left: 8px;">臨時休業</span></div><span style="font-size: 12px; background: #f7e7e3; color: #c0503f; padding: 3px 10px; border-radius: 999px; font-weight: 700;">臨時休</span></div>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 13px 16px;"><div><span style="font-size: 15px; font-weight: 700;">8月13日（木）〜16日（日）</span><span style="font-size: 12px; color: #7b818d; margin-left: 8px;">夏季休業</span></div><span style="font-size: 12px; background: #f7e7e3; color: #c0503f; padding: 3px 10px; border-radius: 999px; font-weight: 700;">連休</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MENU MANAGEMENT -->
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 14px; font-weight: 700; color: #5b6270;">F. メニュー管理</div>
+      <div style="width: 560px; background: #fff; border-radius: 14px; box-shadow: 0 20px 50px rgba(20,22,30,0.16); border: 1px solid #dfdcd4; overflow: hidden;">
+        <div style="padding: 20px 28px; border-bottom: 1px solid #eceae4; display: flex; justify-content: space-between; align-items: center;"><div style="font-size: 18px; font-weight: 700;">メニュー管理</div><div style="display: flex; gap: 8px;"><button style="height: 40px; padding: 0 14px; border: 1.5px solid var(--accent, #5B7B6F); border-radius: 10px; background: #fff; color: var(--accent-dark, #48645A); font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer;">カテゴリを編集</button><button style="height: 40px; padding: 0 16px; border: none; border-radius: 10px; background: var(--accent, #5B7B6F); color: #fff; font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer;">＋ 新規メニュー</button></div></div>
+        <div style="padding: 10px 28px 4px; font-size: 12px; color: #9aa0ab;">⠿ を掴んで行をドラッグすると表示順を変更できます</div>
+        <div style="padding: 4px 0 12px;">
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 12px; font-weight: 700; color: #9aa0ab; border-bottom: 1px solid #eceae4;"><div></div><div>メニュー名</div><div>料金（税込）</div><div>所要時間</div><div></div></div>
+
+          <div style="padding: 10px 28px 6px; font-size: 12px; font-weight: 700; color: var(--accent-dark, #48645A); background: #faf9f6;">カット</div>
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 15px; align-items: center; border-bottom: 1px solid #f2f0ea;"><div style="color: #c7c3ba; cursor: grab; font-size: 15px; text-align: center;">⠿</div><div style="font-weight: 700;">ショート（鎖骨上）</div><div>¥4,620</div><div>60分</div><div style="color: var(--accent, #5B7B6F);">編集</div></div>
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 15px; align-items: center; border-bottom: 1px solid #f2f0ea;"><div style="color: #c7c3ba; cursor: grab; font-size: 15px; text-align: center;">⠿</div><div style="font-weight: 700;">ロング（鎖骨下）</div><div>¥4,950</div><div>60分</div><div style="color: var(--accent, #5B7B6F);">編集</div></div>
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 15px; align-items: center; border-bottom: 1px solid #f2f0ea;"><div style="color: #c7c3ba; cursor: grab; font-size: 15px; text-align: center;">⠿</div><div style="font-weight: 700;">キッズ</div><div>¥3,080</div><div>40分</div><div style="color: var(--accent, #5B7B6F);">編集</div></div>
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 15px; align-items: center; border-bottom: 1px solid #f2f0ea;"><div style="color: #c7c3ba; cursor: grab; font-size: 15px; text-align: center;">⠿</div><div style="font-weight: 700;">中・高生 ショート</div><div>¥3,630</div><div>50分</div><div style="color: var(--accent, #5B7B6F);">編集</div></div>
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 15px; align-items: center; border-bottom: 1px solid #f2f0ea;"><div style="color: #c7c3ba; cursor: grab; font-size: 15px; text-align: center;">⠿</div><div style="font-weight: 700;">前髪カット</div><div>¥1,100</div><div>15分</div><div style="color: var(--accent, #5B7B6F);">編集</div></div>
+
+          <div style="padding: 10px 28px 6px; font-size: 12px; font-weight: 700; color: var(--accent-dark, #48645A); background: #faf9f6;">カラー（髪質改善カラー・ゼロテク）</div>
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 15px; align-items: center; border-bottom: 1px solid #f2f0ea;"><div style="color: #c7c3ba; cursor: grab; font-size: 15px; text-align: center;">⠿</div><div style="font-weight: 700;">リタッチ（2cm以内）</div><div>¥6,050</div><div>80分</div><div style="color: var(--accent, #5B7B6F);">編集</div></div>
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 15px; align-items: center; border-bottom: 1px solid #f2f0ea;"><div style="color: #c7c3ba; cursor: grab; font-size: 15px; text-align: center;">⠿</div><div style="font-weight: 700;">ミディアム</div><div>¥6,600</div><div>90分</div><div style="color: var(--accent, #5B7B6F);">編集</div></div>
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 15px; align-items: center; border-bottom: 1px solid #f2f0ea;"><div style="color: #c7c3ba; cursor: grab; font-size: 15px; text-align: center;">⠿</div><div style="font-weight: 700;">ロング</div><div>¥7,150</div><div>100分</div><div style="color: var(--accent, #5B7B6F);">編集</div></div>
+
+          <div style="padding: 10px 28px 6px; font-size: 12px; font-weight: 700; color: var(--accent-dark, #48645A); background: #faf9f6;">ヘアマニキュア</div>
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 15px; align-items: center; border-bottom: 1px solid #f2f0ea;"><div style="color: #c7c3ba; cursor: grab; font-size: 15px; text-align: center;">⠿</div><div style="font-weight: 700;">ショート</div><div>¥6,050</div><div>80分</div><div style="color: var(--accent, #5B7B6F);">編集</div></div>
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 15px; align-items: center; border-bottom: 1px solid #f2f0ea;"><div style="color: #c7c3ba; cursor: grab; font-size: 15px; text-align: center;">⠿</div><div style="font-weight: 700;">ミディアム</div><div>¥6,600</div><div>90分</div><div style="color: var(--accent, #5B7B6F);">編集</div></div>
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 15px; align-items: center; border-bottom: 1px solid #f2f0ea;"><div style="color: #c7c3ba; cursor: grab; font-size: 15px; text-align: center;">⠿</div><div style="font-weight: 700;">ロング</div><div>¥7,150</div><div>100分</div><div style="color: var(--accent, #5B7B6F);">編集</div></div>
+
+          <div style="padding: 10px 28px 6px; font-size: 12px; font-weight: 700; color: var(--accent-dark, #48645A); background: #faf9f6;">パーマ</div>
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 15px; align-items: center; border-bottom: 1px solid #f2f0ea;"><div style="color: #c7c3ba; cursor: grab; font-size: 15px; text-align: center;">⠿</div><div style="font-weight: 700;">ショート</div><div>¥6,050</div><div>90分</div><div style="color: var(--accent, #5B7B6F);">編集</div></div>
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 15px; align-items: center; border-bottom: 1px solid #f2f0ea;"><div style="color: #c7c3ba; cursor: grab; font-size: 15px; text-align: center;">⠿</div><div style="font-weight: 700;">ミディアム</div><div>¥6,600</div><div>100分</div><div style="color: var(--accent, #5B7B6F);">編集</div></div>
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 15px; align-items: center; border-bottom: 1px solid #f2f0ea;"><div style="color: #c7c3ba; cursor: grab; font-size: 15px; text-align: center;">⠿</div><div style="font-weight: 700;">ロング</div><div>¥7,150</div><div>110分</div><div style="color: var(--accent, #5B7B6F);">編集</div></div>
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 15px; align-items: center; border-bottom: 1px solid #f2f0ea;"><div style="color: #c7c3ba; cursor: grab; font-size: 15px; text-align: center;">⠿</div><div style="font-weight: 700;">クリープパーマ</div><div>＋¥1,100</div><div>＋20分</div><div style="color: var(--accent, #5B7B6F);">編集</div></div>
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 15px; align-items: center; border-bottom: 1px solid #f2f0ea;"><div style="color: #c7c3ba; cursor: grab; font-size: 15px; text-align: center;">⠿</div><div style="font-weight: 700;">縮毛矯正</div><div>¥11,000〜¥19,800</div><div>180分〜</div><div style="color: var(--accent, #5B7B6F);">編集</div></div>
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 15px; align-items: center; border-bottom: 1px solid #f2f0ea;"><div style="color: #c7c3ba; cursor: grab; font-size: 15px; text-align: center;">⠿</div><div style="font-weight: 700;">前髪</div><div>¥4,400〜</div><div>60分</div><div style="color: var(--accent, #5B7B6F);">編集</div></div>
+
+          <div style="padding: 10px 28px 6px; font-size: 12px; font-weight: 700; color: var(--accent-dark, #48645A); background: #faf9f6;">ヘッドスパ</div>
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 15px; align-items: center; border-bottom: 1px solid #f2f0ea;"><div style="color: #c7c3ba; cursor: grab; font-size: 15px; text-align: center;">⠿</div><div style="font-weight: 700;">MOYUシャンプースパ</div><div>¥2,200</div><div>20分</div><div style="color: var(--accent, #5B7B6F);">編集</div></div>
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 15px; align-items: center; border-bottom: 1px solid #f2f0ea;"><div style="color: #c7c3ba; cursor: grab; font-size: 15px; text-align: center;">⠿</div><div style="font-weight: 700;">ヘッドパック</div><div>¥2,200</div><div>20分</div><div style="color: var(--accent, #5B7B6F);">編集</div></div>
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 15px; align-items: center; border-bottom: 1px solid #f2f0ea;"><div style="color: #c7c3ba; cursor: grab; font-size: 15px; text-align: center;">⠿</div><div style="font-weight: 700;">幹細胞リフトアップ スパ</div><div>¥2,750</div><div>30分</div><div style="color: var(--accent, #5B7B6F);">編集</div></div>
+
+          <div style="padding: 10px 28px 6px; font-size: 12px; font-weight: 700; color: var(--accent-dark, #48645A); background: #faf9f6;">トリートメント</div>
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 15px; align-items: center; border-bottom: 1px solid #f2f0ea;"><div style="color: #c7c3ba; cursor: grab; font-size: 15px; text-align: center;">⠿</div><div style="font-weight: 700;">クイック</div><div>¥2,200〜¥2,750</div><div>20分</div><div style="color: var(--accent, #5B7B6F);">編集</div></div>
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 15px; align-items: center; border-bottom: 1px solid #f2f0ea;"><div style="color: #c7c3ba; cursor: grab; font-size: 15px; text-align: center;">⠿</div><div style="font-weight: 700;">しっかりタイプ</div><div>¥2,200〜¥4,400</div><div>30分</div><div style="color: var(--accent, #5B7B6F);">編集</div></div>
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 15px; align-items: center; border-bottom: 1px solid #f2f0ea;"><div style="color: #c7c3ba; cursor: grab; font-size: 15px; text-align: center;">⠿</div><div style="font-weight: 700;">メテオトリートメント</div><div>¥3,300〜¥4,400</div><div>40分</div><div style="color: var(--accent, #5B7B6F);">編集</div></div>
+
+          <div style="padding: 10px 28px 6px; font-size: 12px; font-weight: 700; color: var(--accent-dark, #48645A); background: #faf9f6;">オプション</div>
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 15px; align-items: center; border-bottom: 1px solid #f2f0ea;"><div style="color: #c7c3ba; cursor: grab; font-size: 15px; text-align: center;">⠿</div><div style="font-weight: 700;">シャンプーブロー</div><div>¥2,200〜¥3,300</div><div>—</div><div style="color: var(--accent, #5B7B6F);">編集</div></div>
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 15px; align-items: center; border-bottom: 1px solid #f2f0ea;"><div style="color: #c7c3ba; cursor: grab; font-size: 15px; text-align: center;">⠿</div><div style="font-weight: 700;">ヘアセット</div><div>¥4,950</div><div>—</div><div style="color: var(--accent, #5B7B6F);">編集</div></div>
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 15px; align-items: center; border-bottom: 1px solid #f2f0ea;"><div style="color: #c7c3ba; cursor: grab; font-size: 15px; text-align: center;">⠿</div><div style="font-weight: 700;">着付け 訪問着</div><div>¥7,700</div><div>—</div><div style="color: var(--accent, #5B7B6F);">編集</div></div>
+          <div style="display: grid; grid-template-columns: 26px 2.2fr 1.1fr 1fr 52px; padding: 12px 28px; font-size: 15px; align-items: center;"><div style="color: #c7c3ba; cursor: grab; font-size: 15px; text-align: center;">⠿</div><div style="font-weight: 700;">着付け 振袖</div><div>¥11,000</div><div>—</div><div style="color: var(--accent, #5B7B6F);">編集</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CATEGORY EDIT DIALOG -->
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 14px; font-weight: 700; color: #5b6270;">F（詳細）. カテゴリを編集（ダイアログ）</div>
+      <div style="width: 500px; background: rgba(20,22,30,0.12); border-radius: 16px; padding: 32px; display: flex; align-items: center; justify-content: center;">
+        <div style="width: 100%; background: #fff; border-radius: 14px; box-shadow: 0 24px 60px rgba(20,22,30,0.30); overflow: hidden;">
+          <div style="padding: 20px 24px; border-bottom: 1px solid #eceae4; display: flex; justify-content: space-between; align-items: center;"><div><div style="font-size: 18px; font-weight: 700;">カテゴリの編集</div><div style="font-size: 12px; color: #7b818d; margin-top: 2px;">ドラッグで並べ替え・名称変更・追加ができます</div></div><div style="width: 30px; height: 30px; border-radius: 8px; background: #f2f0ea; display: flex; align-items: center; justify-content: center; color: #9aa0ab;">✕</div></div>
+          <div style="padding: 18px 24px; display: flex; flex-direction: column; gap: 10px; max-height: 360px; overflow-y: auto;">
+            <div style="display: flex; align-items: center; gap: 10px;"><span style="color: #c7c3ba; cursor: grab; font-size: 16px;">⠿</span><div style="flex: 1; height: 44px; border: 1.5px solid #d5d2ca; border-radius: 10px; background: #fff; display: flex; align-items: center; padding: 0 14px; font-size: 15px; font-weight: 700;">カット</div><div style="width: 36px; height: 36px; border-radius: 8px; background: #f7e7e3; color: #c0503f; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0;">✕</div></div>
+            <div style="display: flex; align-items: center; gap: 10px;"><span style="color: #c7c3ba; cursor: grab; font-size: 16px;">⠿</span><div style="flex: 1; height: 44px; border: 2px solid var(--accent, #9E6B6B); border-radius: 10px; background: #fff; display: flex; align-items: center; padding: 0 14px; font-size: 15px; font-weight: 700;">カラー（髪質改善カラー・ゼロテク）</div><div style="width: 36px; height: 36px; border-radius: 8px; background: #f7e7e3; color: #c0503f; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0;">✕</div></div>
+            <div style="display: flex; align-items: center; gap: 10px;"><span style="color: #c7c3ba; cursor: grab; font-size: 16px;">⠿</span><div style="flex: 1; height: 44px; border: 1.5px solid #d5d2ca; border-radius: 10px; background: #fff; display: flex; align-items: center; padding: 0 14px; font-size: 15px; font-weight: 700;">ヘアマニキュア</div><div style="width: 36px; height: 36px; border-radius: 8px; background: #f7e7e3; color: #c0503f; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0;">✕</div></div>
+            <div style="display: flex; align-items: center; gap: 10px;"><span style="color: #c7c3ba; cursor: grab; font-size: 16px;">⠿</span><div style="flex: 1; height: 44px; border: 1.5px solid #d5d2ca; border-radius: 10px; background: #fff; display: flex; align-items: center; padding: 0 14px; font-size: 15px; font-weight: 700;">パーマ</div><div style="width: 36px; height: 36px; border-radius: 8px; background: #f7e7e3; color: #c0503f; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0;">✕</div></div>
+            <div style="display: flex; align-items: center; gap: 10px;"><span style="color: #c7c3ba; cursor: grab; font-size: 16px;">⠿</span><div style="flex: 1; height: 44px; border: 1.5px solid #d5d2ca; border-radius: 10px; background: #fff; display: flex; align-items: center; padding: 0 14px; font-size: 15px; font-weight: 700;">ヘッドスパ</div><div style="width: 36px; height: 36px; border-radius: 8px; background: #f7e7e3; color: #c0503f; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0;">✕</div></div>
+            <div style="display: flex; align-items: center; gap: 10px;"><span style="color: #c7c3ba; cursor: grab; font-size: 16px;">⠿</span><div style="flex: 1; height: 44px; border: 1.5px solid #d5d2ca; border-radius: 10px; background: #fff; display: flex; align-items: center; padding: 0 14px; font-size: 15px; font-weight: 700;">トリートメント</div><div style="width: 36px; height: 36px; border-radius: 8px; background: #f7e7e3; color: #c0503f; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0;">✕</div></div>
+            <div style="display: flex; align-items: center; gap: 10px;"><span style="color: #c7c3ba; cursor: grab; font-size: 16px;">⠿</span><div style="flex: 1; height: 44px; border: 1.5px solid #d5d2ca; border-radius: 10px; background: #fff; display: flex; align-items: center; padding: 0 14px; font-size: 15px; font-weight: 700;">オプション</div><div style="width: 36px; height: 36px; border-radius: 8px; background: #f7e7e3; color: #c0503f; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0;">✕</div></div>
+            <button style="height: 44px; border: 1.5px dashed var(--accent, #9E6B6B); border-radius: 10px; background: var(--accent-tint, #F3EBEA); color: var(--accent-dark, #7A4F4F); font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer; margin-top: 4px;">＋ カテゴリを追加</button>
+          </div>
+          <div style="padding: 16px 24px; border-top: 1px solid #eceae4; display: flex; justify-content: flex-end; gap: 10px;">
+            <button style="height: 44px; padding: 0 20px; border: 1.5px solid #d5d2ca; border-radius: 10px; background: #fff; color: #5b6270; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer;">キャンセル</button>
+            <button style="height: 44px; padding: 0 24px; border: none; border-radius: 10px; background: var(--accent, #9E6B6B); color: #fff; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer;">保存する</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DISPLAY SETTINGS -->
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 14px; font-weight: 700; color: #5b6270;">F-2. 表示設定（テーマ・フォント）</div>
+      <div style="width: 560px; background: #fff; border-radius: 14px; box-shadow: 0 20px 50px rgba(20,22,30,0.16); border: 1px solid #dfdcd4; overflow: hidden;">
+        <div style="padding: 22px 28px; border-bottom: 1px solid #eceae4;"><div style="font-size: 18px; font-weight: 700;">表示設定</div><div style="font-size: 13px; color: #7b818d; margin-top: 2px;">お客様画面・管理画面の配色とフォントを設定します</div></div>
+        <div style="padding: 24px 28px;">
+          <div style="font-size: 13px; font-weight: 700; color: #9aa0ab; margin-bottom: 12px;">テーマカラー</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div style="border: 1.5px solid #e7e4dd; border-radius: 12px; padding: 14px; display: flex; align-items: center; gap: 12px;"><div style="width: 34px; height: 34px; border-radius: 999px; background: #5B7B6F; flex-shrink: 0;"></div><div><div style="font-size: 15px; font-weight: 700;">A. セージグリーン</div><div style="font-size: 12px; color: #9aa0ab;">自然体・清潔感</div></div></div>
+            <div style="border: 2px solid var(--accent, #9E6B6B); background: var(--accent-tint, #F3EBEA); border-radius: 12px; padding: 14px; display: flex; align-items: center; gap: 12px; position: relative;"><div style="width: 34px; height: 34px; border-radius: 999px; background: #9E6B6B; flex-shrink: 0;"></div><div><div style="font-size: 15px; font-weight: 700;">B. モーヴ</div><div style="font-size: 12px; color: var(--accent-dark, #7A4F4F);">採用中</div></div><div style="position: absolute; top: 10px; right: 10px; width: 22px; height: 22px; border-radius: 999px; background: var(--accent, #9E6B6B); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px;">✓</div></div>
+            <div style="border: 1.5px solid #e7e4dd; border-radius: 12px; padding: 14px; display: flex; align-items: center; gap: 12px;"><div style="width: 34px; height: 34px; border-radius: 999px; background: #4F6D7A; flex-shrink: 0;"></div><div><div style="font-size: 15px; font-weight: 700;">C. スレートブルー</div><div style="font-size: 12px; color: #9aa0ab;">落ち着き・信頼感</div></div></div>
+            <div style="border: 1.5px dashed #c7c3ba; border-radius: 12px; padding: 14px; display: flex; align-items: center; gap: 12px;"><div style="width: 34px; height: 34px; border-radius: 999px; background: conic-gradient(#9E6B6B,#6D8B74,#476072,#C08457,#9E6B6B); flex-shrink: 0;"></div><div><div style="font-size: 15px; font-weight: 700;">＋ カスタム</div><div style="font-size: 12px; color: #9aa0ab;">好きな色を指定</div></div></div>
+          </div>
+          <div style="font-size: 12px; color: #9aa0ab; margin-top: 10px;">「カスタム」を選ぶと任意の色を指定でき、濃淡は自動生成されます。あとから候補テーマを増やすこともできます。</div>
+
+          <div style="font-size: 13px; font-weight: 700; color: #9aa0ab; margin: 24px 0 12px;">フォント</div>
+          <div style="display: flex; gap: 0; border: 1px solid #d5d2ca; border-radius: 10px; overflow: hidden; width: fit-content;">
+            <div style="padding: 12px 26px; background: var(--accent, #9E6B6B); color: #fff; font-size: 15px; font-weight: 700;">Noto Sans JP</div>
+            <div style="padding: 12px 26px; color: #5b6270; font-size: 15px; font-weight: 700;">LINE Seed JP</div>
+          </div>
+
+          <button style="height: 48px; padding: 0 24px; border: none; border-radius: 10px; background: var(--accent, #9E6B6B); color: #fff; font-size: 16px; font-weight: 700; font-family: inherit; cursor: pointer; margin-top: 24px;">保存する</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DASHBOARD WIDGETS -->
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 14px; font-weight: 700; color: #5b6270;">G. ダッシュボード小物</div>
+      <div style="width: 560px; display: flex; flex-direction: column; gap: 18px;">
+        <div style="display: flex; gap: 18px;">
+          <div style="flex: 1; background: #fff; border: 1px solid #dfdcd4; border-radius: 14px; padding: 22px; box-shadow: 0 8px 24px rgba(20,22,30,0.06);"><div style="font-size: 13px; color: #9aa0ab; font-weight: 700;">今日の予約件数</div><div style="font-size: 40px; font-weight: 700; margin-top: 6px;">6<span style="font-size: 16px; color: #9aa0ab; font-weight: 500;"> 件</span></div><div style="font-size: 13px; color: #7b818d; margin-top: 4px;">田中 3件 ・ 佐藤 3件</div></div>
+          <div style="flex: 1; background: #fff; border: 1px solid #dfdcd4; border-radius: 14px; padding: 22px; box-shadow: 0 8px 24px rgba(20,22,30,0.06);"><div style="font-size: 13px; color: #9aa0ab; font-weight: 700;">今月の予約</div><div style="font-size: 40px; font-weight: 700; margin-top: 6px;">72<span style="font-size: 16px; color: #9aa0ab; font-weight: 500;"> 件</span></div><div style="font-size: 13px; color: #7b818d; margin-top: 4px;">先月比 +8件</div></div>
+        </div>
+        <div style="background: #fff; border: 1px solid #dfdcd4; border-radius: 14px; padding: 22px; box-shadow: 0 8px 24px rgba(20,22,30,0.06);">
+          <div style="display: flex; justify-content: space-between; align-items: baseline;"><div style="font-size: 13px; color: #9aa0ab; font-weight: 700;">今月のLINEプッシュ送信数</div><div style="font-size: 13px; color: #7b818d;">無料枠 200通</div></div>
+          <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 8px;"><div style="font-size: 34px; font-weight: 700;">128</div><div style="font-size: 16px; color: #9aa0ab;">/ 200 通</div></div>
+          <div style="height: 12px; border-radius: 999px; background: #ece9e2; margin-top: 12px; overflow: hidden;"><div style="width: 64%; height: 100%; background: var(--accent, #5B7B6F); border-radius: 999px;"></div></div>
+          <div style="font-size: 13px; color: #7b818d; margin-top: 8px;">残り 72通。前日リマインドで使用しています。</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MOBILE ADMIN -->
+  <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 24px;">
+    <div style="font-size: 22px; font-weight: 700;">店側 — スマホ幅（外出先での確認）</div>
+    <div style="font-size: 13px; background: var(--accent-tint, #EEF2F0); color: var(--accent-dark, #48645A); padding: 5px 12px; border-radius: 999px; font-weight: 700;">1日 × スタッフ切替 / リスト表示に切替</div>
+  </div>
+  <div style="display: flex; gap: 32px; flex-wrap: wrap; margin-bottom: 64px;" data-screen-label="店側スマホ版">
+
+    <!-- mobile admin: 1-day staff-switch -->
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div><div style="font-size: 14px; font-weight: 700; color: #5b6270;">H. スマホ版カレンダー（1日・スタッフ切替）</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 3px; max-width: 375px;">用途：時間軸で空き枠や施術の重なりを見る。「この時間に入れるか？」の判断向き。</div></div>
+      <div style="width: 375px; height: 780px; background: #1a1c22; border-radius: 44px; padding: 10px; box-shadow: 0 24px 60px rgba(20,22,30,0.22);">
+        <div style="width: 100%; height: 100%; background: #fff; border-radius: 34px; overflow: hidden; display: flex; flex-direction: column;">
+          <div style="height: 26px; display: flex; align-items: center; justify-content: space-between; padding: 0 26px; font-size: 12px; font-weight: 700; flex-shrink: 0;"><span>9:41</span><span>●●●</span></div>
+          <div style="padding: 12px 18px; border-bottom: 1px solid #eceae4; flex-shrink: 0;">
+            <div style="display: flex; align-items: center; justify-content: space-between;"><span style="font-size: 15px; color: #9aa0ab;">‹</span><span style="font-size: 17px; font-weight: 700;">7月18日（土）</span><span style="font-size: 15px;">›</span></div>
+            <div style="display: flex; gap: 8px; margin-top: 12px;"><div style="flex: 1; height: 40px; border-radius: 9px; background: var(--accent, #5B7B6F); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;">田中</div><div style="flex: 1; height: 40px; border-radius: 9px; background: #f2f0ea; color: #5b6270; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;">佐藤</div></div>
+          </div>
+          <div style="flex: 1; overflow-y: auto; display: flex; padding-top: 6px;">
+            <div style="width: 54px; flex-shrink: 0; border-right: 1px solid #eceae4;">
+              <div style="height: 64px; font-size: 12px; color: #9aa0ab; text-align: right; padding: 4px 8px 0 0;">9:00</div>
+              <div style="height: 64px; font-size: 12px; color: #9aa0ab; text-align: right; padding: 4px 8px 0 0;">10:00</div>
+              <div style="height: 64px; font-size: 12px; color: #9aa0ab; text-align: right; padding: 4px 8px 0 0;">11:00</div>
+              <div style="height: 64px; font-size: 12px; color: #9aa0ab; text-align: right; padding: 4px 8px 0 0;">12:00</div>
+              <div style="height: 64px; font-size: 12px; color: #9aa0ab; text-align: right; padding: 4px 8px 0 0;">13:00</div>
+              <div style="height: 64px; font-size: 12px; color: #9aa0ab; text-align: right; padding: 4px 8px 0 0;">14:00</div>
+              <div style="height: 64px; font-size: 12px; color: #9aa0ab; text-align: right; padding: 4px 8px 0 0;">15:00</div>
+            </div>
+            <div style="flex: 1; position: relative; background-image: repeating-linear-gradient(#f2f0ea 0 1px, transparent 1px 64px);">
+              <div style="position: absolute; top: 32px; left: 8px; right: 8px; height: 56px; background: var(--accent-tint, #EEF2F0); border-left: 4px solid var(--accent, #5B7B6F); border-radius: 8px; padding: 8px 12px;"><div style="font-size: 13px; font-weight: 700;">9:30 佐々木様</div><div style="font-size: 12px; color: #7b818d;">カット</div></div>
+              <div style="position: absolute; top: 128px; left: 8px; right: 8px; height: 160px; background: var(--accent-tint, #EEF2F0); border-left: 4px solid var(--accent, #5B7B6F); border-radius: 8px; padding: 10px 12px;"><div style="font-size: 13px; font-weight: 700;">11:00 山田様</div><div style="font-size: 12px; color: #7b818d; margin-top: 2px;">カット + カラー（150分）</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- mobile admin: list view -->
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div><div style="font-size: 14px; font-weight: 700; color: #5b6270;">I. スマホ版・予約リスト表示</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 3px; max-width: 375px;">用途：誰が何時に来るか・連絡先をさっと確認。移動中や接客の合間の素早い確認向き。</div></div>
+      <div style="width: 375px; height: 780px; background: #1a1c22; border-radius: 44px; padding: 10px; box-shadow: 0 24px 60px rgba(20,22,30,0.22);">
+        <div style="width: 100%; height: 100%; background: #f7f6f3; border-radius: 34px; overflow: hidden; display: flex; flex-direction: column;">
+          <div style="height: 26px; display: flex; align-items: center; justify-content: space-between; padding: 0 26px; font-size: 12px; font-weight: 700; flex-shrink: 0;"><span>9:41</span><span>●●●</span></div>
+          <div style="padding: 12px 18px; border-bottom: 1px solid #eceae4; background: #fff; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;"><span style="font-size: 17px; font-weight: 700;">7月18日（土）の予約</span><span style="font-size: 12px; background: var(--accent-tint, #EEF2F0); color: var(--accent-dark, #48645A); padding: 4px 10px; border-radius: 999px; font-weight: 700;">6件</span></div>
+          <div style="flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="background: #fff; border: 1px solid #ece9e3; border-radius: 12px; padding: 14px; display: flex; gap: 12px;"><div style="font-size: 16px; font-weight: 700; color: var(--accent-dark, #48645A); width: 52px;">9:30</div><div style="flex: 1;"><div style="font-size: 15px; font-weight: 700;">佐々木様</div><div style="font-size: 13px; color: #7b818d; margin-top: 2px;">カット ／ 田中</div></div></div>
+            <div style="background: #fff; border: 1px solid #ece9e3; border-radius: 12px; padding: 14px; display: flex; gap: 12px;"><div style="font-size: 16px; font-weight: 700; color: var(--accent-dark, #48645A); width: 52px;">10:00</div><div style="flex: 1;"><div style="font-size: 15px; font-weight: 700;">鈴木様</div><div style="font-size: 13px; color: #7b818d; margin-top: 2px;">パーマ ／ 佐藤</div></div></div>
+            <div style="background: #fff; border: 2px solid var(--accent, #5B7B6F); border-radius: 12px; padding: 14px; display: flex; gap: 12px; box-shadow: 0 2px 6px rgba(91,123,111,0.12);"><div style="font-size: 16px; font-weight: 700; color: var(--accent-dark, #48645A); width: 52px;">11:00</div><div style="flex: 1;"><div style="font-size: 15px; font-weight: 700;">山田様</div><div style="font-size: 13px; color: #7b818d; margin-top: 2px;">カット + カラー ／ 田中</div><div style="font-size: 12px; color: #9aa0ab; margin-top: 2px;">〜14:00 ・ ¥11,550</div></div></div>
+            <div style="background: #fff; border: 1px solid #ece9e3; border-radius: 12px; padding: 14px; display: flex; gap: 12px;"><div style="font-size: 16px; font-weight: 700; color: var(--accent-dark, #48645A); width: 52px;">14:00</div><div style="flex: 1;"><div style="font-size: 15px; font-weight: 700;">高橋様</div><div style="font-size: 13px; color: #7b818d; margin-top: 2px;">カット ／ 佐藤</div></div></div>
+            <div style="background: #fff; border: 1px solid #ece9e3; border-radius: 12px; padding: 14px; display: flex; gap: 12px;"><div style="font-size: 16px; font-weight: 700; color: var(--accent-dark, #48645A); width: 52px;">15:00</div><div style="flex: 1;"><div style="font-size: 15px; font-weight: 700;">井上様</div><div style="font-size: 13px; color: #7b818d; margin-top: 2px;">カラー ／ 田中</div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LINE Seed comparison note -->
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 14px; font-weight: 700; color: #5b6270;">J. フォント比較</div>
+      <div style="width: 375px; background: #fff; border: 1px solid #dfdcd4; border-radius: 16px; padding: 24px; box-shadow: 0 8px 24px rgba(20,22,30,0.06);">
+        <div style="font-size: 13px; color: #9aa0ab; font-weight: 700; margin-bottom: 16px;">右上 Tweaks の「font」で全画面を切替できます</div>
+        <div style="border: 1px solid #eceae4; border-radius: 12px; padding: 18px; margin-bottom: 14px;">
+          <div style="font-size: 11px; color: #9aa0ab; font-weight: 700; margin-bottom: 8px;">NOTO SANS JP（標準）</div>
+          <div style="font-family: 'Noto Sans JP', sans-serif; font-size: 22px; font-weight: 700;">メニューを選ぶ</div>
+          <div style="font-family: 'Noto Sans JP', sans-serif; font-size: 15px; color: #5b6270; margin-top: 4px;">カット + カラー ¥11,550 / 150分</div>
+        </div>
+        <div style="border: 1px solid #eceae4; border-radius: 12px; padding: 18px;">
+          <div style="font-size: 11px; color: #9aa0ab; font-weight: 700; margin-bottom: 8px;">LINE SEED JP（比較）</div>
+          <div style="font-family: 'LINE Seed JP', 'Noto Sans JP', sans-serif; font-size: 22px; font-weight: 700;">メニューを選ぶ</div>
+          <div style="font-family: 'LINE Seed JP', 'Noto Sans JP', sans-serif; font-size: 15px; color: #5b6270; margin-top: 4px;">カット + カラー ¥11,550 / 150分</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1600,&quot;height&quot;:1000},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;mauve&quot;,&quot;sage&quot;,&quot;slate&quot;,&quot;custom&quot;],&quot;default&quot;:&quot;mauve&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;テーマ&quot;},&quot;customAccent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:[&quot;#7C6BA3&quot;,&quot;#B5838D&quot;,&quot;#6D8B74&quot;,&quot;#476072&quot;,&quot;#C08457&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;テーマ&quot;},&quot;font&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;noto&quot;,&quot;lineseed&quot;],&quot;default&quot;:&quot;noto&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;テーマ&quot;}}">
+class Component extends DCLogic {
+  hexToRgb(h) { h = String(h).replace('#',''); if (h.length===3) h = h.split('').map(c=>c+c).join(''); return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)]; }
+  toHex(rgb) { return '#' + rgb.map(v => Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join(''); }
+  mix(hex, target, amt) { const a = this.hexToRgb(hex), b = this.hexToRgb(target); return this.toHex(a.map((v,i)=>v+(b[i]-v)*amt)); }
+  renderVals() {
+    const themes = {
+      mauve: { accent: '#9E6B6B', accentDark: '#7A4F4F', accentTint: '#F3EBEA' },
+      sage:  { accent: '#5B7B6F', accentDark: '#3F5A50', accentTint: '#EAF1EE' },
+      slate: { accent: '#4F6D7A', accentDark: '#3A525C', accentTint: '#E9F0F2' },
+    };
+    const key = this.props.theme || 'mauve';
+    let t;
+    if (key === 'custom') {
+      const ac = this.props.customAccent || '#7C6BA3';
+      t = { accent: ac, accentDark: this.mix(ac, '#000000', 0.34), accentTint: this.mix(ac, '#ffffff', 0.87) };
+    } else {
+      t = themes[key] || themes.mauve;
+    }
+    const fonts = {
+      noto: "'Noto Sans JP', sans-serif",
+      lineseed: "'LINE Seed JP', 'Noto Sans JP', sans-serif",
+    };
+    return {
+      accent: t.accent,
+      accentDark: t.accentDark,
+      accentTint: t.accentTint,
+      fontFamily: fonts[this.props.font] || fonts.noto,
+      palettes: [
+        { name: 'A. セージグリーン', note: '清潔感・自然体。美容室で人気', accent: '#5B7B6F', tint: '#EAF1EE' },
+        { name: 'B. モーヴ（採用）', note: '女性的で上品な温かみ', accent: '#9E6B6B', tint: '#F3EBEA' },
+        { name: 'C. スレートブルー', note: '落ち着き・信頼感。男女問わず', accent: '#4F6D7A', tint: '#E9F0F2' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
