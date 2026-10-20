@@ -3,7 +3,7 @@
 // 予約カレンダーの表示(配線に徹する)。日/週の配置計算は
 // src/lib/admin-calendar.ts が済ませており、ここは受け取った結果を描画し、
 // ナビゲーションをURL遷移(?view=&date=)に変換するだけ。
-// 色はスタッフの並び順から staff-colors.ts が決める(ADR-007)。
+// 色はスタッフの並び順から src/lib/staff-colors.ts が決める(ADR-007)。
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -41,7 +41,7 @@ import {
   type ReservationDialogTarget,
   type ReservationEditTarget,
 } from "./reservation-form-dialog";
-import { staffColor } from "./staff-colors";
+import { staffColor } from "@/lib/staff-colors";
 import {
   cardColumnAnchor,
   HourLines,
@@ -297,7 +297,7 @@ export function CalendarView({
           className={cn(
             "h-9 rounded-lg border px-3 text-sm font-bold transition-colors",
             isToday
-              ? "border-primary bg-accent text-accent-foreground"
+              ? "border-primary bg-accent text-primary-strong"
               : "border-border bg-card text-foreground hover:bg-muted",
           )}
         >
@@ -364,6 +364,7 @@ export function CalendarView({
           <WeekGrid
             staff={staff}
             weekView={weekView}
+            todayDate={todayDate}
             onSelect={formOpen ? undefined : openDetail}
             onCreateAt={
               formOpen
@@ -770,7 +771,7 @@ function ReservationList({
                 "transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             )}
           >
-            <span className="w-14 shrink-0 text-base font-bold text-primary">
+            <span className="w-14 shrink-0 text-base font-bold text-primary-strong">
               {item.timeLabel}
             </span>
             <div className="min-w-0">
@@ -793,11 +794,14 @@ function ReservationList({
 function WeekGrid({
   staff,
   weekView,
+  todayDate,
   onSelect,
   onCreateAt,
 }: {
   staff: AdminStaff[];
   weekView: WeekView;
+  /** 今日(JST)。曜日見出しで今日の列を示す */
+  todayDate: string;
   /** 省略 = フォームダイアログが開いている間。予約カードを押せなくする */
   onSelect?: (id: string, anchor: ColumnAnchor | null) => void;
   /**
@@ -848,10 +852,13 @@ function WeekGrid({
             {weekView.days.map((day) => (
               <div
                 key={day.date}
+                aria-current={day.date === todayDate ? "date" : undefined}
                 className={cn(
                   "border-l border-border px-2 py-2 text-center text-sm font-bold",
                   // 定休日は本体セルと同じ下地を敷き、列全体が休みだと一目で分かるようにする
                   day.isClosed && "bg-secondary text-muted-foreground",
+                  // 今日の列の見出しはテーマの淡色(モックB-2)。定休日の下地を優先する
+                  !day.isClosed && day.date === todayDate && "bg-accent",
                 )}
               >
                 {day.dayNumber} {day.weekdayLabel}
@@ -929,8 +936,8 @@ function WeekGrid({
                     const colorIndex =
                       colorIndexByStaffId.get(item.staffId) ?? 0;
                     const className = cn(
-                      // ring は定休日の下地(bg-secondary)と同色のカード
-                      // (staff-colors の3人目)でも輪郭が消えないようにする
+                      // ring は下地の明るいカード(2人目のニュートラルなど)でも、
+                      // 定休日・営業時間外の下地(bg-secondary)の上で輪郭が消えないようにする
                       "absolute overflow-hidden rounded-md border-l-4 px-1.5 py-1 text-left ring-1 ring-border",
                       // 日表示のカード(timeline-column.tsx)と同じ理由で、
                       // button 既定の上下中央寄せを打ち消して常に上詰めにする

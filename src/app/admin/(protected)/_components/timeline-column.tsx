@@ -1,6 +1,8 @@
 // 時間軸グリッドの部品(日表示PC・スマホ・週表示で共用する薄い描画層)。
 // 配置(top%・height%・ラベル)の計算は src/lib/admin-calendar.ts が済ませている。
 
+import { Coffee } from "lucide-react";
+
 import type { ColumnAnchor, PlacedBlock, TickMark } from "@/lib/admin-calendar";
 import { cn } from "@/lib/utils";
 
@@ -73,7 +75,9 @@ export function HourLines({ tickMarks }: { tickMarks: TickMark[] }) {
 /**
  * 配置済みブロック(予約・休憩・予約不可)を1列分描画する。
  * - 予約: スタッフ色の下地+左ボーダー+実線の輪郭(bookingCardClass)
- * - 休憩: bg-muted + 破線の枠(予約カードと違う「枠の形」で区別する)
+ * - 休憩: 休憩色の下地+左帯+コーヒーのアイコンと「休憩 13:00–13:30」ラベル
+ *   (モックB。下地は予約不可の bg-secondary とほぼ同色なので、帯・アイコン・
+ *   ラベルで区別する。docs/milestone-4c-plan.md「スタッフ色と休憩」)
  * - ブロック(kind=block): 斜線ハッチング+実線の輪郭+「予約不可」ラベル
  * onSelect が渡され、かつ予約(type="booking"で id あり)のときだけ
  * クリック可能にして予約詳細ダイアログを開く。休憩・ブロックは非クリック。
@@ -99,16 +103,24 @@ export function TimelineBlocks({
           block.id !== null;
         const content = (
           <>
-            <p
-              className={cn(
-                "truncate",
-                block.type === "booking"
-                  ? "text-sm font-bold"
-                  : "text-xs font-medium",
-              )}
-            >
-              {block.titleLabel}
-            </p>
+            {block.type === "break" ? (
+              // モックの「☕ 休憩 13:00–13:30」。絵文字は lucide のアイコンに置き換える
+              <p className="flex min-w-0 items-center gap-1 text-xs font-bold">
+                <Coffee aria-hidden="true" className="size-3.5 shrink-0" />
+                <span className="truncate">{block.titleLabel}</span>
+              </p>
+            ) : (
+              <p
+                className={cn(
+                  "truncate",
+                  block.type === "booking"
+                    ? "text-sm font-bold"
+                    : "text-xs font-medium",
+                )}
+              >
+                {block.titleLabel}
+              </p>
+            )}
             {/* menuLabel が入るのは予約カード(スタッフ色の下地)のみ。
                 muted-foreground では下地とのコントラストが約3.9:1 で薄いため、
                 foreground を弱めた濃さにする(約5.3:1。1行目の約10.3:1 より弱く、
@@ -128,7 +140,7 @@ export function TimelineBlocks({
         const className = cn(
           // ブロック同士が上下で接したときに切れ目が見えるよう、共通で細い輪郭を
           // 内側に引く(ring-inset。外側に出すと隣のブロックに重なる)。
-          // 休憩だけは破線の枠にして「予約ではない」ことを形でも示す
+          // 休憩はモックどおり輪郭なしで、左帯の色とラベルで「予約ではない」ことを示す
           "absolute inset-x-1 overflow-hidden rounded-lg px-2 py-1.5 text-left",
           // button はブラウザ既定で中身を上下中央・横中央に寄せるため、同じ
           // クラスでも div と縦位置が食い違っていた(押せる/押せないで動く)。
@@ -139,7 +151,7 @@ export function TimelineBlocks({
           block.type !== "break" && "ring-1 ring-inset ring-border",
           block.type === "booking" && cn("border-l-4", bookingCardClass),
           block.type === "break" &&
-            "border border-dashed border-muted-foreground/50 bg-muted text-muted-foreground",
+            "border-l-4 border-l-break bg-break-surface text-break-foreground",
           block.type === "block" &&
             "bg-secondary bg-[repeating-linear-gradient(45deg,transparent,transparent_6px,var(--color-border)_6px,var(--color-border)_7px)] text-secondary-foreground",
           clickable &&

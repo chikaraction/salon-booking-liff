@@ -171,10 +171,11 @@ export function DisplaySettingsForm({ settings }: Props) {
                   aria-describedby={CUSTOM_NOTE_ID}
                   className="sr-only"
                 />
-                {/* 装飾の色見本。新しいトークンは足さず、既存のスタッフ色で描く */}
+                {/* 装飾の色見本。新しいトークンは足さず、既存の色(テーマ色・
+                    3人目のスタッフ色・休憩色)で描く */}
                 <span
                   aria-hidden="true"
-                  className="size-[34px] shrink-0 rounded-full bg-[conic-gradient(var(--staff-1),var(--staff-2),var(--staff-3),var(--staff-1))]"
+                  className="size-[34px] shrink-0 rounded-full bg-[conic-gradient(var(--primary),var(--staff-3),var(--break),var(--primary))]"
                 />
                 <span className="flex min-w-0 flex-col">
                   <span className="text-base font-bold text-foreground">

@@ -22,12 +22,18 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
-  --color-staff-1: var(--staff-1);
+  /* スタッフ色(src/lib/staff-colors.ts)。1人目はテーマ色そのもの(帯・凡例 =
+     --primary、下地 = --accent)なので、:root に値を持たずここで直接指す。
+     [data-theme] でテーマが替わると1人目の色も追従する */
+  --color-staff-1: var(--primary);
   --color-staff-2: var(--staff-2);
   --color-staff-3: var(--staff-3);
-  --color-staff-1-surface: var(--staff-1-surface);
+  --color-staff-1-surface: var(--accent);
   --color-staff-2-surface: var(--staff-2-surface);
   --color-staff-3-surface: var(--staff-3-surface);
+  --color-break: var(--break);
+  --color-break-surface: var(--break-surface);
+  --color-break-foreground: var(--break-foreground);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -112,19 +118,24 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  /* スタッフ色(カレンダーの予約カード。staff-N=左ボーダーと凡例、
-     staff-N-surface=カードの下地)。chart-1〜5 は彩度0のグレーで、
-     休憩(--muted 0.94)・予約不可/定休日(--secondary 0.93)と明度が近く
-     見分けられなかったため、専用トークンを置く。下地は明度0.89前後で
-     --muted / --secondary / --background(0.965)/ --card(1.0)のいずれとも
-     明度差があり、彩度0.045以上で3人の色相(ローズ/アンバー/ダスティブルー)を
-     区別できる */
-  --staff-1: oklch(0.58 0.09 20);
-  --staff-2: oklch(0.6 0.085 80);
+  /* スタッフ色・休憩(カレンダー。モックの README「スタッフ色: 田中 = accent /
+     佐藤 = #B7B2A6(背景 #F0EFE9)/ 休憩 #C99A86(背景 #EFE6E0)」に合わせる。
+     方針は docs/milestone-4c-plan.md「スタッフ色と休憩」)。
+     staff-N = 予約カードの左帯と凡例、staff-N-surface = カードの下地。
+     1人目はテーマ色に追従させるため @theme inline 側で --primary / --accent を
+     直接指し、ここには置かない。2人目はニュートラル、3人目以降はダスティブルー。
+     休憩の下地(0.930 / 56°)は予約不可・定休日の --secondary(0.93 / 60°)と
+     ほぼ同色になる(モックも同じ)。色では区別せず、休憩は左帯(--break)と
+     「休憩 13:00–13:30」のラベル+アイコン、予約不可は斜線と「予約不可」ラベル、
+     定休日は「定休日」ラベルで区別する(timeline-column.tsx / calendar-view.tsx)。
+     --break-foreground は休憩の下地の上で約4.5:1 */
+  --staff-2: oklch(0.764 0.018 88); /* #b7b2a6 */
   --staff-3: oklch(0.55 0.07 215);
-  --staff-1-surface: oklch(0.89 0.05 20);
-  --staff-2-surface: oklch(0.895 0.055 80);
+  --staff-2-surface: oklch(0.951 0.008 99); /* #f0efe9 */
   --staff-3-surface: oklch(0.89 0.045 215);
+  --break: oklch(0.725 0.063 44); /* #c99a86 */
+  --break-surface: oklch(0.93 0.013 56); /* #efe6e0 */
+  --break-foreground: oklch(0.572 0.075 50.5); /* #9c6b4f */
   --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
