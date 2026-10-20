@@ -2,8 +2,9 @@
 
 // 管理画面サイドバー(モック02の左側)。
 // - 上部: 「{店名} 管理」
-// - ナビ: 予約カレンダー(/admin)・代行登録(/admin/reservations/new)+
-//   設定グループ(オーナーのみ。ADR-005)
+// - ナビ: 予約カレンダー(/admin)・代行登録(/admin/reservations/new)・
+//   ダッシュボード(/admin/dashboard)+ 設定グループ(オーナーのみ。ADR-005。
+//   営業日・営業時間 / スタッフ / メニュー / 店舗・予約設定 / 表示設定)
 // - 下部: ミニ集計スロット(miniSummary。後続タスクが埋める)+ログアウト
 // - スマホ幅(md未満)はヘッダーバー+ハンバーガーで折りたたみ(ADR-005)
 //
@@ -16,6 +17,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Palette,
   Plus,
   Store,
   UtensilsCrossed,
@@ -94,6 +96,13 @@ const SETTINGS_NAV_ITEMS: readonly SidebarNavItem[] = [
     href: "/admin/settings/salon",
     label: "店舗・予約設定",
     icon: Store,
+    ownerOnly: true,
+    implemented: true,
+  },
+  {
+    href: "/admin/settings/display",
+    label: "表示設定",
+    icon: Palette,
     ownerOnly: true,
     implemented: true,
   },

@@ -125,3 +125,18 @@ export function validateDisplaySettingsInput(
     value: { themePreset: input.themePreset, fontFamily: input.fontFamily },
   };
 }
+
+// ---------------------------------------------------------------------------
+// 4. 未保存の変更の判定(表示設定フォーム用)
+// ---------------------------------------------------------------------------
+
+/** 保存済みの値から変わっているか(保存ボタン・「未保存の変更」の表示に使う) */
+export function isDisplaySettingsChanged(
+  saved: DisplaySettings,
+  draft: DisplaySettings,
+): boolean {
+  return (
+    saved.themePreset !== draft.themePreset ||
+    saved.fontFamily !== draft.fontFamily
+  );
+}

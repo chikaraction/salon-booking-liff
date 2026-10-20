@@ -6,6 +6,7 @@ import {
   FONT_OPTIONS,
   THEME_PRESET_INVALID_MESSAGE,
   THEME_PRESETS,
+  isDisplaySettingsChanged,
   resolveDisplaySettings,
   validateDisplaySettingsInput,
 } from "./display-settings";
@@ -140,5 +141,34 @@ describe("validateDisplaySettingsInput", () => {
     expect(FONT_FAMILY_INVALID_MESSAGE).toBe(
       "フォントの選択が正しくありません",
     );
+  });
+});
+
+describe("isDisplaySettingsChanged", () => {
+  it("テーマもフォントも同じなら変更なし", () => {
+    expect(
+      isDisplaySettingsChanged(
+        { themePreset: "sage", fontFamily: "noto_sans_jp" },
+        { themePreset: "sage", fontFamily: "noto_sans_jp" },
+      ),
+    ).toBe(false);
+  });
+
+  it("テーマだけ違えば変更あり", () => {
+    expect(
+      isDisplaySettingsChanged(DEFAULT_DISPLAY_SETTINGS, {
+        ...DEFAULT_DISPLAY_SETTINGS,
+        themePreset: "slate",
+      }),
+    ).toBe(true);
+  });
+
+  it("フォントだけ違えば変更あり", () => {
+    expect(
+      isDisplaySettingsChanged(DEFAULT_DISPLAY_SETTINGS, {
+        ...DEFAULT_DISPLAY_SETTINGS,
+        fontFamily: "noto_sans_jp",
+      }),
+    ).toBe(true);
   });
 });

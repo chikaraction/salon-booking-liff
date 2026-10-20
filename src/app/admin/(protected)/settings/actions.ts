@@ -1,6 +1,6 @@
 "use server";
 
-// 設定系(営業日・スタッフ・メニュー・店舗設定)のServer Action。
+// 設定系(営業日・スタッフ・メニュー・店舗設定・表示設定)のServer Action。
 // 実施順序5〜8で各設定の保存アクションがここに増える。
 //
 // 置き場所: 設定レイアウトと同じディレクトリに置き、設定系のアクションをまとめる
@@ -42,6 +42,10 @@ import {
   type WeeklyHoursInput,
 } from "@/lib/business-settings";
 import { resolveBusinessDay, resolveStaffWorkingDay } from "@/lib/closures";
+import {
+  validateDisplaySettingsInput,
+  type DisplaySettingsInput,
+} from "@/lib/display-settings";
 import {
   countMenusByCategory,
   diffMenuCategories,
@@ -999,7 +1003,7 @@ export async function saveMenuCategories(
 /** 店舗・予約設定画面のパス(保存後の再検証に使う) */
 const SALON_SETTINGS_PATH = "/admin/settings/salon";
 
-/** 更新できた行が0件だったときの文言(店名・ポリシーで共通) */
+/** 更新できた行が0件だったときの文言(店名・ポリシー・表示設定で共通) */
 const SALON_SETTINGS_NOT_UPDATED_MESSAGE =
   "店舗設定を保存できませんでした。画面を再読み込みしてください";
 
@@ -1114,5 +1118,53 @@ export async function saveBookingPolicy(
   } catch (error) {
     console.error("saveBookingPolicy failed", error);
     return { ok: false, message: "予約の受付ルールの保存に失敗しました" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 表示設定(テーマカラーのプリセット・フォント)
+// ---------------------------------------------------------------------------
+
+/**
+ * 表示設定を保存する(salon_settings は id=true の単一行)。
+ * 検証は display-settings.ts の純粋関数(DBの check 制約と同じ候補の集合)。
+ *
+ * 反映先はルートレイアウトの <html data-theme / data-font> なので、客側・
+ * 管理画面のすべての画面に効く。ルートのレイアウトごと再検証する。
+ */
+export async function saveDisplaySettings(
+  input: DisplaySettingsInput,
+): Promise<SettingsActionResult> {
+  const guard = await requireOwner();
+  if (!guard.ok) return { ok: false, message: guard.message };
+
+  const validated = validateDisplaySettingsInput(input);
+  if (!validated.ok) {
+    return { ok: false, message: validated.message };
+  }
+
+  try {
+    const supabase = await createAdminAuthClient();
+    const { data, error } = await supabase
+      .from("salon_settings")
+      .update({
+        theme_preset: validated.value.themePreset,
+        font_family: validated.value.fontFamily,
+      })
+      .eq("id", true)
+      .select("id");
+    if (error !== null) {
+      console.error("saveDisplaySettings failed", error);
+      return { ok: false, message: "表示設定の保存に失敗しました" };
+    }
+    if (data === null || data.length === 0) {
+      return { ok: false, message: SALON_SETTINGS_NOT_UPDATED_MESSAGE };
+    }
+
+    revalidatePath("/", "layout");
+    return { ok: true };
+  } catch (error) {
+    console.error("saveDisplaySettings failed", error);
+    return { ok: false, message: "表示設定の保存に失敗しました" };
   }
 }
