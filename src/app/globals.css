@@ -2,6 +2,9 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* ダークは提供しない(docs/milestone-4c-plan.md)。この行を消すと Tailwind v4 の
+   dark: が既定の prefers-color-scheme に戻り、shadcn 部品同梱の dark: が OS 設定で
+   効いてしまうため残す。.dark クラスはどこでも付与しない */
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -143,49 +146,6 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  /* ダークでは --muted / --secondary / --accent がすべて oklch(0.269 0 0) で
-     同値のため、下地は明度0.36〜0.38(差0.09以上)に置いて休憩・予約不可と
-     必ず分離する。--card(0.205)・--background(0.145)よりも明るい */
-  --staff-1: oklch(0.72 0.1 20);
-  --staff-2: oklch(0.76 0.1 80);
-  --staff-3: oklch(0.7 0.09 215);
-  --staff-1-surface: oklch(0.36 0.05 20);
-  --staff-2-surface: oklch(0.38 0.05 80);
-  --staff-3-surface: oklch(0.36 0.045 215);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-}
-
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -195,5 +155,7 @@
   }
   html {
     @apply font-sans;
+    /* ライトのみ。OSがダークでもフォーム部品やスクロールバーを暗くしない */
+    color-scheme: light;
   }
 }
