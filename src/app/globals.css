@@ -10,9 +10,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(
-    --font-line-seed-jp
-  ); /* ADR-006の選択肢からLINE Seed JPを採用 */
+  /* 実体は --font-app(表示設定で切り替える。下の [data-font] を参照) */
+  --font-sans: var(--font-app);
   --font-mono: ui-monospace, monospace;
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -39,8 +38,11 @@
   --color-border: var(--border);
   --color-destructive: var(--destructive);
   /* --destructive の淡い側。破壊的アウトラインボタンの枠に使う(モックの枠
-     #e6c3bd に対応)。--color-primary-strong と同じく --destructive からの派生で、
-     ここに置く理由もそちらのコメントと同じ。
+     #e6c3bd に対応)。--destructive からの派生。:root のトークンではなくここに
+     置いているのは、Lightning CSS が「var() を含む color-mix」をカスタム
+     プロパティの値では落としてしまい(フォールバックを作れないため)、通常の
+     宣言でしか @supports 付きで残せないから。@theme inline なので値は
+     ユーティリティ側に展開される。
      混合比 35% は、#e6c3bd との OKLab での色差が最小になる値(結果は #eec2ba、
      色差 0.012)。混ぜる色空間を oklch ではなく oklab にしているのは、
      --card(oklch(1 0 0))の色相 0 が oklch の混合ではそのまま色相として補間され、
@@ -61,20 +63,13 @@
   /* --primary の濃い側。白地にテーマ色の文字を置く用(アウトラインボタンの
      文字など)。モックは accent と accentDark を対で持ち、アウトラインボタンは
      枠=accent・文字=accentDark なので、その濃い側に対応する。
-     --primary そのままだと白地で 4.38:1 と WCAG AA(4.5)に届かない。
-     固定値ではなく --primary からの派生なので、M4cでテーマを差し替えるときは
-     --primary だけ替えれば濃い側も追従する(新しい色相は増やさない)。
-     混ぜ先を黒ではなく --foreground にしているのは、暖色の系統を保てるのと、
-     ダークでは --foreground が明るいため自動的に明るい側へ寄るため。
-     :root のトークンではなくここに置いているのは、Lightning CSS が
-     「var() を含む color-mix」をカスタムプロパティの値では落としてしまい
-     (フォールバックを作れないため)、通常の宣言でしか @supports 付きで
-     残せないから。@theme inline なので値はユーティリティ側に展開される */
-  --color-primary-strong: color-mix(
-    in oklch,
-    var(--primary),
-    var(--foreground) 35%
-  );
+     --primary そのままだとモーヴは白地で 4.38:1 と WCAG AA(4.5)に届かない。
+     以前は --primary と --foreground の color-mix で派生させていたが、oklch の
+     混合は色相も補間するため、モーヴ以外では色相が --foreground 側へ崩れる
+     (セージ→オリーブ、スレート→紫)。そのためプリセットごとの固定値
+     (--primary-strong、値はモックの accentDark)にした。3案とも白地で
+     6.8:1 以上(docs/milestone-4c-plan.md の表) */
+  --color-primary-strong: var(--primary-strong);
   --color-primary: var(--primary);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
@@ -90,25 +85,21 @@
 }
 
 :root {
-  /* デザイントークン: モックのテーマB(モーヴ)。ADR-006「トークンは1ファイル」に従い
-     色・角丸はここだけで定義する。管理画面からのテーマ切替(DB駆動)はM4で、
-     この変数の値を差し替える形で対応する */
+  /* デザイントークン。ADR-006「トークンは1ファイル」に従い色・角丸はここだけで
+     定義する。ここは全プリセット共通のニュートラル等で、テーマカラーの
+     プリセット(表示設定・DB駆動)で変わる5トークンは下の [data-theme] の
+     ブロックに分けてある */
   --background: oklch(0.965 0.006 78); /* 温かみのあるオフホワイト */
   --foreground: oklch(0.28 0.012 35);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.28 0.012 35);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.28 0.012 35);
-  --primary: oklch(0.58 0.05 22); /* モーヴ(主ボタン・選択状態) */
   --primary-foreground: oklch(0.985 0.005 80);
-  /* --primary の濃い側(--color-primary-strong)は @theme inline 側で
-     --primary からの派生として定義している。理由はそちらのコメント参照 */
   --secondary: oklch(0.93 0.012 60); /* チップ・頭文字サークルの背景 */
   --secondary-foreground: oklch(0.38 0.02 30);
   --muted: oklch(0.94 0.008 75);
   --muted-foreground: oklch(0.52 0.015 45);
-  --accent: oklch(0.93 0.022 30); /* 合計行・案内ボックスの淡いモーヴ */
-  --accent-foreground: oklch(0.38 0.035 25);
   /* 警告・破壊的な色。モックは #c0503f(落ち着いたテラコッタ)を、破壊的ボタン・
      必須マーク・休業バッジ・日曜の文字など、警告系のすべてに一貫して使っている。
      白地(--card)で 4.71:1 と WCAG AA(4.5)を満たす。破壊的アウトラインの枠
@@ -116,7 +107,6 @@
   --destructive: oklch(0.574 0.148 30.8); /* #c0503f */
   --border: oklch(0.9 0.01 60);
   --input: oklch(0.88 0.012 50);
-  --ring: oklch(0.58 0.05 22);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -144,6 +134,60 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+}
+
+/* テーマカラーのプリセット(salon_settings.theme_preset。表示設定で切り替える)。
+   変わるのは --primary(主ボタン・選択状態)/ --ring / --accent(合計行・案内
+   ボックスなどの淡い面)/ --accent-foreground / --primary-strong(白地に置く
+   テーマ色の文字)の5つだけ。ルートレイアウトが <html data-theme> を付ける。
+   セレクタを :root[...] にしないのは、表示設定画面の色見本を data-theme を
+   付けた要素で囲むだけでそのプリセットの色にするため(色の値をTS側に持たない)。
+   --accent / --accent-foreground は明度・彩度(0.93 / 0.022、0.38 / 0.035)を
+   揃え、色相だけを各プリセットに合わせる。IDの集合は src/lib/display-settings.ts */
+
+/* B. モーヴ(既定)。:root にも当てるのは data-theme が無いときの既定のため、
+   [data-theme="mauve"] にも当てるのは、ほかのプリセットの画面の中に置いた
+   モーヴの色見本を正しくモーヴに戻すため。--primary はモック(#9e6b6b)より
+   彩度を抑えた M1 からの承認済みの値。白文字 on primary は 4.38:1 で AA(4.5)
+   未満だが、承認済みの現状として変えない */
+:root,
+[data-theme="mauve"] {
+  --primary: oklch(0.58 0.05 22);
+  --ring: oklch(0.58 0.05 22);
+  --accent: oklch(0.93 0.022 30);
+  --accent-foreground: oklch(0.38 0.035 25);
+  --primary-strong: oklch(0.476 0.058 19.5); /* モック accentDark #7a4f4f */
+}
+
+/* A. セージグリーン(モック accent #5b7b6f。白文字 on primary 4.66:1) */
+[data-theme="sage"] {
+  --primary: oklch(0.555 0.041 170);
+  --ring: oklch(0.555 0.041 170);
+  --accent: oklch(0.93 0.022 170);
+  --accent-foreground: oklch(0.38 0.035 170);
+  --primary-strong: oklch(0.443 0.036 170); /* モック accentDark #3f5a50 */
+}
+
+/* C. スレートブルー(モック accent #4f6d7a。白文字 on primary 5.52:1) */
+[data-theme="slate"] {
+  --primary: oklch(0.516 0.04 227);
+  --ring: oklch(0.516 0.04 227);
+  --accent: oklch(0.93 0.022 227);
+  --accent-foreground: oklch(0.38 0.035 227);
+  --primary-strong: oklch(0.423 0.034 226); /* モック accentDark #3a525c */
+}
+
+/* フォント(salon_settings.font_family)。ルートレイアウトが <html data-font> と
+   両フォントの変数(next/font)を付ける。--font-sans(@theme inline)はこの
+   --font-app を指す。@theme inline の中ではなく通常の宣言に置くのは、
+   data-font を付けた要素ごとに再スコープさせるため(表示設定のプレビュー) */
+:root,
+[data-font="line_seed_jp"] {
+  --font-app: var(--font-line-seed-jp);
+}
+
+[data-font="noto_sans_jp"] {
+  --font-app: var(--font-noto-sans-jp);
 }
 
 @layer base {
