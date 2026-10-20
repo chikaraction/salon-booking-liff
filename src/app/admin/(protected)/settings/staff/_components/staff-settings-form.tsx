@@ -785,6 +785,7 @@ function WorkingHoursSection({
 
           {workingDaysOnly.length > 1 && firstWorkingDay !== undefined && (
             <div>
+              {/* 文言が長いのでスマホ幅では折り返す(Buttonの基底はwhitespace-nowrap)。sm以上は1行のまま */}
               <Button
                 type="button"
                 variant="outline"
@@ -794,7 +795,7 @@ function WorkingHoursSection({
                     applyTimesToWorkingDays(current, firstWorkingDay.weekday),
                   );
                 }}
-                className="h-11 rounded-xl px-4 text-base"
+                className="h-auto min-h-11 rounded-xl px-4 py-2 text-left text-base whitespace-normal sm:h-11 sm:py-0 sm:whitespace-nowrap"
               >
                 {weekdayLongLabel(firstWorkingDay.weekday)}
                 と同じ時刻をすべての勤務日に適用
