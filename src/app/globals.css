@@ -153,8 +153,11 @@
    テーマ色の文字)の5つだけ。ルートレイアウトが <html data-theme> を付ける。
    セレクタを :root[...] にしないのは、表示設定画面の色見本を data-theme を
    付けた要素で囲むだけでそのプリセットの色にするため(色の値をTS側に持たない)。
-   --accent / --accent-foreground は明度・彩度(0.93 / 0.022、0.38 / 0.035)を
-   揃え、色相だけを各プリセットに合わせる。IDの集合は src/lib/display-settings.ts */
+   --accent はモックの accentTint そのもの(docs/mockups/README.md の Theme 表)。
+   以前は M2 のモーヴの値(0.93 / 0.022)の明度・彩度を保って色相だけ替えて
+   いたが、セージ・スレートでモックより緑・青が強く出ていたため揃えた
+   (docs/milestone-4c-plan.md)。--accent-foreground は明度・彩度(0.38 / 0.035)
+   を揃え、色相だけを各プリセットに合わせる。IDの集合は src/lib/display-settings.ts */
 
 /* B. モーヴ(既定)。:root にも当てるのは data-theme が無いときの既定のため、
    [data-theme="mauve"] にも当てるのは、ほかのプリセットの画面の中に置いた
@@ -165,7 +168,7 @@
 [data-theme="mauve"] {
   --primary: oklch(0.58 0.05 22);
   --ring: oklch(0.58 0.05 22);
-  --accent: oklch(0.93 0.022 30);
+  --accent: oklch(0.946 0.009 26); /* モック accentTint #f3ebea */
   --accent-foreground: oklch(0.38 0.035 25);
   --primary-strong: oklch(0.476 0.058 19.5); /* モック accentDark #7a4f4f */
 }
@@ -174,7 +177,7 @@
 [data-theme="sage"] {
   --primary: oklch(0.555 0.041 170);
   --ring: oklch(0.555 0.041 170);
-  --accent: oklch(0.93 0.022 170);
+  --accent: oklch(0.952 0.008 169); /* モック accentTint #eaf1ee */
   --accent-foreground: oklch(0.38 0.035 170);
   --primary-strong: oklch(0.443 0.036 170); /* モック accentDark #3f5a50 */
 }
@@ -183,7 +186,7 @@
 [data-theme="slate"] {
   --primary: oklch(0.516 0.04 227);
   --ring: oklch(0.516 0.04 227);
-  --accent: oklch(0.93 0.022 227);
+  --accent: oklch(0.95 0.008 217); /* モック accentTint #e9f0f2 */
   --accent-foreground: oklch(0.38 0.035 227);
   --primary-strong: oklch(0.423 0.034 226); /* モック accentDark #3a525c */
 }
