@@ -207,8 +207,11 @@ export function DisplaySettingsForm({ settings }: Props) {
                     // font-family を取り直す(body から継承した値のままだと
                     // 変数を差し替えても書体が変わらないため)
                     data-font={option.id}
+                    // スマホ幅では2つを均等幅にして文字を折り返さない
+                    // (375px幅で各約147px、太字16pxの「LINE Seed JP」は約113px)。
+                    // sm 以上は内容幅 + 広めの余白
                     className={cn(
-                      "relative flex h-12 cursor-pointer items-center border-[1.5px] px-5 font-sans text-base font-bold transition-colors has-focus-visible:z-10 has-focus-visible:ring-3 has-focus-visible:ring-ring/50 sm:px-8",
+                      "relative flex h-12 flex-1 cursor-pointer items-center justify-center border-[1.5px] px-3 font-sans text-base font-bold whitespace-nowrap transition-colors has-focus-visible:z-10 has-focus-visible:ring-3 has-focus-visible:ring-ring/50 sm:flex-none sm:px-8",
                       index === 0 ? "rounded-l-xl" : "-ml-[1.5px]",
                       index === FONT_OPTIONS.length - 1 && "rounded-r-xl",
                       selected
