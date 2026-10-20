@@ -86,7 +86,7 @@ export function MenuSettingsForm({ groups, menuCounts }: Props) {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 md:px-8 md:py-10">
-      <div className="overflow-hidden rounded-2xl bg-card">
+      <div className="overflow-hidden rounded-2xl border border-border bg-card">
         <div className="flex flex-wrap items-center justify-between gap-3 p-6 pb-4 md:p-8 md:pb-4">
           <h1 className="text-2xl font-bold text-foreground">メニュー管理</h1>
           <div className="flex flex-wrap gap-2">
@@ -261,10 +261,10 @@ function CategorySection({
 
   return (
     <section aria-labelledby={`category-${group.id}`}>
-      {/* カテゴリ名の区切り行(モックFの淡色の行) */}
+      {/* カテゴリ名の区切り行(モックFの淡色の行。文字はテーマ色の濃い側) */}
       <h2
         id={`category-${group.id}`}
-        className="bg-muted px-6 py-2 text-sm font-bold text-muted-foreground md:px-8"
+        className="bg-muted px-6 py-2 text-sm font-bold text-primary-strong md:px-8"
       >
         {group.name}
       </h2>
@@ -338,7 +338,7 @@ function MenuRow({
         transition,
       }}
       className={cn(
-        "border-t border-border bg-card first:border-t-0",
+        "border-t border-row-divider bg-card first:border-t-0",
         isDragging && "relative z-10 shadow-lg",
       )}
     >
@@ -582,7 +582,7 @@ function MenuEditDialog({
         </div>
 
         {/* 物理削除は提供しない。文言も純粋関数側(lib)に置いて画面と揃える */}
-        <p className="rounded-lg bg-accent px-4 py-3 text-sm text-accent-foreground">
+        <p className="rounded-lg bg-accent px-4 py-3 text-sm text-primary-strong">
           {MENU_HIDE_INSTEAD_OF_DELETE_LINES.map((line, index) => (
             <Fragment key={line}>
               {index > 0 && <br />}

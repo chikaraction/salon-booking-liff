@@ -426,9 +426,11 @@ export function BookingWizard({
       )}
       {step === "confirm" && <WizardHeader step={4} title="内容の確認" />}
 
-      {/* 変更モード: 変更元がわかる控えめな表示(完了画面では出さない) */}
+      {/* 変更モード: 変更元がわかる控えめな表示(完了画面では出さない)。
+          地はページ背景(#f7f6f3)との差を保つため --secondary(#f2f0ea)をそのまま敷く
+          (半透明だとページ背景とほぼ同じ色になる) */}
       {changeState.status === "ready" && step !== "complete" && (
-        <p className="border-b border-border bg-secondary/60 px-4 py-2 text-sm text-secondary-foreground">
+        <p className="border-b border-border bg-secondary px-4 py-2 text-sm text-secondary-foreground">
           予約の変更(変更前: {changeState.source.dateTimeLabel})
         </p>
       )}

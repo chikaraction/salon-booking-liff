@@ -456,15 +456,17 @@ export function ProxyRegistrationForm({
                 )}
               </div>
 
-              {/* 候補リスト(選択で既存顧客に確定) */}
+              {/* 候補リスト(選択で既存顧客に確定)。モックDどおり行どうしを淡い線で
+                  分ける(divide-y なので最初の行の上と最後の行の下には引かない) */}
               {selectedCustomer === null && candidates.length > 0 && (
-                <ul className="mt-2 overflow-hidden rounded-xl border border-border">
+                <ul className="mt-2 divide-y divide-row-divider overflow-hidden rounded-xl border border-border">
                   {candidates.map((customer) => (
                     <li key={customer.id}>
                       <button
                         type="button"
                         onClick={() => selectCustomer(customer)}
-                        className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left hover:bg-muted"
+                        // 候補のホバーはテーマの淡色(モックD: 候補の強調行は accentTint)
+                        className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left hover:bg-accent"
                       >
                         <span className="text-base font-bold">
                           {customer.name}
@@ -676,9 +678,11 @@ export function ProxyRegistrationForm({
                             }}
                             className={cn(
                               "flex h-11 items-center justify-center rounded-xl border text-base font-bold transition-colors",
+                              // 選べる時刻の枠は客側の日時選択(モック #d5d2ca)と同じ
+                              // --input。埋まっている時刻(--border)より濃くする
                               option.time === time
                                 ? "border-primary bg-primary text-primary-foreground"
-                                : "border-border bg-card hover:bg-muted",
+                                : "border-input bg-card hover:bg-muted",
                             )}
                           >
                             {option.time}
@@ -704,7 +708,7 @@ export function ProxyRegistrationForm({
               className={cn(
                 "rounded-xl px-4 py-3 text-base",
                 availability.status === "available" &&
-                  "bg-accent text-accent-foreground",
+                  "bg-accent text-primary-strong",
                 (availability.status === "past" ||
                   availability.status === "closed") &&
                   "bg-destructive/10 text-destructive",

@@ -39,7 +39,7 @@ export function StepCustomerInfo({
         caption="当日のご連絡に使用します"
         onChange={onChangePhone}
       />
-      <p className="rounded-xl bg-accent p-4 text-base text-accent-foreground">
+      <p className="rounded-xl bg-accent p-4 text-base text-primary-strong">
         LINEアカウントと紐づくため、次回以降はログインだけで予約できます。
       </p>
     </div>

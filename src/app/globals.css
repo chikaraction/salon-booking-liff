@@ -2,14 +2,16 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* ダークは提供しない(docs/milestone-4c-plan.md)。この行を消すと Tailwind v4 の
+   dark: が既定の prefers-color-scheme に戻り、shadcn 部品同梱の dark: が OS 設定で
+   効いてしまうため残す。.dark クラスはどこでも付与しない */
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(
-    --font-line-seed-jp
-  ); /* ADR-006の選択肢からLINE Seed JPを採用 */
+  /* 実体は --font-app(表示設定で切り替える。下の [data-font] を参照) */
+  --font-sans: var(--font-app);
   --font-mono: ui-monospace, monospace;
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -20,12 +22,23 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
-  --color-staff-1: var(--staff-1);
+  --color-calendar-header: var(--calendar-header);
+  --color-calendar-divider: var(--calendar-divider);
+  --color-grid-line: var(--grid-line);
+  --color-calendar-closed: var(--calendar-closed);
+  --color-calendar-closed-line: var(--calendar-closed-line);
+  /* スタッフ色(src/lib/staff-colors.ts)。1人目はテーマ色そのもの(帯・凡例 =
+     --primary、下地 = --accent)なので、:root に値を持たずここで直接指す。
+     [data-theme] でテーマが替わると1人目の色も追従する */
+  --color-staff-1: var(--primary);
   --color-staff-2: var(--staff-2);
   --color-staff-3: var(--staff-3);
-  --color-staff-1-surface: var(--staff-1-surface);
+  --color-staff-1-surface: var(--accent);
   --color-staff-2-surface: var(--staff-2-surface);
   --color-staff-3-surface: var(--staff-3-surface);
+  --color-break: var(--break);
+  --color-break-surface: var(--break-surface);
+  --color-break-foreground: var(--break-foreground);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -34,10 +47,14 @@
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
+  --color-row-divider: var(--row-divider);
   --color-destructive: var(--destructive);
   /* --destructive の淡い側。破壊的アウトラインボタンの枠に使う(モックの枠
-     #e6c3bd に対応)。--color-primary-strong と同じく --destructive からの派生で、
-     ここに置く理由もそちらのコメントと同じ。
+     #e6c3bd に対応)。--destructive からの派生。:root のトークンではなくここに
+     置いているのは、Lightning CSS が「var() を含む color-mix」をカスタム
+     プロパティの値では落としてしまい(フォールバックを作れないため)、通常の
+     宣言でしか @supports 付きで残せないから。@theme inline なので値は
+     ユーティリティ側に展開される。
      混合比 35% は、#e6c3bd との OKLab での色差が最小になる値(結果は #eec2ba、
      色差 0.012)。混ぜる色空間を oklch ではなく oklab にしているのは、
      --card(oklch(1 0 0))の色相 0 が oklch の混合ではそのまま色相として補間され、
@@ -58,20 +75,13 @@
   /* --primary の濃い側。白地にテーマ色の文字を置く用(アウトラインボタンの
      文字など)。モックは accent と accentDark を対で持ち、アウトラインボタンは
      枠=accent・文字=accentDark なので、その濃い側に対応する。
-     --primary そのままだと白地で 4.38:1 と WCAG AA(4.5)に届かない。
-     固定値ではなく --primary からの派生なので、M4cでテーマを差し替えるときは
-     --primary だけ替えれば濃い側も追従する(新しい色相は増やさない)。
-     混ぜ先を黒ではなく --foreground にしているのは、暖色の系統を保てるのと、
-     ダークでは --foreground が明るいため自動的に明るい側へ寄るため。
-     :root のトークンではなくここに置いているのは、Lightning CSS が
-     「var() を含む color-mix」をカスタムプロパティの値では落としてしまい
-     (フォールバックを作れないため)、通常の宣言でしか @supports 付きで
-     残せないから。@theme inline なので値はユーティリティ側に展開される */
-  --color-primary-strong: color-mix(
-    in oklch,
-    var(--primary),
-    var(--foreground) 35%
-  );
+     --primary そのままだとモーヴは白地で 4.38:1 と WCAG AA(4.5)に届かない。
+     以前は --primary と --foreground の color-mix で派生させていたが、oklch の
+     混合は色相も補間するため、モーヴ以外では色相が --foreground 側へ崩れる
+     (セージ→オリーブ、スレート→紫)。そのためプリセットごとの固定値
+     (--primary-strong、値はモックの accentDark)にした。3案とも白地で
+     6.8:1 以上(docs/milestone-4c-plan.md の表) */
+  --color-primary-strong: var(--primary-strong);
   --color-primary: var(--primary);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
@@ -87,103 +97,151 @@
 }
 
 :root {
-  /* デザイントークン: モックのテーマB(モーヴ)。ADR-006「トークンは1ファイル」に従い
-     色・角丸はここだけで定義する。管理画面からのテーマ切替(DB駆動)はM4で、
-     この変数の値を差し替える形で対応する */
-  --background: oklch(0.965 0.006 78); /* 温かみのあるオフホワイト */
+  /* デザイントークン。ADR-006「トークンは1ファイル」に従い色・角丸はここだけで
+     定義する。ここは全プリセット共通のニュートラル等で、テーマカラーの
+     プリセット(表示設定・DB駆動)で変わる5トークンは下の [data-theme] の
+     ブロックに分けてある。
+     ニュートラル(地・枠・区切り線・チップ)はモック(docs/mockups/README.md の
+     Neutrals、mock.dc.html)の黄みのグレー(色相 約88〜92°)に揃えてある。揃えた値の
+     横の hex はモックの元の色。方針と照合結果は docs/milestone-4c-plan.md
+     「ニュートラルのトークンをモックに揃える」。文字色(--foreground /
+     --muted-foreground / --secondary-foreground)は揃えない(同文書「文字色は変えない」) */
+  /* #f7f6f3 ページ背景(モックの客側の地)。--muted と同じ値なので、--muted の面を
+     ページ背景に直接置かない(白いカードの中に置く) */
+  --background: oklch(0.973 0.004 91.4);
   --foreground: oklch(0.28 0.012 35);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.28 0.012 35);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.28 0.012 35);
-  --primary: oklch(0.58 0.05 22); /* モーヴ(主ボタン・選択状態) */
   --primary-foreground: oklch(0.985 0.005 80);
-  /* --primary の濃い側(--color-primary-strong)は @theme inline 側で
-     --primary からの派生として定義している。理由はそちらのコメント参照 */
-  --secondary: oklch(0.93 0.012 60); /* チップ・頭文字サークルの背景 */
+  /* #f2f0ea 未選択のチップ・トグル・頭文字の丸の地。上の文字は --muted-foreground
+     (約4.9:1)。hover は地を3%だけ濃くする(4.58:1。5%だと 4.41:1 で AA を割る) */
+  --secondary: oklch(0.955 0.008 91.5);
   --secondary-foreground: oklch(0.38 0.02 30);
-  --muted: oklch(0.94 0.008 75);
+  /* #f7f6f3 設定の行・スタッフメモ・案内の淡い面(白いカードの中に置く) */
+  --muted: oklch(0.973 0.004 91.4);
   --muted-foreground: oklch(0.52 0.015 45);
-  --accent: oklch(0.93 0.022 30); /* 合計行・案内ボックスの淡いモーヴ */
-  --accent-foreground: oklch(0.38 0.035 25);
   /* 警告・破壊的な色。モックは #c0503f(落ち着いたテラコッタ)を、破壊的ボタン・
      必須マーク・休業バッジ・日曜の文字など、警告系のすべてに一貫して使っている。
      白地(--card)で 4.71:1 と WCAG AA(4.5)を満たす。破壊的アウトラインの枠
      (--color-destructive-soft)は @theme inline 側でここからの派生として定義している */
   --destructive: oklch(0.574 0.148 30.8); /* #c0503f */
-  --border: oklch(0.9 0.01 60);
-  --input: oklch(0.88 0.012 50);
-  --ring: oklch(0.58 0.05 22);
+  --border: oklch(0.919 0.01 87.5); /* #e7e4dd カードの枠・区切り線 */
+  /* カードの中の行と行の間の線(客4 の確認カード・代行登録の候補リスト・
+     臨時休業の一覧・メニューの行)。カードの外枠(--border)や見出しとの区切りより
+     一段淡い。モックは #f2f0ea と #f0eee9 を使っているが #f2f0ea に統一する。
+     値は --secondary と同じだが、あちらは地(チップの面)でこちらは線なので別トークン */
+  --row-divider: oklch(0.955 0.008 91.5); /* #f2f0ea */
+  --input: oklch(0.864 0.011 89.7); /* #d5d2ca 入力欄・アウトラインボタンの枠 */
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  /* スタッフ色(カレンダーの予約カード。staff-N=左ボーダーと凡例、
-     staff-N-surface=カードの下地)。chart-1〜5 は彩度0のグレーで、
-     休憩(--muted 0.94)・予約不可/定休日(--secondary 0.93)と明度が近く
-     見分けられなかったため、専用トークンを置く。下地は明度0.89前後で
-     --muted / --secondary / --background(0.965)/ --card(1.0)のいずれとも
-     明度差があり、彩度0.045以上で3人の色相(ローズ/アンバー/ダスティブルー)を
-     区別できる */
-  --staff-1: oklch(0.58 0.09 20);
-  --staff-2: oklch(0.6 0.085 80);
+  /* スタッフ色・休憩(カレンダー。モックの README「スタッフ色: 田中 = accent /
+     佐藤 = #B7B2A6(背景 #F0EFE9)/ 休憩 #C99A86(背景 #EFE6E0)」に合わせる。
+     方針は docs/milestone-4c-plan.md「スタッフ色と休憩」)。
+     staff-N = 予約カードの左帯と凡例、staff-N-surface = カードの下地。
+     1人目はテーマ色に追従させるため @theme inline 側で --primary / --accent を
+     直接指し、ここには置かない。2人目はニュートラル、3人目以降はダスティブルー。
+     休憩の下地(0.930 / 56°)は予約不可・定休日の --calendar-closed(0.93 / 60°)と
+     ほぼ同色になる(モックも同じ)。色では区別せず、休憩は左帯(--break)と
+     「休憩 13:00–13:30」のラベル+アイコン、予約不可は斜線と「予約不可」ラベル、
+     定休日は「定休日」ラベルで区別する(timeline-column.tsx / calendar-view.tsx)。
+     --break-foreground は休憩の下地の上で約4.5:1 */
+  --staff-2: oklch(0.764 0.018 88); /* #b7b2a6 */
   --staff-3: oklch(0.55 0.07 215);
-  --staff-1-surface: oklch(0.89 0.05 20);
-  --staff-2-surface: oklch(0.895 0.055 80);
+  --staff-2-surface: oklch(0.951 0.008 99); /* #f0efe9 */
   --staff-3-surface: oklch(0.89 0.045 215);
+  --break: oklch(0.725 0.063 44); /* #c99a86 */
+  --break-surface: oklch(0.93 0.013 56); /* #efe6e0 */
+  --break-foreground: oklch(0.572 0.075 50.5); /* #9c6b4f */
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
+  /* 管理画面のサイドバーと予約カレンダーの地・罫線。モック(docs/mockups/README.md
+     の Neutrals、mock.dc.html の B・B-2・H)準拠で、テーマに依らない3テーマ共通の
+     ニュートラル。サイドバーは淡いベージュの地+境界線、カレンダーは白(--card)の
+     地に淡い見出し・罫線を置く(予約カレンダー以外のページはページ背景+白いカードの
+     まま)。--sidebar / --sidebar-border は shadcn 既定の未使用トークンをこの値に
+     置き換えて使う。ほかの --sidebar-* はどこからも使っていない(shadcn 既定のまま) */
+  --sidebar: oklch(0.961 0.008 91.5); /* #f4f2ec サイドバーの地 */
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
+  /* #e6e3dc サイドバーの右の境界線・ミニ集計カードの枠 */
+  --sidebar-border: oklch(0.916 0.01 87.5);
   --sidebar-ring: oklch(0.708 0 0);
+  --calendar-header: oklch(0.982 0.004 91.4); /* #faf9f6 列見出しの地 */
+  /* #eceae4 区切り線(ツールバーの下・列見出しの下・時刻列の右・列の間) */
+  --calendar-divider: oklch(0.937 0.008 91.5);
+  --grid-line: oklch(0.955 0.008 91.5); /* #f2f0ea 1時間ごとの横罫線 */
+  /* カレンダーの「開いていない時間」の地。週表示の定休日の列と見出し、営業時間外の帯
+     (半分の濃さ = bg-calendar-closed/50)、日表示の予約不可ブロック、定休日のお知らせ
+     帯に使う。値はニュートラルをモックに揃える前の --secondary(#eee6e0)のままにして、
+     白いカレンダーの地との見分けやすさを保つ(新しい --secondary #f2f0ea だと淡すぎる)。
+     --calendar-closed-line はその上でも見える線の色で、揃える前の --border(#e3ddd8)。
+     予約不可の斜線・予約不可ブロックの輪郭・週表示の予約カードの輪郭に使う */
+  --calendar-closed: oklch(0.93 0.012 60); /* #eee6e0 */
+  --calendar-closed-line: oklch(0.9 0.01 60); /* #e3ddd8 */
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  /* ダークでは --muted / --secondary / --accent がすべて oklch(0.269 0 0) で
-     同値のため、下地は明度0.36〜0.38(差0.09以上)に置いて休憩・予約不可と
-     必ず分離する。--card(0.205)・--background(0.145)よりも明るい */
-  --staff-1: oklch(0.72 0.1 20);
-  --staff-2: oklch(0.76 0.1 80);
-  --staff-3: oklch(0.7 0.09 215);
-  --staff-1-surface: oklch(0.36 0.05 20);
-  --staff-2-surface: oklch(0.38 0.05 80);
-  --staff-3-surface: oklch(0.36 0.045 215);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+/* テーマカラーのプリセット(salon_settings.theme_preset。表示設定で切り替える)。
+   変わるのは --primary(主ボタン・選択状態)/ --ring / --accent(合計行・案内
+   ボックスなどの淡い面)/ --accent-foreground / --primary-strong(白地に置く
+   テーマ色の文字)の5つだけ。ルートレイアウトが <html data-theme> を付ける。
+   セレクタを :root[...] にしないのは、表示設定画面の色見本を data-theme を
+   付けた要素で囲むだけでそのプリセットの色にするため(色の値をTS側に持たない)。
+   --accent はモックの accentTint そのもの(docs/mockups/README.md の Theme 表)。
+   以前は M2 のモーヴの値(0.93 / 0.022)の明度・彩度を保って色相だけ替えて
+   いたが、セージ・スレートでモックより緑・青が強く出ていたため揃えた
+   (docs/milestone-4c-plan.md)。--accent-foreground は明度・彩度(0.38 / 0.035)
+   を揃え、色相だけを各プリセットに合わせる。IDの集合は src/lib/display-settings.ts */
+
+/* B. モーヴ(既定)。:root にも当てるのは data-theme が無いときの既定のため、
+   [data-theme="mauve"] にも当てるのは、ほかのプリセットの画面の中に置いた
+   モーヴの色見本を正しくモーヴに戻すため。--primary はモック(#9e6b6b)より
+   彩度を抑えた M1 からの承認済みの値。白文字 on primary は 4.38:1 で AA(4.5)
+   未満だが、承認済みの現状として変えない */
+:root,
+[data-theme="mauve"] {
+  --primary: oklch(0.58 0.05 22);
+  --ring: oklch(0.58 0.05 22);
+  --accent: oklch(0.946 0.009 26); /* モック accentTint #f3ebea */
+  --accent-foreground: oklch(0.38 0.035 25);
+  --primary-strong: oklch(0.476 0.058 19.5); /* モック accentDark #7a4f4f */
+}
+
+/* A. セージグリーン(モック accent #5b7b6f。白文字 on primary 4.66:1) */
+[data-theme="sage"] {
+  --primary: oklch(0.555 0.041 170);
+  --ring: oklch(0.555 0.041 170);
+  --accent: oklch(0.952 0.008 169); /* モック accentTint #eaf1ee */
+  --accent-foreground: oklch(0.38 0.035 170);
+  --primary-strong: oklch(0.443 0.036 170); /* モック accentDark #3f5a50 */
+}
+
+/* C. スレートブルー(モック accent #4f6d7a。白文字 on primary 5.52:1) */
+[data-theme="slate"] {
+  --primary: oklch(0.516 0.04 227);
+  --ring: oklch(0.516 0.04 227);
+  --accent: oklch(0.95 0.008 217); /* モック accentTint #e9f0f2 */
+  --accent-foreground: oklch(0.38 0.035 227);
+  --primary-strong: oklch(0.423 0.034 226); /* モック accentDark #3a525c */
+}
+
+/* フォント(salon_settings.font_family)。ルートレイアウトが <html data-font> と
+   両フォントの変数(next/font)を付ける。--font-sans(@theme inline)はこの
+   --font-app を指す。@theme inline の中ではなく通常の宣言に置くのは、
+   data-font を付けた要素ごとに再スコープさせるため(表示設定のプレビュー) */
+:root,
+[data-font="line_seed_jp"] {
+  --font-app: var(--font-line-seed-jp);
+}
+
+[data-font="noto_sans_jp"] {
+  --font-app: var(--font-noto-sans-jp);
 }
 
 @layer base {
@@ -195,5 +253,7 @@
   }
   html {
     @apply font-sans;
+    /* ライトのみ。OSがダークでもフォーム部品やスクロールバーを暗くしない */
+    color-scheme: light;
   }
 }

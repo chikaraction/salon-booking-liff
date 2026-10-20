@@ -59,6 +59,15 @@ const inputClass =
   "h-11 rounded-xl border border-input bg-card px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50";
 const sectionLabelClass = "text-base font-bold text-muted-foreground";
 const saveButtonClass = "h-11 rounded-xl px-5 text-base";
+/**
+ * 未選択のチップ・トグル(スタッフ選択・勤務曜日・臨時休の終日/時間指定)。地はモックの
+ * #f2f0ea(--secondary)、文字は補足の文字色(--muted-foreground、地の上で約4.9:1。
+ * モックの #7b818d は AA 未満なので使わない)。hover は地を少し濃くする
+ * (button.tsx の secondary variant と同じ式。5% だと文字が 4.41:1 で AA を割るので
+ * 3% にして 4.58:1)。hover:bg-muted だと地より明るくなり、濃さの変化が逆になる
+ */
+const unselectedChipClass =
+  "bg-secondary text-muted-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_3%)]";
 const fieldLabelClass = "text-sm font-bold text-foreground";
 
 /** 選べるロール(staff.role の check 制約と同じ2値) */
@@ -100,7 +109,7 @@ export function StaffSettingsForm({ today, staff }: Props) {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 md:px-8 md:py-10">
-      <div className="overflow-hidden rounded-2xl bg-card">
+      <div className="overflow-hidden rounded-2xl border border-border bg-card">
         <div className="border-b border-border p-6 md:p-8">
           <h1 className="text-2xl font-bold text-foreground">スタッフ</h1>
           {/* 1文ごとに <p> を分ける。JSXは行途中の改行を半角スペースに畳むため、
@@ -151,7 +160,7 @@ export function StaffSettingsForm({ today, staff }: Props) {
                         "h-11 rounded-xl px-4 text-base font-bold transition-colors",
                         active
                           ? "bg-primary text-primary-foreground"
-                          : "bg-secondary text-secondary-foreground hover:bg-muted",
+                          : unselectedChipClass,
                         !member.isActive && "line-through",
                       )}
                     >
@@ -458,7 +467,7 @@ function StaffEditorSection({
       </div>
 
       {/* 退職などで使わなくなったスタッフは「無効」にする。物理削除は提供しない */}
-      <p className="rounded-lg bg-accent px-4 py-3 text-sm text-accent-foreground">
+      <p className="rounded-lg bg-accent px-4 py-3 text-sm text-primary-strong">
         スタッフの削除はできません。<br></br>
         過去の予約が参照しているため、使わなくなったスタッフは「無効」にしてください。
         <br></br>
@@ -638,7 +647,7 @@ function WorkingHoursSection({
               "h-12 w-14 rounded-xl text-base font-bold transition-colors",
               day.isWorking
                 ? "bg-primary text-primary-foreground"
-                : "bg-secondary text-secondary-foreground hover:bg-muted",
+                : unselectedChipClass,
             )}
           >
             <span className="sr-only">
@@ -776,6 +785,7 @@ function WorkingHoursSection({
 
           {workingDaysOnly.length > 1 && firstWorkingDay !== undefined && (
             <div>
+              {/* 文言が長いのでスマホ幅では折り返す(Buttonの基底はwhitespace-nowrap)。sm以上は1行のまま */}
               <Button
                 type="button"
                 variant="outline"
@@ -785,7 +795,7 @@ function WorkingHoursSection({
                     applyTimesToWorkingDays(current, firstWorkingDay.weekday),
                   );
                 }}
-                className="h-11 rounded-xl px-4 text-base"
+                className="h-auto min-h-11 rounded-xl px-4 py-2 text-left text-base whitespace-normal sm:h-11 sm:py-0 sm:whitespace-nowrap"
               >
                 {weekdayLongLabel(firstWorkingDay.weekday)}
                 と同じ時刻をすべての勤務日に適用
@@ -946,7 +956,7 @@ function BlockSection({
                     "h-11 rounded-xl px-5 text-base font-bold transition-colors",
                     input.allDay === choice.allDay
                       ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-secondary-foreground hover:bg-muted",
+                      : unselectedChipClass,
                   )}
                 >
                   {choice.label}

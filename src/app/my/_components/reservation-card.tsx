@@ -21,9 +21,10 @@ export function ReservationCard({
   onCancelClick,
 }: Props) {
   return (
-    <article className="rounded-2xl bg-card p-4">
+    // 白いカードはページ背景(#f7f6f3)と明度が近いので、モックどおり淡い枠を付ける
+    <article className="rounded-2xl border border-border bg-card p-4">
       <div className="flex items-center justify-between">
-        <span className="rounded-full bg-secondary px-3 py-1 text-sm font-bold text-secondary-foreground">
+        <span className="rounded-full bg-accent px-3 py-1 text-sm font-bold text-primary-strong">
           確定
         </span>
         <span className="text-sm text-muted-foreground">{remainingLabel}</span>
@@ -41,7 +42,7 @@ export function ReservationCard({
           <Button
             asChild
             variant="outline"
-            className="h-11 flex-1 rounded-xl text-base"
+            className="h-12 flex-1 rounded-xl text-base"
           >
             <Link
               href={`/booking?change=${encodeURIComponent(reservation.id)}`}
@@ -53,7 +54,7 @@ export function ReservationCard({
           <Button
             variant="outline"
             disabled
-            className="h-11 flex-1 rounded-xl text-base"
+            className="h-12 flex-1 rounded-xl text-base"
           >
             変更
           </Button>
@@ -61,7 +62,7 @@ export function ReservationCard({
         <Button
           variant="outline-destructive"
           disabled={!canModify}
-          className="h-11 flex-1 rounded-xl text-base"
+          className="h-12 flex-1 rounded-xl text-base"
           onClick={onCancelClick}
         >
           キャンセル
@@ -69,7 +70,7 @@ export function ReservationCard({
       </div>
 
       {!canModify && (
-        <p className="mt-3 rounded-xl bg-accent p-3 text-sm text-accent-foreground">
+        <p className="mt-3 rounded-xl bg-accent p-3 text-sm text-primary-strong">
           変更・キャンセルはお店に直接ご連絡ください
         </p>
       )}

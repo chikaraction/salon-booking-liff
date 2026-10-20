@@ -15,6 +15,10 @@ import {
   type NthWeekdayClosureRow,
   type WeeklyBusinessHoursRow,
 } from "@/lib/business-settings";
+import {
+  resolveDisplaySettings,
+  type DisplaySettings,
+} from "@/lib/display-settings";
 import type { MenuCategoryRecord, MenuRecord } from "@/lib/menu-settings";
 import type { StaffWorkingHoursRow } from "@/lib/staff-settings";
 import { formatTstzrange, parseTstzrange } from "@/lib/tstzrange";
@@ -322,6 +326,34 @@ export async function fetchSalonSettings(
     minLeadMinutes: row.min_lead_minutes,
     cancelDeadlineMinutes: row.cancel_deadline_minutes,
   };
+}
+
+// ---------------------------------------------------------------------------
+// 表示設定画面(モックF-2)
+// ---------------------------------------------------------------------------
+
+/**
+ * 表示設定(テーマカラーのプリセット・フォント)の保存済みの値を取得する。
+ *
+ * ルートレイアウト用の getDisplaySettings(@/server/display-settings)とは別に置く。
+ * あちらは客側のために service_role で読み、失敗しても既定値で描画を続けるが、
+ * この画面は「保存済みの値」を編集の基準にするので、取得失敗を既定値で
+ * 隠すと保存済みでない値を「採用中」と見せてしまう。他の設定画面と同じく
+ * authenticated クライアントで読み、失敗は例外にする。
+ * check 制約の外の値は起きないはずだが、念のため純粋関数で既定値に倒す。
+ */
+export async function fetchDisplaySettings(
+  supabase: SupabaseClient,
+): Promise<DisplaySettings> {
+  const result = await supabase
+    .from("salon_settings")
+    .select("theme_preset, font_family")
+    .single();
+  const row: { theme_preset: unknown; font_family: unknown } = must(
+    result,
+    "表示設定",
+  );
+  return resolveDisplaySettings(row);
 }
 
 // ---------------------------------------------------------------------------

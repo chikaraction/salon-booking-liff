@@ -36,7 +36,17 @@ export function StepStaff({ staff, selection, onSelect }: Props) {
                 className="size-14 shrink-0 rounded-full object-cover"
               />
             ) : (
-              <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-secondary text-xl font-bold text-secondary-foreground">
+              <span
+                className={cn(
+                  "flex size-14 shrink-0 items-center justify-center rounded-full text-xl font-bold transition-colors",
+                  // モック(164行)は選択中の1人目だけ tint+accentDark。選択状態に連動させる
+                  // (docs/milestone-4c-plan.md の照合結果・要相談)
+                  // 未選択の文字は補足の文字色(モックの未選択の丸はニュートラル)
+                  selection === member.id
+                    ? "bg-accent text-primary-strong"
+                    : "bg-secondary text-muted-foreground",
+                )}
+              >
                 {member.name.charAt(0)}
               </span>
             )
@@ -49,10 +59,30 @@ export function StepStaff({ staff, selection, onSelect }: Props) {
         title="どちらでも"
         description="空いているスタッフにお任せ"
         avatar={
-          <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-secondary">
+          <span
+            className={cn(
+              "flex size-14 shrink-0 items-center justify-center rounded-full transition-colors",
+              // 頭文字の丸と同じく選択状態に連動させる
+              selection === ANY_STAFF ? "bg-accent" : "bg-secondary",
+            )}
+          >
             {/* ◎(二重サークル) */}
-            <span className="flex size-6 items-center justify-center rounded-full border-2 border-muted-foreground/70">
-              <span className="size-2.5 rounded-full border-2 border-muted-foreground/70" />
+            <span
+              className={cn(
+                "flex size-6 items-center justify-center rounded-full border-2 transition-colors",
+                selection === ANY_STAFF
+                  ? "border-primary-strong/70"
+                  : "border-muted-foreground/70",
+              )}
+            >
+              <span
+                className={cn(
+                  "size-2.5 rounded-full border-2 transition-colors",
+                  selection === ANY_STAFF
+                    ? "border-primary-strong/70"
+                    : "border-muted-foreground/70",
+                )}
+              />
             </span>
           </span>
         }
@@ -81,7 +111,10 @@ function StaffOption({
       onClick={onSelect}
       className={cn(
         "flex min-h-24 w-full items-center gap-4 rounded-xl border bg-card p-4 text-left transition-colors",
-        selected ? "border-primary" : "border-border",
+        // 選択中の影はメニュー選択のカードと同じ(step-menu.tsx)
+        selected
+          ? "border-primary shadow-[0_2px_6px_color-mix(in_oklab,var(--primary)_12%,transparent)]"
+          : "border-border",
       )}
     >
       {avatar}
@@ -97,9 +130,10 @@ function StaffOption({
         aria-hidden="true"
         className={cn(
           "flex size-7 shrink-0 items-center justify-center rounded-full border",
+          // 未選択の空丸の枠はモック(#d5d2ca)どおり入力欄と同じ --input
           selected
             ? "border-primary bg-primary text-primary-foreground"
-            : "border-border bg-card",
+            : "border-input bg-card",
         )}
       >
         {selected && <Check className="size-4" strokeWidth={3} />}

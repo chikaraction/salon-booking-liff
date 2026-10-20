@@ -88,7 +88,9 @@ export function ReservationDetailDialog({
             type="button"
             aria-label="閉じる"
             onClick={onClose}
-            className="flex size-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            // モックC の ✕ は枠なしで地 #f2f0ea(--secondary)。hover は地を少し濃くする
+            // (button.tsx の secondary variant と同じ式)
+            className="flex size-9 items-center justify-center rounded-lg bg-secondary text-muted-foreground transition-colors hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] hover:text-foreground"
           >
             <X aria-hidden="true" className="size-5" />
           </button>
@@ -201,7 +203,7 @@ function DetailBody({
       {/* お客様からのご要望(予約時に入力 = reservations.note。無ければ非表示) */}
       {detail.requestNote !== null && detail.requestNote.trim() !== "" && (
         <div className="rounded-xl bg-accent p-4">
-          <p className="text-sm font-bold text-accent-foreground">
+          <p className="text-sm font-bold text-primary-strong">
             お客様からのご要望{" "}
             <span className="font-normal text-muted-foreground">
               (予約時に入力)
@@ -240,7 +242,9 @@ function DetailBody({
               onChange={(event) => setMemoDraft(event.target.value)}
               disabled={savingMemo}
               rows={3}
-              className="w-full resize-none rounded-lg border border-border bg-background p-2 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              // メモ欄の地(--muted)はページ背景と同じ値なので、ほかの入力欄と同じ
+              // 白地+入力欄の枠(--input)にして、欄の範囲が分かるようにする
+              className="w-full resize-none rounded-lg border border-input bg-card p-2 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               placeholder="アレルギー・次回提案など(店内用)"
             />
             {memoError !== null && (

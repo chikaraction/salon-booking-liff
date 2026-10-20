@@ -165,7 +165,7 @@ export function MyReservations() {
             className={
               notice.tone === "warn"
                 ? "mb-4 rounded-xl bg-destructive/10 p-4 text-base text-destructive"
-                : "mb-4 rounded-xl bg-accent p-4 text-base text-accent-foreground"
+                : "mb-4 rounded-xl bg-accent p-4 text-base text-primary-strong"
             }
           >
             {notice.text}

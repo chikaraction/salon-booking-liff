@@ -1,6 +1,9 @@
 // スタッフの色分け(日表示の予約カード・週表示の凡例: モックB/B-2)。
 // 色はデザイントークン(globals.css)のみを使い、スタッフの並び順
-// (display_order)に応じて循環させる。店舗固有値は持たない(ADR-007)。
+// (display_order)で決める。店舗固有値は持たない(ADR-007)。
+// 方針は docs/milestone-4c-plan.md「スタッフ色と休憩」(モックの README 準拠):
+// 1人目 = テーマ色(--primary / --accent に追従)、2人目 = ニュートラル、
+// 3人目以降 = ダスティブルー(モックに指定が無いので循環させず全員同じ色)。
 
 export type StaffColor = {
   /** 凡例の色見本(■) */
@@ -9,10 +12,10 @@ export type StaffColor = {
   card: string;
 };
 
-// 下地(bg-staff-N-surface)は休憩(bg-muted)・予約不可/定休日(bg-secondary)の
-// どれとも重ならない専用トークン。以前は accent / muted / secondary を流用して
-// いたため、スタッフ列で「休憩と予約」「予約不可と予約」が同色になっていた。
 // 左ボーダーと凡例は同じ staff-N を使い、対応が取れるようにする。
+// 休憩(bg-break-surface)・予約不可/定休日(bg-calendar-closed)とは下地の色が近い
+// 組み合わせもあるため、色だけに頼らず帯の色・ラベル・斜線で区別する
+// (timeline-column.tsx の TimelineBlocks)
 const STAFF_COLORS: StaffColor[] = [
   {
     legend: "bg-staff-1",
@@ -28,7 +31,7 @@ const STAFF_COLORS: StaffColor[] = [
   },
 ];
 
-/** スタッフの表示順(index)から色分けを決める(スタッフ数分を循環) */
+/** スタッフの表示順(index)から色分けを決める(3人目以降はすべて3人目の色) */
 export function staffColor(index: number): StaffColor {
-  return STAFF_COLORS[index % STAFF_COLORS.length];
+  return STAFF_COLORS[Math.min(index, STAFF_COLORS.length - 1)];
 }

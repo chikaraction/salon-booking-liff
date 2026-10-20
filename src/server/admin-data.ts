@@ -18,16 +18,10 @@ import {
 } from "@/lib/availability";
 import { addMonths } from "@/lib/calendar";
 import type { ClosureRules } from "@/lib/closures";
+import { monthRanges, type DashboardStaff } from "@/lib/dashboard";
 import type { ReservationMenuSnapshot } from "@/lib/my-reservations";
 import { parseTstzrange } from "@/lib/tstzrange";
 import { getServiceRoleClient } from "@/server/supabase";
-
-/**
- * LINE公式アカウント(コミュニケーションプラン)の月間無料メッセージ数。
- * LINEの料金プランの仕様値であり、店舗固有の設定値ではない(ADR-007の対象外)。
- * サイドバーの「LINEプッシュ(今月) n/200通」バーの分母に使う(ADR-002)。
- */
-export const PUSH_MONTHLY_FREE_LIMIT = 200;
 
 /** PostgRESTの結果からデータを取り出す。エラーは例外にする(サーバー側の障害) */
 function must<T>(
@@ -443,6 +437,74 @@ export async function getAdminMiniSummary(
     countPushMessagesThisMonth(supabase, now),
   ]);
   return { todayReservationCount, monthlyPushCount };
+}
+
+// ---------------------------------------------------------------------------
+// ダッシュボード小物(モックG・/admin/dashboard)のデータ取得。
+// 内訳の組み立て・先月比の文言・無料枠の警告レベルは src/lib/dashboard.ts に任せ、
+// ここは取得と型変換だけにする。
+// ---------------------------------------------------------------------------
+
+export type DashboardSummary = {
+  /** 今日(JST暦日)の確定予約(kind=booking)の担当スタッフID。件数は length */
+  todayStaffIds: string[];
+  /** 全スタッフ(無効化済みを含む。内訳に出すかは summarizeTodayByStaff が判断) */
+  staff: DashboardStaff[];
+  /** 今月(JSTの暦月)の確定予約件数 */
+  thisMonthCount: number;
+  /** 先月(JSTの暦月)の確定予約件数 */
+  lastMonthCount: number;
+  /** 今月の push_messages 件数 */
+  monthlyPushCount: number;
+};
+
+type DashboardStaffRow = {
+  id: string;
+  name: string;
+  is_active: boolean;
+  display_order: number;
+};
+
+/**
+ * ダッシュボードの3カード分の数値をまとめて取得する。
+ * 今日の予約は countConfirmedBookings と同じ条件(kind=booking・status=confirmed・
+ * JST暦日の範囲と during が重なる)で staff_id を取り、件数もその件数を使う
+ * (合計と内訳を同じ取得結果から出す)。
+ */
+export async function getDashboardSummary(
+  supabase: SupabaseClient,
+  now: Date,
+): Promise<DashboardSummary> {
+  const today = jstCalendarDate(now);
+  const { thisMonth, lastMonth } = monthRanges(today);
+  const [todayRes, staffRes, thisMonthCount, lastMonthCount, monthlyPushCount] =
+    await Promise.all([
+      supabase
+        .from("reservations")
+        .select("staff_id")
+        .eq("kind", "booking")
+        .eq("status", "confirmed")
+        .overlaps("during", jstDayRange(today, addCalendarDays(today, 1))),
+      supabase.from("staff").select("id, name, is_active, display_order"),
+      countConfirmedBookings(supabase, thisMonth.start, thisMonth.endExclusive),
+      countConfirmedBookings(supabase, lastMonth.start, lastMonth.endExclusive),
+      countPushMessagesThisMonth(supabase, now),
+    ]);
+  const todayRows: Array<{ staff_id: string }> = must(todayRes, "今日の予約");
+  const staffRows: DashboardStaffRow[] = must(staffRes, "スタッフ");
+
+  return {
+    todayStaffIds: todayRows.map((row) => row.staff_id),
+    staff: staffRows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      isActive: row.is_active,
+      displayOrder: row.display_order,
+    })),
+    thisMonthCount,
+    lastMonthCount,
+    monthlyPushCount,
+  };
 }
 
 // ---------------------------------------------------------------------------

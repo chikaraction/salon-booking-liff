@@ -66,7 +66,8 @@ export function StepDatetime({
   return (
     <div className="flex flex-col gap-5">
       {/* 月カレンダー */}
-      <div className="rounded-2xl bg-card p-4">
+      {/* 白いカードはページ背景(#f7f6f3)と明度が近いので、モックどおり淡い枠を付ける */}
+      <div className="rounded-2xl border border-border bg-card p-4">
         <div className="flex items-center justify-between">
           <MonthNavButton
             label="前の月へ"
@@ -144,7 +145,8 @@ export function StepDatetime({
                 {slots.map((slot) => {
                   const label = formatJstTime(new Date(slot.startISO));
                   if (slot.status === "taken") {
-                    // 埋まっている時刻は取り消し線+グレーで選択不可(モック準拠)
+                    // 埋まっている時刻は取り消し線+グレーで選択不可(モック準拠)。
+                    // 地の --muted はページ背景と同じ値で、モックの「地なし」にあたる
                     return (
                       <span
                         key={slot.startISO}
@@ -164,9 +166,11 @@ export function StepDatetime({
                       onClick={() => onSelectStart(slot.startISO)}
                       className={cn(
                         "flex h-12 items-center justify-center rounded-xl border text-base font-bold transition-colors",
+                        // 選べる時刻の枠はモック(#d5d2ca)どおり --input。埋まっている
+                        // 時刻(--border)より濃くして、押せる・押せないの差を付ける
                         selected
                           ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border bg-card",
+                          : "border-input bg-card",
                       )}
                     >
                       {label}

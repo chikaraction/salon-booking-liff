@@ -23,8 +23,9 @@ export function StepConfirm({
 }: Props) {
   return (
     <div className="flex flex-col gap-5">
-      <div className="overflow-hidden rounded-2xl bg-card">
-        <section className="border-b border-border p-4">
+      {/* 白いカードはページ背景(#f7f6f3)と明度が近いので、モックどおり淡い枠を付ける */}
+      <div className="overflow-hidden rounded-2xl border border-border bg-card">
+        <section className="border-b border-row-divider p-4">
           <h2 className="text-sm text-muted-foreground">メニュー</h2>
           <ul className="mt-2 flex flex-col gap-1">
             {menus.map((menu) => (
@@ -38,7 +39,7 @@ export function StepConfirm({
             ))}
           </ul>
         </section>
-        <section className="border-b border-border p-4">
+        <section className="border-b border-row-divider p-4">
           <h2 className="text-sm text-muted-foreground">スタッフ</h2>
           <p className="mt-2 text-base font-bold">{staffLabel}</p>
         </section>
@@ -53,8 +54,8 @@ export function StepConfirm({
         </section>
         {/* 合計(強調) */}
         <section className="flex items-baseline justify-between bg-accent p-4">
-          <h2 className="text-base font-bold text-accent-foreground">合計</h2>
-          <p className="text-2xl font-bold text-accent-foreground">
+          <h2 className="text-base font-bold text-primary-strong">合計</h2>
+          <p className="text-2xl font-bold text-primary-strong">
             {formatYen(totalPrice)}
           </p>
         </section>
