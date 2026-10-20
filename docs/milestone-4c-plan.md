@@ -281,7 +281,7 @@ README の「スタッフ色: 田中 = accent / 佐藤 = #B7B2A6(背景 #F0EFE9)
 | 客1〜客4 | 下部の主ボタン(141/182/225/256/288行) | 塗り accent | `Button` 既定(`bg-primary`) | 対応済み |
 | 客2・客3 | ヘッダーのメニュー要約チップ(157/198行) | tint+accentDark(2つ目以降のチップはニュートラル) | 全チップ `bg-secondary text-secondary-foreground` | 修正: 先頭のチップだけ `bg-accent text-primary-strong` |
 | 客2 スタッフ選択 | 選択中のスタッフカード(163行) | 枠 2px accent+影 | `border-primary`(1px)・影なし | 修正: 影を追加(メニューカードと同じ) |
-| 客2 スタッフ選択 | 1人目の顔写真枠(164行) | tint+accentDark(2人目・どちらでもは `#f0eee9`) | 写真が無ければ頭文字の丸 `bg-secondary`(全員) | 要相談(下記) |
+| 客2 スタッフ選択 | 1人目の顔写真枠(164行) | tint+accentDark(2人目・どちらでもは `#f0eee9`) | 写真が無ければ頭文字の丸 `bg-secondary`(全員) | 修正(選択状態に連動。下記の決定) |
 | 客3 日時選択 | 選択日(208行) | 塗り accent | `bg-primary` | 対応済み |
 | 客3 日時選択 | 選択中の時間ボタン(215行) | 枠・塗り accent | `border-primary bg-primary` | 対応済み |
 | 客 初回情報入力 | 案内ボックス(252行) | tint+accentDark | `bg-accent text-accent-foreground` | 修正: 文字のみ `text-primary-strong` |
@@ -298,7 +298,7 @@ README の「スタッフ色: 田中 = accent / 佐藤 = #B7B2A6(背景 #F0EFE9)
 | B カレンダー日 | 「今日」チップ(422行) | tint+accentDark | `border-primary bg-accent text-accent-foreground` | 修正: 文字のみ `text-primary-strong`(枠は「押せる」ことを示すために付けたもので据え置き) |
 | B・B-2 | 日/週トグルの選択中(424/495行) | 塗り accent | `bg-primary` | 対応済み |
 | B カレンダー日・H スマホ日 | 1人目の予約カード(444〜446/816〜817行) | 下地 tint+左帯 4px accent | `staff-1`(ローズ固定 oklch(0.58 0.09 20)/ 下地 oklch(0.89 0.05 20)) | 修正: スタッフ色の方針どおり `staff-1` = `--primary` / `--accent` |
-| B カレンダー日 | 予約カードの料金(445行) | 文字 accentDark(1人目のカード) | `text-xs font-bold`(foreground) | 要相談(下記) |
+| B カレンダー日 | 予約カードの料金(445行) | 文字 accentDark(1人目のカード) | `text-xs font-bold`(foreground) | 意図して変えない(下記の決定) |
 | B-2 カレンダー週 | 凡例の1人目(493行) | 塗り accent | `bg-staff-1`(ローズ固定) | 修正: スタッフ色の方針どおり |
 | B-2 カレンダー週 | 1人目の予約カード(514/518/520/524行) | 下地 tint+左帯 3px accent | `staff-1`(ローズ固定) | 修正: スタッフ色の方針どおり |
 | B-2 カレンダー週 | 今日の列の曜日見出し(524行) | 下地 tint | 強調なし | 修正: `bg-accent`(定休日なら `bg-secondary` を優先)+ `aria-current="date"` |
@@ -329,20 +329,24 @@ README の「スタッフ色: 田中 = accent / 佐藤 = #B7B2A6(背景 #F0EFE9)
 | I スマホリスト | 時刻(832〜836行) | 文字 accentDark | `text-primary` | 修正: `text-primary-strong` |
 | I スマホリスト | 選択中の予約カード(834行) | 枠 2px accent+影 | — | 実装なし(リストに選択状態が無く、押すと予約詳細が開く) |
 
-集計: 修正 19件 / 対応済み 30件 / 意図して変えない 0件 / 要相談 2件 / 実装なし 2件
+集計: 修正 20件 / 対応済み 30件 / 意図して変えない 1件 / 要相談 0件 / 実装なし 2件
 (ほかにモック資料の注記が対象外 1件)。各計画書の「すり合わせ済みの決定」「実装中に
 判明した修正」に、テーマ色の適用範囲をモックと違う形に決めた記録は無かった。
 
-要相談:
+要相談だった2件(決定: 2026-10-20):
 
 - **客2 の顔写真枠(164行)**: モックは1人目(田中)だけ tint+accentDark で、2人目と
   「どちらでも」はニュートラル。ただし1人目は選択中のカードでもあるため、「選択状態に
   連動する」のか「1人目のスタッフ色」なのかがモックから判別できない。実装は写真が
-  無いとき全員 `bg-secondary` の頭文字の丸(写真があれば `<img>`)。修正していない
+  無いとき全員 `bg-secondary` の頭文字の丸(写真があれば `<img>`)。
+  → **選択状態に連動させる**: 選択中のカードの頭文字の丸(と「どちらでも」の丸)を
+  `bg-accent` + `text-primary-strong` にし、未選択は従来の `bg-secondary`。写真は変えない
 - **カレンダー日の予約カードの料金(445行)**: モックで料金が出ているのは1人目のカード
   だけで、文字は accentDark。2人目以降の色は指定が無い。案は (a) `staffColor` に強調
   文字のクラスを持たせ、1人目だけ `text-primary-strong`(ほかは foreground)、
-  (b) 全員 foreground のまま。修正していない
+  (b) 全員 foreground のまま。
+  → **(b) 全員 foreground のまま**。1人目だけ料金の色が違うと、テーマ色が「強調」と
+  「スタッフ色」の2つの意味を持ってしまうため
 
 補足:
 
