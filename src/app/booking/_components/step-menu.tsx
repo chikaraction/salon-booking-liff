@@ -59,9 +59,10 @@ export function StepMenu({ categories, selectedMenuIds, onToggle }: Props) {
                     aria-hidden="true"
                     className={cn(
                       "flex size-7 shrink-0 items-center justify-center rounded-full border",
+                      // 未選択の空丸の枠はモック(#d5d2ca)どおり入力欄と同じ --input
                       selected
                         ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border bg-card",
+                        : "border-input bg-card",
                     )}
                   >
                     {selected && <Check className="size-4" strokeWidth={3} />}

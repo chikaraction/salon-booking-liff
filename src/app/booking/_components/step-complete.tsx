@@ -30,7 +30,8 @@ export function StepComplete({
         <Check className="size-10" strokeWidth={3} aria-hidden="true" />
       </span>
       <h1 className="text-2xl font-bold">{heading}</h1>
-      <div className="w-full rounded-2xl bg-card p-4">
+      {/* 白いカードはページ背景(#f7f6f3)と明度が近いので、モックどおり淡い枠を付ける */}
+      <div className="w-full rounded-2xl border border-border bg-card p-4">
         <p className="text-lg font-bold">
           {formatJstDateTimeLabel(new Date(startISO))}
         </p>

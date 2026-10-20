@@ -25,6 +25,8 @@
   --color-calendar-header: var(--calendar-header);
   --color-calendar-divider: var(--calendar-divider);
   --color-grid-line: var(--grid-line);
+  --color-calendar-closed: var(--calendar-closed);
+  --color-calendar-closed-line: var(--calendar-closed-line);
   /* スタッフ色(src/lib/staff-colors.ts)。1人目はテーマ色そのもの(帯・凡例 =
      --primary、下地 = --accent)なので、:root に値を持たずここで直接指す。
      [data-theme] でテーマが替わると1人目の色も追従する */
@@ -97,25 +99,35 @@
   /* デザイントークン。ADR-006「トークンは1ファイル」に従い色・角丸はここだけで
      定義する。ここは全プリセット共通のニュートラル等で、テーマカラーの
      プリセット(表示設定・DB駆動)で変わる5トークンは下の [data-theme] の
-     ブロックに分けてある */
-  --background: oklch(0.965 0.006 78); /* 温かみのあるオフホワイト */
+     ブロックに分けてある。
+     ニュートラル(地・枠・区切り線・チップ)はモック(docs/mockups/README.md の
+     Neutrals、mock.dc.html)の黄みのグレー(色相 約88〜92°)に揃えてある。揃えた値の
+     横の hex はモックの元の色。方針と照合結果は docs/milestone-4c-plan.md
+     「ニュートラルのトークンをモックに揃える」。文字色(--foreground /
+     --muted-foreground / --secondary-foreground)は揃えない(同文書「文字色は変えない」) */
+  /* #f7f6f3 ページ背景(モックの客側の地)。--muted と同じ値なので、--muted の面を
+     ページ背景に直接置かない(白いカードの中に置く) */
+  --background: oklch(0.973 0.004 91.4);
   --foreground: oklch(0.28 0.012 35);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.28 0.012 35);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.28 0.012 35);
   --primary-foreground: oklch(0.985 0.005 80);
-  --secondary: oklch(0.93 0.012 60); /* チップ・頭文字サークルの背景 */
+  /* #f2f0ea 未選択のチップ・トグル・頭文字の丸の地。上の文字は --muted-foreground
+     (約4.9:1)。hover は地を3%だけ濃くする(4.58:1。5%だと 4.41:1 で AA を割る) */
+  --secondary: oklch(0.955 0.008 91.5);
   --secondary-foreground: oklch(0.38 0.02 30);
-  --muted: oklch(0.94 0.008 75);
+  /* #f7f6f3 設定の行・スタッフメモ・案内の淡い面(白いカードの中に置く) */
+  --muted: oklch(0.973 0.004 91.4);
   --muted-foreground: oklch(0.52 0.015 45);
   /* 警告・破壊的な色。モックは #c0503f(落ち着いたテラコッタ)を、破壊的ボタン・
      必須マーク・休業バッジ・日曜の文字など、警告系のすべてに一貫して使っている。
      白地(--card)で 4.71:1 と WCAG AA(4.5)を満たす。破壊的アウトラインの枠
      (--color-destructive-soft)は @theme inline 側でここからの派生として定義している */
   --destructive: oklch(0.574 0.148 30.8); /* #c0503f */
-  --border: oklch(0.9 0.01 60);
-  --input: oklch(0.88 0.012 50);
+  --border: oklch(0.919 0.01 87.5); /* #e7e4dd カードの枠・区切り線 */
+  --input: oklch(0.864 0.011 89.7); /* #d5d2ca 入力欄・アウトラインボタンの枠 */
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -127,7 +139,7 @@
      staff-N = 予約カードの左帯と凡例、staff-N-surface = カードの下地。
      1人目はテーマ色に追従させるため @theme inline 側で --primary / --accent を
      直接指し、ここには置かない。2人目はニュートラル、3人目以降はダスティブルー。
-     休憩の下地(0.930 / 56°)は予約不可・定休日の --secondary(0.93 / 60°)と
+     休憩の下地(0.930 / 56°)は予約不可・定休日の --calendar-closed(0.93 / 60°)と
      ほぼ同色になる(モックも同じ)。色では区別せず、休憩は左帯(--break)と
      「休憩 13:00–13:30」のラベル+アイコン、予約不可は斜線と「予約不可」ラベル、
      定休日は「定休日」ラベルで区別する(timeline-column.tsx / calendar-view.tsx)。
@@ -159,6 +171,14 @@
   /* #eceae4 区切り線(ツールバーの下・列見出しの下・時刻列の右・列の間) */
   --calendar-divider: oklch(0.937 0.008 91.5);
   --grid-line: oklch(0.955 0.008 91.5); /* #f2f0ea 1時間ごとの横罫線 */
+  /* カレンダーの「開いていない時間」の地。週表示の定休日の列と見出し、営業時間外の帯
+     (半分の濃さ = bg-calendar-closed/50)、日表示の予約不可ブロック、定休日のお知らせ
+     帯に使う。値はニュートラルをモックに揃える前の --secondary(#eee6e0)のままにして、
+     白いカレンダーの地との見分けやすさを保つ(新しい --secondary #f2f0ea だと淡すぎる)。
+     --calendar-closed-line はその上でも見える線の色で、揃える前の --border(#e3ddd8)。
+     予約不可の斜線・予約不可ブロックの輪郭・週表示の予約カードの輪郭に使う */
+  --calendar-closed: oklch(0.93 0.012 60); /* #eee6e0 */
+  --calendar-closed-line: oklch(0.9 0.01 60); /* #e3ddd8 */
 }
 
 /* テーマカラーのプリセット(salon_settings.theme_preset。表示設定で切り替える)。

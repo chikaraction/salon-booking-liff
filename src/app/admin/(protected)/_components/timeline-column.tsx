@@ -79,7 +79,7 @@ export function HourLines({ tickMarks }: { tickMarks: TickMark[] }) {
  * 配置済みブロック(予約・休憩・予約不可)を1列分描画する。
  * - 予約: スタッフ色の下地+左ボーダー+実線の輪郭(bookingCardClass)
  * - 休憩: 休憩色の下地+左帯+コーヒーのアイコンと「休憩 13:00–13:30」ラベル
- *   (モックB。下地は予約不可の bg-secondary とほぼ同色なので、帯・アイコン・
+ *   (モックB。下地は予約不可の bg-calendar-closed とほぼ同色なので、帯・アイコン・
  *   ラベルで区別する。docs/milestone-4c-plan.md「スタッフ色と休憩」)
  * - ブロック(kind=block): 斜線ハッチング+実線の輪郭+「予約不可」ラベル
  * onSelect が渡され、かつ予約(type="booking"で id あり)のときだけ
@@ -151,12 +151,16 @@ export function TimelineBlocks({
           // (truncate を効かせる)して、button でも div でも同じ見た目にする。
           // モック(02-予約カレンダー)のとおり常に上詰めが正
           "flex flex-col items-stretch justify-start",
-          block.type !== "break" && "ring-1 ring-inset ring-border",
-          block.type === "booking" && cn("border-l-4", bookingCardClass),
+          block.type !== "break" && "ring-1 ring-inset",
+          block.type === "booking" &&
+            cn("border-l-4 ring-border", bookingCardClass),
           block.type === "break" &&
             "border-l-4 border-l-break bg-break-surface text-break-foreground",
+          // 予約不可は定休日と同じ「開いていない時間」の地(--calendar-closed)。
+          // 斜線と輪郭は、その地の上でも見える --calendar-closed-line で引く
+          // (--border #e7e4dd は地と明度がほぼ同じで斜線が消える)
           block.type === "block" &&
-            "bg-secondary bg-[repeating-linear-gradient(45deg,transparent,transparent_6px,var(--color-border)_6px,var(--color-border)_7px)] text-secondary-foreground",
+            "bg-calendar-closed bg-[repeating-linear-gradient(45deg,transparent,transparent_6px,var(--color-calendar-closed-line)_6px,var(--color-calendar-closed-line)_7px)] text-secondary-foreground ring-calendar-closed-line",
           clickable &&
             "cursor-pointer transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         );

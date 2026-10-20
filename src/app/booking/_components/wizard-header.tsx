@@ -33,10 +33,11 @@ export function WizardHeader({ step, title, subtitle, chips }: Props) {
               className={cn(
                 "rounded-full px-3 py-1 text-sm",
                 // 先頭(メニュー要約)だけテーマの淡色の面+濃い側の文字。
-                // 2つ目以降(料金・スタッフ・日時)はニュートラル(モック準拠)
+                // 2つ目以降(料金・スタッフ・日時)はニュートラルのチップ(モック準拠。
+                // 文字は補足の文字色。モックの #7b818d は AA 未満なので使わない)
                 index === 0
                   ? "bg-accent text-primary-strong"
-                  : "bg-secondary text-secondary-foreground",
+                  : "bg-secondary text-muted-foreground",
               )}
             >
               {chip}

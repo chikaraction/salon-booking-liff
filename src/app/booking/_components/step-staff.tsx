@@ -41,9 +41,10 @@ export function StepStaff({ staff, selection, onSelect }: Props) {
                   "flex size-14 shrink-0 items-center justify-center rounded-full text-xl font-bold transition-colors",
                   // モック(164行)は選択中の1人目だけ tint+accentDark。選択状態に連動させる
                   // (docs/milestone-4c-plan.md の照合結果・要相談)
+                  // 未選択の文字は補足の文字色(モックの未選択の丸はニュートラル)
                   selection === member.id
                     ? "bg-accent text-primary-strong"
-                    : "bg-secondary text-secondary-foreground",
+                    : "bg-secondary text-muted-foreground",
                 )}
               >
                 {member.name.charAt(0)}
@@ -129,9 +130,10 @@ function StaffOption({
         aria-hidden="true"
         className={cn(
           "flex size-7 shrink-0 items-center justify-center rounded-full border",
+          // 未選択の空丸の枠はモック(#d5d2ca)どおり入力欄と同じ --input
           selected
             ? "border-primary bg-primary text-primary-foreground"
-            : "border-border bg-card",
+            : "border-input bg-card",
         )}
       >
         {selected && <Check className="size-4" strokeWidth={3} />}

@@ -147,9 +147,9 @@ export function CategoryEditDialog({ categories, menuCounts, onClose }: Props) {
             type="button"
             aria-label="閉じる"
             onClick={onClose}
-            // ホバーは bg-input にする。bg-secondary は bg-muted と明度差が
-            // ほぼ無く(ダークでは同値)、ホバーしたことが分からなかった
-            className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground transition-colors hover:bg-input hover:text-foreground"
+            // モックの ✕ は地 #f2f0ea(--secondary)。hover は地を少し濃くする
+            // (button.tsx の secondary variant と同じ式。予約詳細の ✕ と揃える)
+            className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-muted-foreground transition-colors hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] hover:text-foreground"
           >
             <X aria-hidden="true" className="size-5" />
           </button>

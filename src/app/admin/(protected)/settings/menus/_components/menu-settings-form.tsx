@@ -86,7 +86,7 @@ export function MenuSettingsForm({ groups, menuCounts }: Props) {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 md:px-8 md:py-10">
-      <div className="overflow-hidden rounded-2xl bg-card">
+      <div className="overflow-hidden rounded-2xl border border-border bg-card">
         <div className="flex flex-wrap items-center justify-between gap-3 p-6 pb-4 md:p-8 md:pb-4">
           <h1 className="text-2xl font-bold text-foreground">メニュー管理</h1>
           <div className="flex flex-wrap gap-2">

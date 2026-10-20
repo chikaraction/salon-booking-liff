@@ -53,6 +53,15 @@ const inputClass =
   "h-11 rounded-xl border border-input bg-card px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50";
 const sectionLabelClass = "text-base font-bold text-muted-foreground";
 const saveButtonClass = "h-11 rounded-xl px-5 text-base";
+/**
+ * 未選択のチップ・トグル(毎週の定休曜日・第N・例外日の切り替え)。地はモックの
+ * #f2f0ea(--secondary)、文字は補足の文字色(--muted-foreground、地の上で約4.9:1。
+ * モックの #7b818d は AA 未満なので使わない)。hover は地を少し濃くする
+ * (button.tsx の secondary variant と同じ式。5% だと文字が 4.41:1 で AA を割るので
+ * 3% にして 4.58:1)。hover:bg-muted だと地より明るくなり、濃さの変化が逆になる
+ */
+const unselectedChipClass =
+  "bg-secondary text-muted-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_3%)]";
 
 type Props = {
   /** 今日(JSTの暦日)。日付入力の初期値に使う */
@@ -81,7 +90,7 @@ export function BusinessSettingsForm({
 }: Props) {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 md:px-8 md:py-10">
-      <div className="overflow-hidden rounded-2xl bg-card">
+      <div className="overflow-hidden rounded-2xl border border-border bg-card">
         <div className="border-b border-border p-6 md:p-8">
           <h1 className="text-2xl font-bold text-foreground">定休日・祝日</h1>
           <p className="mt-2 text-base text-muted-foreground">
@@ -197,7 +206,7 @@ function WeeklyHoursSection({
                 "h-12 w-14 rounded-xl text-base font-bold transition-colors",
                 isClosed
                   ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-secondary-foreground hover:bg-muted",
+                  : unselectedChipClass,
               )}
             >
               <span className="sr-only">
@@ -452,7 +461,7 @@ function NthWeekdaySection({
                         "h-11 w-14 rounded-xl text-base font-bold transition-colors",
                         selected
                           ? "bg-primary text-primary-foreground"
-                          : "bg-secondary text-secondary-foreground hover:bg-muted",
+                          : unselectedChipClass,
                       )}
                     >
                       第{nth}
@@ -740,7 +749,7 @@ function DateOverrideSection({
                     "h-11 rounded-xl px-5 text-base font-bold transition-colors",
                     input.isOpen === choice.isOpen
                       ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-secondary-foreground hover:bg-muted",
+                      : unselectedChipClass,
                   )}
                 >
                   {choice.label}

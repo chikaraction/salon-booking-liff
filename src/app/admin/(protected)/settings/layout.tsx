@@ -35,7 +35,7 @@ export default async function AdminSettingsLayout({
   if (!canManageSettings(staff?.role ?? null)) {
     return (
       <div className="mx-auto max-w-xl px-4 py-16">
-        <div className="rounded-2xl bg-card p-8">
+        <div className="rounded-2xl border border-border bg-card p-8">
           <h1 className="text-lg font-bold text-foreground">
             {SETTINGS_PERMISSION_DENIED_MESSAGE}
           </h1>

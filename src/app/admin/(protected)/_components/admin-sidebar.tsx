@@ -146,9 +146,12 @@ export function AdminSidebar({ salonName, role, miniSummary }: Props) {
         onClick={() => setIsOpen(false)}
         className={cn(
           "flex h-11 items-center gap-3 rounded-xl px-4 text-base font-medium transition-colors",
+          // hover はサイドバーの地(--sidebar #f4f2ec)を少し濃くする。--muted(#f7f6f3)は
+          // サイドバーの地より明るく、濃さの変化が逆になるため使わない。
+          // スマホの展開メニュー(白地)でも同じ色で、白より濃くなる
           active
             ? "bg-primary font-bold text-primary-foreground"
-            : "text-foreground hover:bg-muted",
+            : "text-foreground hover:bg-[color-mix(in_oklch,var(--sidebar),var(--foreground)_5%)]",
         )}
       >
         <Icon aria-hidden="true" className="size-4 shrink-0" />
@@ -195,7 +198,8 @@ export function AdminSidebar({ salonName, role, miniSummary }: Props) {
         type="button"
         onClick={handleLogout}
         disabled={isPending}
-        className="flex h-11 items-center gap-3 rounded-xl px-4 text-base text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+        // hover はナビの項目と同じ(サイドバーの地を少し濃くする)
+        className="flex h-11 items-center gap-3 rounded-xl px-4 text-base text-muted-foreground transition-colors hover:bg-[color-mix(in_oklch,var(--sidebar),var(--foreground)_5%)] hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
       >
         <LogOut aria-hidden="true" className="size-4 shrink-0" />
         {isPending ? "ログアウト中…" : "ログアウト"}

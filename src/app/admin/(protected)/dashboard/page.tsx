@@ -15,7 +15,8 @@ import { cn } from "@/lib/utils";
 import { createAdminAuthClient } from "@/server/admin-auth";
 import { getDashboardSummary } from "@/server/admin-data";
 
-const cardClass = "rounded-2xl bg-card p-6 md:p-8";
+// 白いカードはページ背景(#f7f6f3)と明度が近いので、モックGどおり淡い枠を付ける
+const cardClass = "rounded-2xl border border-border bg-card p-6 md:p-8";
 const cardLabelClass = "text-sm font-bold text-muted-foreground";
 const bigNumberClass = "text-[40px] leading-none font-bold text-foreground";
 const unitClass = "ml-1.5 text-lg font-medium text-muted-foreground";
@@ -73,8 +74,10 @@ export default async function DashboardPage() {
           <span className={bigNumberClass}>{quota.count}</span>
           <span className={unitClass}>/ {quota.limit} 通</span>
         </p>
+        {/* バーの地はモックの #ece9e2。--muted(#f7f6f3)は白いカードの上で
+            ほとんど見えないため、近い濃さの --border(#e7e4dd)を使う */}
         <div
-          className="mt-5 h-3 overflow-hidden rounded-full bg-muted"
+          className="mt-5 h-3 overflow-hidden rounded-full bg-border"
           role="progressbar"
           aria-valuenow={quota.count}
           aria-valuemin={0}

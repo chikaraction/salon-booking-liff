@@ -90,7 +90,7 @@ export function DisplaySettingsForm({ settings }: Props) {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 md:px-8 md:py-10">
-      <div className="overflow-hidden rounded-2xl bg-card">
+      <div className="overflow-hidden rounded-2xl border border-border bg-card">
         <div className="border-b border-border p-6 md:p-8">
           <h1 className="text-2xl font-bold text-foreground">表示設定</h1>
           <p className="mt-2 text-base text-muted-foreground">

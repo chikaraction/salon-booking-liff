@@ -270,7 +270,9 @@ export function ReservationFormDialog({
           type="button"
           aria-label="閉じる"
           onClick={onClose}
-          className="ml-auto flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+          // ヘッダーの地(--muted)はページ背景と同じ値なので、hover は --secondary で
+          // 少し濃くする(bg-background だと変化が見えない)
+          className="ml-auto flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
         >
           <X aria-hidden="true" className="size-5" />
         </button>

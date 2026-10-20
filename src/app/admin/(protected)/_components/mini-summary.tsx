@@ -35,8 +35,10 @@ export function MiniSummary({
             / {quota.limit} 通
           </span>
         </p>
+        {/* バーの地はモックの #ece9e2。--muted(#f7f6f3)は白いカードの上で
+            ほとんど見えないため、近い濃さの --border(#e7e4dd)を使う */}
         <div
-          className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted"
+          className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-border"
           role="progressbar"
           aria-valuenow={quota.count}
           aria-valuemin={0}

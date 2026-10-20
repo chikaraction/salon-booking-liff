@@ -13,7 +13,7 @@ export type StaffColor = {
 };
 
 // 左ボーダーと凡例は同じ staff-N を使い、対応が取れるようにする。
-// 休憩(bg-break-surface)・予約不可/定休日(bg-secondary)とは下地の色が近い
+// 休憩(bg-break-surface)・予約不可/定休日(bg-calendar-closed)とは下地の色が近い
 // 組み合わせもあるため、色だけに頼らず帯の色・ラベル・斜線で区別する
 // (timeline-column.tsx の TimelineBlocks)
 const STAFF_COLORS: StaffColor[] = [

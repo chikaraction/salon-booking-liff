@@ -21,7 +21,8 @@ export function ReservationCard({
   onCancelClick,
 }: Props) {
   return (
-    <article className="rounded-2xl bg-card p-4">
+    // 白いカードはページ背景(#f7f6f3)と明度が近いので、モックどおり淡い枠を付ける
+    <article className="rounded-2xl border border-border bg-card p-4">
       <div className="flex items-center justify-between">
         <span className="rounded-full bg-accent px-3 py-1 text-sm font-bold text-primary-strong">
           確定

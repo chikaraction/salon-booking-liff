@@ -414,3 +414,149 @@ subtle #9AA0AB)で、実装は赤みの焦げ茶(本文 #2E2725 / 補足 `--mute
   5.56:1、サイドバーの地の上でも 4.96:1 を保つ
 - 色相(青み/赤み)だけを寄せる案もあるが、明度を保っても印象が大きく変わる割に利点が
   小さいので見送る。必要になったら別途検討する
+
+## 追加(2026-10-20): ニュートラルのトークンをモックに揃える
+
+前節でサイドバーとカレンダーの地・罫線を揃えたあとも、ほかのニュートラル(地・枠・区切り線・
+チップ)は M1 の赤み寄りの値(色相 50〜78°)のままで、モックの黄みのグレー(約88〜92°)と
+ずれていた。`mock.dc.html` のニュートラルの使用箇所を全画面で拾い、実装と照合した。
+テーマ色(--primary / --accent / --primary-strong)、前節で揃えたトークン(--sidebar /
+--calendar-header / --calendar-divider / --grid-line)、スタッフ色・休憩色、文字色は触らない。
+
+### 決定事項(2026-10-20)
+
+1. **--secondary を #F2F0EA(oklch(0.955 0.008 91.5))に**。未選択のチップ・トグル
+   (曜日・第N・勤務曜日・スタッフ選択・頭文字の丸・客側ヘッダーのチップなど)の地
+2. **--muted を #F7F6F3(oklch(0.973 0.004 91.4))に**。設定の行(「祝日を休業にする」など)・
+   スタッフメモ・案内の面
+3. **カレンダーの「開いていない時間」は専用トークン**: `--calendar-closed` = 揃える前の
+   --secondary(oklch(0.93 0.012 60)、#EEE6E0)。週表示の定休日の列と見出し、営業時間外の帯
+   (`bg-calendar-closed/50`。M4b の「定休日と同じ色を半分の濃さ」は保つ)、日表示の予約不可
+   ブロック、定休日のお知らせ帯に使う。あわせて `--calendar-closed-line` = 揃える前の --border
+   (oklch(0.9 0.01 60)、#E3DDD8)を足し、予約不可の斜線と輪郭・週表示の予約カードの輪郭に
+   使う。新しい --border(#E7E4DD、明度0.919)は --calendar-closed(0.930)と明度がほぼ同じで、
+   そのままでは斜線と輪郭が消えるため
+4. **未選択のチップ・トグルの文字は `text-muted-foreground`**(#716662。新しい --secondary の
+   上で 4.88:1)。モックの #7B818D は AA 未満なので使わない。それ以外の文字色は変えない
+   (バッジ・案内帯・定休日ラベルなどは `text-secondary-foreground` のまま)
+5. **hover は地を濃くする方向に揃える**: 未選択チップの `hover:bg-muted` は新しい値では地より
+   明るくなり逆転するので、`hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_3%)]`
+   にした。式は button.tsx の secondary variant と同じ(Lightning CSS で落ちないことはその実績を
+   根拠にする)。混合比は 5% だと文字が 4.41:1 で AA を割るため 3%(4.58:1。outline-destructive
+   の hover を 3% にしたのと同じ理由)。hover で文字も濃くなる ✕ ボタンは 5% のまま。
+   サイドバーのナビとログアウトも、--muted がサイドバーの地(#F4F2EC)より明るくなって逆転する
+   ため、`color-mix(in oklch, var(--sidebar), var(--foreground) 5%)` にした
+
+あわせて、照合で値を変えたトークン:
+
+| トークン | 修正前 | 修正後(モック) |
+| --- | --- | --- |
+| --background | oklch(0.965 0.006 78)(#F6F3EF) | oklch(0.973 0.004 91.4)(#F7F6F3) |
+| --border | oklch(0.9 0.01 60)(#E3DDD8) | oklch(0.919 0.01 87.5)(#E7E4DD) |
+| --input | oklch(0.88 0.012 50)(#DED5D1) | oklch(0.864 0.011 89.7)(#D5D2CA) |
+| --secondary | oklch(0.93 0.012 60)(#EEE6E0) | oklch(0.955 0.008 91.5)(#F2F0EA) |
+| --muted | oklch(0.94 0.008 75)(#EEEAE5) | oklch(0.973 0.004 91.4)(#F7F6F3) |
+| --calendar-closed(新規) | — | oklch(0.93 0.012 60)(#EEE6E0。旧 --secondary) |
+| --calendar-closed-line(新規) | — | oklch(0.9 0.01 60)(#E3DDD8。旧 --border) |
+
+### 意味の区別の確認
+
+値を変えたトークンの使用箇所をすべて grep で確認し、区別が壊れるところは個別に直した。
+
+- **--muted と --background が同じ値になる**: --muted の面は白いカード・ダイアログの中だけに
+  置く。ページ背景に直接置いているのは客3 の埋まっている時刻だけで、モックの「地なし」と
+  一致するので残した。予約詳細のメモ入力欄(`bg-background` on `bg-muted`)と、予約フォーム
+  ダイアログの ✕ の hover(`hover:bg-background` on `bg-muted`)は区別がなくなるので直した
+- **白いカードとページ背景**: 明度差が 0.035 → 0.027 に縮むため、モックどおりカードに淡い枠
+  (`border-border`)を付けた(客側の4か所、設定・ダッシュボードのカード。代行登録のカードは
+  元から付いていた)
+- **--border と --input**: 明度 0.919 / 0.864 で差は前(0.90 / 0.88)より大きくなる。操作できる
+  部品(時刻ボタン・空丸・ツールバー)はモックどおり --input に寄せた
+- **--muted が淡くなる**: 白地の上の半透明(空き枠の hover `bg-muted/40`、定休日のお知らせ帯
+  `bg-muted/50`)やバーの地はほぼ見えなくなるので、別のトークンに付け替えた
+- **カレンダーの定休日・営業時間外・予約不可・休憩**: 地の色は修正前と同じ値(--calendar-closed
+  = 旧 --secondary、斜線・輪郭 = 旧 --border)なので、見分けやすさは変わらない。休憩の下地
+  (#EFE6E0)は修正前から予約不可・定休日とほぼ同色(M4c「スタッフ色と休憩」)で、帯の色・☕
+  ラベル・斜線・「定休日」ラベルで区別する関係もそのまま
+- **白地の上の hover(`hover:bg-muted`)**: アウトライン・ゴーストボタン、カレンダーのツールバー、
+  表示設定のテーマカード、代行登録の選択肢など。白 → #F7F6F3 で変化は弱くなる(明度差 0.06 →
+  0.027)が、濃くなる向きは保たれるので据え置いた
+
+### 照合結果
+
+| 画面 | 部品 | モック | 修正前 | 対応 |
+| --- | --- | --- | --- | --- |
+| 共通 | ページ背景 | #f7f6f3 | --background #F6F3EF | 修正(トークンの値) |
+| 共通 | カードの枠・区切り線 | #e7e4dd | --border #E3DDD8 | 修正(トークンの値) |
+| 共通 | 入力欄・アウトラインボタンの枠 | #d5d2ca | --input #DED5D1 | 修正(トークンの値) |
+| 共通 | 未選択のチップ・トグルの地 | #f2f0ea | --secondary #EEE6E0 | 修正(決定1) |
+| 共通 | 淡い面 | #f7f6f3 | --muted #EEEAE5 | 修正(決定2) |
+| 客1〜客7 | ヘッダーの下線・下部バーの上線 | #ece9e3 | `border-border` | 対応済み(--border との差は明度0.016) |
+| 客2・客3 | ヘッダーの2つ目以降のチップ | #f0eee9・文字 #7b818d | `bg-secondary text-secondary-foreground` | 修正: 文字を `text-muted-foreground`(決定4) |
+| 客1・客2 | 未選択のメニュー・スタッフのカードの枠 | 1.5px #e7e4dd | `border-border` | 対応済み(トークンの値で一致) |
+| 客1・客2 | 未選択の空丸の枠 | 2px #d5d2ca | `border-border` | 修正: `border-input` |
+| 客2 | 未選択の頭文字の丸・どちらでも | #f0eee9 | `bg-secondary text-secondary-foreground` | 修正: 文字を `text-muted-foreground`(地はトークンの値) |
+| 客3 | 月カレンダーのカード | 白・1px #ece9e3 | 枠なし | 修正: `border-border` を追加 |
+| 客3 | 選べる時刻 | 1.5px #d5d2ca・地なし | `border-border bg-card` | 修正: `border-input`(白地は押せる側の目印として残す) |
+| 客3 | 埋まっている時刻 | 1.5px #eceae4・地なし | `border-border bg-muted` | 対応済み(--muted がページ背景と同値になり「地なし」と一致) |
+| 客 初回情報・客4 | 入力欄・ご要望 | 1.5px #d5d2ca・白 | `border-input bg-card` | 対応済み(トークンの値で一致) |
+| 客4・客7 | 戻る・変更ボタン | 1.5px #d5d2ca・白 | outline(--input) | 対応済み(トークンの値で一致) |
+| 客4 | 確認のカード | 1px #ece9e3 | 枠なし | 修正: `border-border` を追加 |
+| 客5 | 予約内容のカード | 1px #ece9e3 | 枠なし | 修正: `border-border` を追加 |
+| 客7 | 予約カード | 1px #ece9e3 | 枠なし | 修正: `border-border` を追加 |
+| 客(モックなし) | 予約変更中の案内帯 | — | `bg-secondary/60` | 修正: `bg-secondary`(半透明ではページ背景と区別できない) |
+| 客4・D・E-2・F | カード内の行の区切り | #f0eee9・#f2f0ea | `border-border`(#e7e4dd)。D の候補リストは区切りなし | 要相談 |
+| A ログイン | 地・カード | #f7f6f3 にカードなし | ページ背景+白いカード(影) | 意図して変えない(既存のカードの形。影で区別できる) |
+| A ログイン | 入力欄 | #d5d2ca | `border-input` | 対応済み |
+| サイドバー | 地・境界線・ミニ集計の枠 | #f4f2ec / #e6e3dc | --sidebar / --sidebar-border | 対応済み(前節) |
+| サイドバー・G | プッシュ使用量バーの地 | #ece9e2 | `bg-muted` | 修正: `bg-border`(新しい --muted は白地でほぼ見えない) |
+| サイドバー(モックなし) | ナビ・ログアウトの hover | — | `hover:bg-muted` | 修正: --sidebar を 5% 濃く(決定5) |
+| B・B-2 | ツールバーの ‹ › ・日/週トグルの枠 | 1px #d5d2ca | `border-border` | 修正: `border-input`(並びの日付ピッカー・「今日」も揃える) |
+| B・B-2・H | ツールバー下・列の区切り・列見出し・時間の罫線 | #eceae4 / #faf9f6 / #f2f0ea | calendar 系トークン | 対応済み(前節) |
+| B-2 | 定休日の列・見出し | 斜線 #f5f2ee/#efeae4 | `bg-secondary`(べた塗り) | 修正: `bg-calendar-closed`(決定3。べた塗りは M4b の決定で据え置き) |
+| B-2(モックなし) | 営業時間外の帯 | — | `bg-secondary/50` | 修正: `bg-calendar-closed/50` |
+| B-2 | 予約カードの輪郭 | なし | `ring-border` | 修正: `ring-calendar-closed-line`(定休日の地の上で消えないように) |
+| B(モックなし) | 予約不可ブロック | — | `bg-secondary`+斜線・輪郭 --border | 修正: `bg-calendar-closed`+斜線・輪郭 --calendar-closed-line |
+| B | 休憩ブロック | #efe6e0・帯 #c99a86 | --break 系 | 対応済み(触らない) |
+| B・H(モックなし) | 定休日のお知らせ帯 | — | `bg-muted/50`+バッジ `bg-muted` | 修正: `bg-calendar-closed/50`+バッジ `bg-calendar-closed` |
+| B・B-2・H(モックなし) | 空き枠の hover | — | `hover:bg-muted/40` | 修正: `hover:bg-secondary/50`(罫線を透かす半透明のまま見える濃さに) |
+| H | スタッフ切替の未選択 | #f2f0ea | `bg-muted` | 修正: `bg-secondary`(文字は元から `text-muted-foreground`) |
+| H(モックなし) | タイムライン/リストの未選択 | — | `bg-muted` | 修正: `bg-secondary`(スタッフ切替と揃える) |
+| I | 予約カードの枠 | #ece9e3 | `border-calendar-divider` | 対応済み |
+| C 予約詳細 | ✕ | 地 #f2f0ea・枠なし | 枠 `border-border`・`hover:bg-muted` | 修正: `bg-secondary`+ 5% の hover(F詳細と揃える) |
+| C 予約詳細 | スタッフメモの面 | #f7f6f3 | `bg-muted` | 対応済み(トークンの値で一致) |
+| C 予約詳細(モックなし) | メモの入力欄 | — | `border-border bg-background` | 修正: `border-input bg-card`(--muted と同値になったため) |
+| 予約フォームダイアログ(モックなし) | ヘッダーの ✕ の hover | — | `hover:bg-background` | 修正: `hover:bg-secondary`(ヘッダーの地 --muted と同値になったため) |
+| D 代行登録 | 入力欄 | #d5d2ca | `border-input` | 対応済み |
+| D 代行登録 | 候補リストの枠 | #eceae4 | `border-border` | 対応済み |
+| D 代行登録(モックなし) | 選べる時刻 | — | `border-border` | 修正: `border-input`(客3 と揃える) |
+| E・E-2・F・F-2・G | 設定・ダッシュボードのカード | 外枠 #dfdcd4 | 枠なし(代行登録のみ `border-border`) | 修正: `border-border` を追加(#dfdcd4 用のトークンは足さない) |
+| E・E-2 | 未選択の曜日・第N・勤務曜日・スタッフ選択などのチップ | #f2f0ea・文字 #7b818d | `bg-secondary text-secondary-foreground hover:bg-muted` | 修正(決定1・4・5) |
+| E・E-2 | 「臨時休を追加」「祝日を休業にする」の行 | #f7f6f3 | `bg-muted` | 対応済み(トークンの値で一致) |
+| E・E-2・F | 開始・終了などの入力欄・セレクト | #d5d2ca | `border-input` | 対応済み |
+| E-2 | 第N の箱・臨時休業の一覧の箱 | 1px #eceae4 | `border-border` | 対応済み |
+| E-2 | 休業バッジ | #f0eee9・文字 #7b818d | `bg-secondary text-secondary-foreground` | 意図して変えない(文字: バッジはチップ・トグルではないので「文字色は変えない」に従う。地はトークンの値で一致) |
+| F | カテゴリの区切り行の地 | #faf9f6 | `bg-muted` | 対応済み(--muted #F7F6F3 で差は明度0.009) |
+| F | 列見出しの下線 | #eceae4 | `border-border` | 対応済み |
+| F詳細 | ✕ | #f2f0ea | `bg-muted hover:bg-input` | 修正: `bg-secondary`+ 5% の hover |
+| F詳細 | ヘッダー・フッターの区切り | #eceae4 | `border-border` | 対応済み |
+| F-2 | 未選択のテーマのカード | 1.5px #e7e4dd | `border-border` | 対応済み |
+| F-2 | 「カスタム」の破線 | #c7c3ba | `border-border`+ `opacity-60` | 意図して変えない(実装は未提供の無効表示で、モックと状態が違う) |
+| F-2 | フォントのトグル | 枠 #d5d2ca | `border-input` | 対応済み |
+
+集計: 修正 32件 / 対応済み 21件 / 意図して変えない 3件 / 要相談 1件。
+
+要相談:
+
+- **カード内の行の区切り**(客4 の確認カードの行 #f0eee9、D の候補リストの行 #f0eee9、E-2 の
+  臨時休業の一覧 #f2f0ea、F のメニューの行 #f2f0ea): モックはカードの枠(#e7e4dd / #eceae4)より
+  一段淡い線で行を分けているが、実装は --border(#E7E4DD)で、D は区切りなし。案は
+  (a) 行の区切り用のトークン(例 `--divider-subtle` = #F2F0EA)を足す、(b) 値が同じ --secondary
+  か --grid-line を流用する、(c) --border のまま。(b) は意味の違うトークンの流用になるので、
+  足すなら (a)。差は明度 0.03 で、区切りが見えなくなるわけではないので修正していない
+
+補足:
+
+- アプリ内ブラウザでの見た目の確認はしていない(このブランチでは `npm run build` と dev
+  サーバーを動かさなかった)。マージ前に客側の各ステップ・カレンダー日/週/スマホ・設定4画面・
+  予約詳細で見比べる

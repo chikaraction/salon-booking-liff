@@ -677,9 +677,11 @@ export function ProxyRegistrationForm({
                             }}
                             className={cn(
                               "flex h-11 items-center justify-center rounded-xl border text-base font-bold transition-colors",
+                              // 選べる時刻の枠は客側の日時選択(モック #d5d2ca)と同じ
+                              // --input。埋まっている時刻(--border)より濃くする
                               option.time === time
                                 ? "border-primary bg-primary text-primary-foreground"
-                                : "border-border bg-card hover:bg-muted",
+                                : "border-input bg-card hover:bg-muted",
                             )}
                           >
                             {option.time}
