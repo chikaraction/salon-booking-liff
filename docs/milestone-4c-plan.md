@@ -264,3 +264,93 @@ README の「スタッフ色: 田中 = accent / 佐藤 = #B7B2A6(背景 #F0EFE9)
   区別している。実装でも休憩ブロックには帯と「休憩」ラベルを必ず付け、色だけに頼らない
 - `staffColor(index)` の循環(`index % 3`)は「2以上は3人目の色」に変わるので、
   判断ロジックとして `src/lib/` へ移し、特性化テスト → 仕様変更の順で直す
+
+### 照合結果
+
+`mock.dc.html` の `var(--accent,` / `var(--accent-dark` / `var(--accent-tint` の使用箇所
+(120か所)を画面・部品ごとにまとめ、実装の対応箇所と照合した。モック列の行番号は
+`mock.dc.html` のもの。tint の面の上の accentDark の文字は `text-primary-strong` に
+対応させる(`--accent-foreground` はモックの accentDark より暗い)。
+
+| 画面 | 部品 | モック | 実装(修正前) | 対応 |
+| --- | --- | --- | --- | --- |
+| (モック資料) | 冒頭・各セクションの見出しと注記(37/64/370/791行) | accent の文字 / tint+accentDark | — | 対象外(画面ではなくモック資料の注記) |
+| 客1 メニュー選択 | カテゴリ見出し(82〜131行・7か所) | 文字 accentDark・13px・太字 | `text-base font-bold`(文字は既定の foreground) | 修正: `text-primary-strong`。大きさ(16px)は色の範囲外なので変えない |
+| 客1 メニュー選択 | 選択中のメニューカード(86/96行) | 枠 2px accent+影 `0 2px 6px rgba(accent,0.12)` | `border-primary`(1px)・影なし | 修正: `--primary` を12%にした影を追加。枠の太さは色の範囲外なので変えない |
+| 客1・客2 | 選択中の ✓ 丸(86/96/166行) | 塗り accent | `bg-primary` | 対応済み |
+| 客1〜客4 | 下部の主ボタン(141/182/225/256/288行) | 塗り accent | `Button` 既定(`bg-primary`) | 対応済み |
+| 客2・客3 | ヘッダーのメニュー要約チップ(157/198行) | tint+accentDark(2つ目以降のチップはニュートラル) | 全チップ `bg-secondary text-secondary-foreground` | 修正: 先頭のチップだけ `bg-accent text-primary-strong` |
+| 客2 スタッフ選択 | 選択中のスタッフカード(163行) | 枠 2px accent+影 | `border-primary`(1px)・影なし | 修正: 影を追加(メニューカードと同じ) |
+| 客2 スタッフ選択 | 1人目の顔写真枠(164行) | tint+accentDark(2人目・どちらでもは `#f0eee9`) | 写真が無ければ頭文字の丸 `bg-secondary`(全員) | 要相談(下記) |
+| 客3 日時選択 | 選択日(208行) | 塗り accent | `bg-primary` | 対応済み |
+| 客3 日時選択 | 選択中の時間ボタン(215行) | 枠・塗り accent | `border-primary bg-primary` | 対応済み |
+| 客 初回情報入力 | 案内ボックス(252行) | tint+accentDark | `bg-accent text-accent-foreground` | 修正: 文字のみ `text-primary-strong` |
+| 客4 予約確認 | 合計の行(277行) | tint、「合計」と金額は accentDark | `bg-accent text-accent-foreground` | 修正: 文字のみ `text-primary-strong` |
+| 客5 予約完了 | ✓ 丸(301行) | 塗り accent | `bg-primary` | 対応済み |
+| 客5 予約完了 | 案内ボックス(309行) | tint+accentDark | `bg-accent text-accent-foreground` | 修正: 文字のみ `text-primary-strong` |
+| 客5 予約完了 | 「マイ予約を見る」(312行) | 枠 accent・文字 accentDark | `outline-accent` | 対応済み |
+| 客7 マイ予約 | ステータスチップ「確定」(330行) | tint+accentDark | `bg-secondary text-secondary-foreground` | 修正: `bg-accent text-primary-strong` |
+| A ログイン | 店名(380行) | 文字 accent | `text-primary` | 対応済み |
+| A ログイン | ログインボタン(385行) | 塗り accent | `Button` 既定 | 対応済み |
+| サイドバー(日・週) | 店名「LUCE 管理」(399/471行) | 文字 accent | `text-primary` | 対応済み |
+| サイドバー(日・週) | 選択中のナビ(401/473行) | 塗り accent | `bg-primary` | 対応済み |
+| サイドバー(日・週) | ミニ集計のプッシュ使用量バー(413/485行) | 塗り accent | `bg-primary` | 対応済み |
+| B カレンダー日 | 「今日」チップ(422行) | tint+accentDark | `border-primary bg-accent text-accent-foreground` | 修正: 文字のみ `text-primary-strong`(枠は「押せる」ことを示すために付けたもので据え置き) |
+| B・B-2 | 日/週トグルの選択中(424/495行) | 塗り accent | `bg-primary` | 対応済み |
+| B カレンダー日・H スマホ日 | 1人目の予約カード(444〜446/816〜817行) | 下地 tint+左帯 4px accent | `staff-1`(ローズ固定 oklch(0.58 0.09 20)/ 下地 oklch(0.89 0.05 20)) | 修正: スタッフ色の方針どおり `staff-1` = `--primary` / `--accent` |
+| B カレンダー日 | 予約カードの料金(445行) | 文字 accentDark(1人目のカード) | `text-xs font-bold`(foreground) | 要相談(下記) |
+| B-2 カレンダー週 | 凡例の1人目(493行) | 塗り accent | `bg-staff-1`(ローズ固定) | 修正: スタッフ色の方針どおり |
+| B-2 カレンダー週 | 1人目の予約カード(514/518/520/524行) | 下地 tint+左帯 3px accent | `staff-1`(ローズ固定) | 修正: スタッフ色の方針どおり |
+| B-2 カレンダー週 | 今日の列の曜日見出し(524行) | 下地 tint | 強調なし | 修正: `bg-accent`(定休日なら `bg-secondary` を優先)+ `aria-current="date"` |
+| C 予約詳細 | お客様からのご要望(543行) | 下地 tint・見出し accentDark(本文はニュートラル `#5b6270`) | `bg-accent`、見出し・本文とも `text-accent-foreground` | 修正: 見出しの文字のみ `text-primary-strong`(本文は下記の補足) |
+| C 予約詳細 | スタッフメモの「編集」(544行) | 文字 accent | `text-primary` | 対応済み |
+| C 予約詳細 | 「変更」(547行) | 塗り accent | `Button` 既定 | 対応済み |
+| D 代行登録 | お客様名の検索欄・フォーカス中(564行) | 枠 accent | `focus-visible:border-ring`(`--ring` = `--primary`) | 対応済み |
+| D 代行登録 | 候補リストの強調行(566行) | 下地 tint | `hover:bg-muted` | 修正: `hover:bg-accent` |
+| D 代行登録 | 空き判定メッセージ(578行) | tint+accentDark | `bg-accent text-accent-foreground` | 修正: 文字のみ `text-primary-strong` |
+| D 代行登録 | 「この内容で登録」(583行) | 塗り accent | `Button` 既定 | 対応済み |
+| E スタッフ設定 | 勤務曜日チップの選択中(598〜603行) | 塗り accent | `bg-primary` | 対応済み |
+| E・E-2 | 「＋ 追加」「＋ 日付を追加」(612/635/656行) | 枠 accent・文字 accentDark | `outline-accent` | 対応済み |
+| E-2 定休日・祝日 | 毎週の定休曜日・第N チップの選択中(629/643行) | 塗り accent | `bg-primary` | 対応済み |
+| E-2 定休日・祝日 | 第N曜日の定休の説明文(648行) | tint+accentDark | `bg-accent text-accent-foreground` | 修正: 文字のみ `text-primary-strong` |
+| E-2 定休日・祝日 | 祝日休業のスイッチ(653行) | 塗り accent | `bg-primary` | 対応済み |
+| F メニュー管理 | 「カテゴリを編集」(670行) | 枠 accent・文字 accentDark | `outline-accent` | 対応済み |
+| F メニュー管理 | 「＋ 新規メニュー」(670行) | 塗り accent | `Button` 既定 | 対応済み |
+| F メニュー管理 | カテゴリの区切り行(675〜710行) | 文字 accentDark(下地はニュートラル `#faf9f6`) | `bg-muted text-muted-foreground` | 修正: 文字のみ `text-primary-strong` |
+| F メニュー管理 | 行の「編集」(676〜714行) | 文字 accent | `text-primary` | 対応済み |
+| F詳細 カテゴリ編集 | 名称入力・フォーカス中(727行) | 枠 2px accent | `focus-visible:border-ring` | 対応済み |
+| F詳細 カテゴリ編集 | 「＋ カテゴリを追加」(733行) | 破線の枠 accent・tint・文字 accentDark | `outline-accent` + `border-dashed bg-accent` | 対応済み |
+| F詳細・F-2 | 「保存する」(737/764行) | 塗り accent | `Button` 既定 | 対応済み |
+| F-2 表示設定 | 選択中のテーマのカード(752行) | 枠 accent・tint・「採用中」accentDark・✓ 丸 accent | `border-primary bg-accent` / `text-primary-strong` / `bg-primary` | 対応済み |
+| F-2 表示設定 | フォントの選択中(760行) | 塗り accent | `border-primary bg-primary` | 対応済み |
+| G ダッシュボード | プッシュ使用量バー(780行) | 塗り accent | `bg-primary` | 対応済み |
+| H スマホ日 | スタッフ切替の選択中(803行) | 塗り accent | `bg-primary` | 対応済み |
+| I スマホリスト | 件数チップ「6件」(830行) | tint+accentDark | — | 実装なし |
+| I スマホリスト | 時刻(832〜836行) | 文字 accentDark | `text-primary` | 修正: `text-primary-strong` |
+| I スマホリスト | 選択中の予約カード(834行) | 枠 2px accent+影 | — | 実装なし(リストに選択状態が無く、押すと予約詳細が開く) |
+
+集計: 修正 19件 / 対応済み 30件 / 意図して変えない 0件 / 要相談 2件 / 実装なし 2件
+(ほかにモック資料の注記が対象外 1件)。各計画書の「すり合わせ済みの決定」「実装中に
+判明した修正」に、テーマ色の適用範囲をモックと違う形に決めた記録は無かった。
+
+要相談:
+
+- **客2 の顔写真枠(164行)**: モックは1人目(田中)だけ tint+accentDark で、2人目と
+  「どちらでも」はニュートラル。ただし1人目は選択中のカードでもあるため、「選択状態に
+  連動する」のか「1人目のスタッフ色」なのかがモックから判別できない。実装は写真が
+  無いとき全員 `bg-secondary` の頭文字の丸(写真があれば `<img>`)。修正していない
+- **カレンダー日の予約カードの料金(445行)**: モックで料金が出ているのは1人目のカード
+  だけで、文字は accentDark。2人目以降の色は指定が無い。案は (a) `staffColor` に強調
+  文字のクラスを持たせ、1人目だけ `text-primary-strong`(ほかは foreground)、
+  (b) 全員 foreground のまま。修正していない
+
+補足:
+
+- **モックに画面が無い同種の面も揃えた**: tint の面の上の文字は `text-primary-strong`
+  に統一した。モックに無い案内ボックス(マイ予約のお知らせ、予約カードの「お店に直接
+  ご連絡ください」、スタッフ設定の削除不可の案内、メニュー編集の非表示の案内)と、
+  臨時休・臨時営業のバッジも `text-accent-foreground` から付け替えた。白地に置いた
+  スタッフ設定の「未保存の変更」の文字は tint の面ではないので変えていない
+- **逆向きの差(実装がテーマ色・モックはニュートラル)**は照合の対象外としたが、気づいた
+  ものを残す: 予約詳細のご要望の本文(モック `#5b6270`、実装 `text-accent-foreground`)、
+  客3 の月カレンダーの日曜見出し(モック `#c0503f`、実装 `text-primary/80`)

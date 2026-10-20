@@ -65,10 +65,10 @@ type Props = {
   closureItems: ClosureListItem[];
 };
 
-/** バッジの見た目。自動導出の祝日(休業)と連休は淡いグレー、臨時休・臨時営業は淡いモーヴ */
+/** バッジの見た目。自動導出の祝日(休業)と連休は淡いグレー、臨時休・臨時営業は淡いテーマ色 */
 function badgeClass(badge: ClosureListItem["badge"]): string {
   return badge === "臨時休" || badge === "臨時営業"
-    ? "bg-accent text-accent-foreground"
+    ? "bg-accent text-primary-strong"
     : "bg-secondary text-secondary-foreground";
 }
 
@@ -476,7 +476,7 @@ function NthWeekdaySection({
           ))}
 
           {description !== null && (
-            <p className="rounded-lg bg-accent px-4 py-3 text-sm text-accent-foreground">
+            <p className="rounded-lg bg-accent px-4 py-3 text-sm text-primary-strong">
               {description}
             </p>
           )}

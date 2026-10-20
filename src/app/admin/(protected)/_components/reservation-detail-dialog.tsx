@@ -201,7 +201,7 @@ function DetailBody({
       {/* お客様からのご要望(予約時に入力 = reservations.note。無ければ非表示) */}
       {detail.requestNote !== null && detail.requestNote.trim() !== "" && (
         <div className="rounded-xl bg-accent p-4">
-          <p className="text-sm font-bold text-accent-foreground">
+          <p className="text-sm font-bold text-primary-strong">
             お客様からのご要望{" "}
             <span className="font-normal text-muted-foreground">
               (予約時に入力)

@@ -53,8 +53,8 @@ export function StepConfirm({
         </section>
         {/* 合計(強調) */}
         <section className="flex items-baseline justify-between bg-accent p-4">
-          <h2 className="text-base font-bold text-accent-foreground">合計</h2>
-          <p className="text-2xl font-bold text-accent-foreground">
+          <h2 className="text-base font-bold text-primary-strong">合計</h2>
+          <p className="text-2xl font-bold text-primary-strong">
             {formatYen(totalPrice)}
           </p>
         </section>

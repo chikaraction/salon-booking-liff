@@ -1,5 +1,7 @@
 // ウィザード上部の共通ヘッダー(STEP表示・タイトル・選択済みチップ)。表示のみ。
 
+import { cn } from "@/lib/utils";
+
 const TOTAL_STEPS = 4;
 
 type Props = {
@@ -25,10 +27,17 @@ export function WizardHeader({ step, title, subtitle, chips }: Props) {
       )}
       {chips !== undefined && chips.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-2">
-          {chips.map((chip) => (
+          {chips.map((chip, index) => (
             <span
               key={chip}
-              className="rounded-full bg-secondary px-3 py-1 text-sm text-secondary-foreground"
+              className={cn(
+                "rounded-full px-3 py-1 text-sm",
+                // 先頭(メニュー要約)だけテーマの淡色の面+濃い側の文字。
+                // 2つ目以降(料金・スタッフ・日時)はニュートラル(モック準拠)
+                index === 0
+                  ? "bg-accent text-primary-strong"
+                  : "bg-secondary text-secondary-foreground",
+              )}
             >
               {chip}
             </span>

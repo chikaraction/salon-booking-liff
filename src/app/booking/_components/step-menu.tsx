@@ -17,7 +17,10 @@ export function StepMenu({ categories, selectedMenuIds, onToggle }: Props) {
       <p className="text-sm text-muted-foreground">※ 表示価格は税込です</p>
       {categories.map((category) => (
         <section key={category.id}>
-          <h2 className="text-base font-bold">{category.name}</h2>
+          {/* カテゴリ見出しはテーマ色の濃い側(モック: accentDark・太字) */}
+          <h2 className="text-base font-bold text-primary-strong">
+            {category.name}
+          </h2>
           {category.description !== null && (
             <p className="mt-0.5 text-sm text-muted-foreground">
               {category.description}
@@ -34,7 +37,11 @@ export function StepMenu({ categories, selectedMenuIds, onToggle }: Props) {
                   onClick={() => onToggle(menu.id)}
                   className={cn(
                     "flex min-h-20 w-full items-center gap-3 rounded-xl border bg-card p-4 text-left transition-colors",
-                    selected ? "border-primary" : "border-border",
+                    // 選択中はテーマ色の枠+テーマ色を12%にした淡い影(モック:
+                    // 0 2px 6px rgba(accent, 0.12))。影も --primary に追従させる
+                    selected
+                      ? "border-primary shadow-[0_2px_6px_color-mix(in_oklab,var(--primary)_12%,transparent)]"
+                      : "border-border",
                   )}
                 >
                   <span className="flex-1">

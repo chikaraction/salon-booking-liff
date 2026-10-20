@@ -23,7 +23,7 @@ export function ReservationCard({
   return (
     <article className="rounded-2xl bg-card p-4">
       <div className="flex items-center justify-between">
-        <span className="rounded-full bg-secondary px-3 py-1 text-sm font-bold text-secondary-foreground">
+        <span className="rounded-full bg-accent px-3 py-1 text-sm font-bold text-primary-strong">
           確定
         </span>
         <span className="text-sm text-muted-foreground">{remainingLabel}</span>
@@ -69,7 +69,7 @@ export function ReservationCard({
       </div>
 
       {!canModify && (
-        <p className="mt-3 rounded-xl bg-accent p-3 text-sm text-accent-foreground">
+        <p className="mt-3 rounded-xl bg-accent p-3 text-sm text-primary-strong">
           変更・キャンセルはお店に直接ご連絡ください
         </p>
       )}

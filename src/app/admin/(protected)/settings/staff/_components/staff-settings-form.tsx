@@ -458,7 +458,7 @@ function StaffEditorSection({
       </div>
 
       {/* 退職などで使わなくなったスタッフは「無効」にする。物理削除は提供しない */}
-      <p className="rounded-lg bg-accent px-4 py-3 text-sm text-accent-foreground">
+      <p className="rounded-lg bg-accent px-4 py-3 text-sm text-primary-strong">
         スタッフの削除はできません。<br></br>
         過去の予約が参照しているため、使わなくなったスタッフは「無効」にしてください。
         <br></br>

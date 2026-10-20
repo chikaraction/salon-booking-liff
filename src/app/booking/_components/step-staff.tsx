@@ -81,7 +81,10 @@ function StaffOption({
       onClick={onSelect}
       className={cn(
         "flex min-h-24 w-full items-center gap-4 rounded-xl border bg-card p-4 text-left transition-colors",
-        selected ? "border-primary" : "border-border",
+        // 選択中の影はメニュー選択のカードと同じ(step-menu.tsx)
+        selected
+          ? "border-primary shadow-[0_2px_6px_color-mix(in_oklab,var(--primary)_12%,transparent)]"
+          : "border-border",
       )}
     >
       {avatar}

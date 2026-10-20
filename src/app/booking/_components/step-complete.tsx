@@ -41,7 +41,7 @@ export function StepComplete({
           {formatYen(totalPrice)} ・ 約{totalDurationMinutes}分
         </p>
       </div>
-      <p className="w-full rounded-xl bg-accent p-4 text-base text-accent-foreground">
+      <p className="w-full rounded-xl bg-accent p-4 text-base text-primary-strong">
         予約内容は「マイ予約」でいつでも確認できます。変更・キャンセルもそちらから行えます。
       </p>
     </div>

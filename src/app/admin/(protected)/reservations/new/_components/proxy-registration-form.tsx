@@ -464,7 +464,8 @@ export function ProxyRegistrationForm({
                       <button
                         type="button"
                         onClick={() => selectCustomer(customer)}
-                        className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left hover:bg-muted"
+                        // 候補のホバーはテーマの淡色(モックD: 候補の強調行は accentTint)
+                        className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left hover:bg-accent"
                       >
                         <span className="text-base font-bold">
                           {customer.name}
@@ -704,7 +705,7 @@ export function ProxyRegistrationForm({
               className={cn(
                 "rounded-xl px-4 py-3 text-base",
                 availability.status === "available" &&
-                  "bg-accent text-accent-foreground",
+                  "bg-accent text-primary-strong",
                 (availability.status === "past" ||
                   availability.status === "closed") &&
                   "bg-destructive/10 text-destructive",
