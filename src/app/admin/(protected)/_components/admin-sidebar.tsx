@@ -13,6 +13,7 @@
 import {
   CalendarDays,
   Clock,
+  LayoutDashboard,
   LogOut,
   Menu,
   Plus,
@@ -49,6 +50,13 @@ const NAV_ITEMS: readonly SidebarNavItem[] = [
     href: "/admin/reservations/new",
     label: "代行登録",
     icon: Plus,
+    ownerOnly: false,
+    implemented: true,
+  },
+  {
+    href: "/admin/dashboard",
+    label: "ダッシュボード",
+    icon: LayoutDashboard,
     ownerOnly: false,
     implemented: true,
   },

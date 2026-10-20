@@ -1,7 +1,9 @@
 // サイドバー下部のミニ集計(モックB左下)。プレゼンテーションに徹する。
 // 数値は src/server/admin-data.ts の getAdminMiniSummary が用意する。
+// 無料枠の状態・警告文は純粋関数(src/lib/dashboard.ts)が判断する(ADR-002)。
 
-import { PUSH_MONTHLY_FREE_LIMIT } from "@/server/admin-data";
+import { pushQuotaShortMessage, pushQuotaStatus } from "@/lib/dashboard";
+import { cn } from "@/lib/utils";
 
 type Props = {
   todayReservationCount: number;
@@ -12,7 +14,8 @@ export function MiniSummary({
   todayReservationCount,
   monthlyPushCount,
 }: Props) {
-  const pushRatio = Math.min(monthlyPushCount / PUSH_MONTHLY_FREE_LIMIT, 1);
+  const quota = pushQuotaStatus(monthlyPushCount);
+  const warning = pushQuotaShortMessage(quota);
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -27,24 +30,31 @@ export function MiniSummary({
       <div>
         <p className="text-xs text-muted-foreground">LINEプッシュ(今月)</p>
         <p className="mt-0.5 text-lg font-bold">
-          {monthlyPushCount}
+          {quota.count}
           <span className="ml-1 text-xs font-medium text-muted-foreground">
-            / {PUSH_MONTHLY_FREE_LIMIT} 通
+            / {quota.limit} 通
           </span>
         </p>
         <div
           className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted"
           role="progressbar"
-          aria-valuenow={monthlyPushCount}
+          aria-valuenow={quota.count}
           aria-valuemin={0}
-          aria-valuemax={PUSH_MONTHLY_FREE_LIMIT}
+          aria-valuemax={quota.limit}
           aria-label="今月のLINEプッシュ送信数"
         >
           <div
-            className="h-full rounded-full bg-primary"
-            style={{ width: `${pushRatio * 100}%` }}
+            className={cn(
+              "h-full rounded-full",
+              quota.level === "ok" ? "bg-primary" : "bg-destructive",
+            )}
+            style={{ width: `${quota.ratio * 100}%` }}
           />
         </div>
+        {/* 全画面に常時出るため role="alert" は付けない(毎回読み上げが走る) */}
+        {warning !== null && (
+          <p className="mt-1.5 text-xs text-destructive">{warning}</p>
+        )}
       </div>
     </div>
   );
