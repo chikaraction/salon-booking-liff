@@ -338,7 +338,7 @@ function MenuRow({
         transition,
       }}
       className={cn(
-        "border-t border-border bg-card first:border-t-0",
+        "border-t border-row-divider bg-card first:border-t-0",
         isDragging && "relative z-10 shadow-lg",
       )}
     >

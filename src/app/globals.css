@@ -47,6 +47,7 @@
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
+  --color-row-divider: var(--row-divider);
   --color-destructive: var(--destructive);
   /* --destructive の淡い側。破壊的アウトラインボタンの枠に使う(モックの枠
      #e6c3bd に対応)。--destructive からの派生。:root のトークンではなくここに
@@ -127,6 +128,11 @@
      (--color-destructive-soft)は @theme inline 側でここからの派生として定義している */
   --destructive: oklch(0.574 0.148 30.8); /* #c0503f */
   --border: oklch(0.919 0.01 87.5); /* #e7e4dd カードの枠・区切り線 */
+  /* カードの中の行と行の間の線(客4 の確認カード・代行登録の候補リスト・
+     臨時休業の一覧・メニューの行)。カードの外枠(--border)や見出しとの区切りより
+     一段淡い。モックは #f2f0ea と #f0eee9 を使っているが #f2f0ea に統一する。
+     値は --secondary と同じだが、あちらは地(チップの面)でこちらは線なので別トークン */
+  --row-divider: oklch(0.955 0.008 91.5); /* #f2f0ea */
   --input: oklch(0.864 0.011 89.7); /* #d5d2ca 入力欄・アウトラインボタンの枠 */
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);

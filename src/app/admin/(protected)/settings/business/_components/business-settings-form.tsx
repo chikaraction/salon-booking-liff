@@ -857,7 +857,7 @@ function DateOverrideSection({
             今後の臨時休業・指定日はありません。
           </p>
         ) : (
-          <ul className="divide-y divide-border">
+          <ul className="divide-y divide-row-divider">
             {closureItems.map((item, index) => {
               // 出どころのIDは closures.ts が行に載せている(表示から逆算しない)
               const overrideId = item.overrideId;

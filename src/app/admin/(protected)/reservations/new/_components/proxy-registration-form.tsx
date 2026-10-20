@@ -456,9 +456,10 @@ export function ProxyRegistrationForm({
                 )}
               </div>
 
-              {/* 候補リスト(選択で既存顧客に確定) */}
+              {/* 候補リスト(選択で既存顧客に確定)。モックDどおり行どうしを淡い線で
+                  分ける(divide-y なので最初の行の上と最後の行の下には引かない) */}
               {selectedCustomer === null && candidates.length > 0 && (
-                <ul className="mt-2 overflow-hidden rounded-xl border border-border">
+                <ul className="mt-2 divide-y divide-row-divider overflow-hidden rounded-xl border border-border">
                   {candidates.map((customer) => (
                     <li key={customer.id}>
                       <button

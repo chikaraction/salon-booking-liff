@@ -25,7 +25,7 @@ export function StepConfirm({
     <div className="flex flex-col gap-5">
       {/* 白いカードはページ背景(#f7f6f3)と明度が近いので、モックどおり淡い枠を付ける */}
       <div className="overflow-hidden rounded-2xl border border-border bg-card">
-        <section className="border-b border-border p-4">
+        <section className="border-b border-row-divider p-4">
           <h2 className="text-sm text-muted-foreground">メニュー</h2>
           <ul className="mt-2 flex flex-col gap-1">
             {menus.map((menu) => (
@@ -39,7 +39,7 @@ export function StepConfirm({
             ))}
           </ul>
         </section>
-        <section className="border-b border-border p-4">
+        <section className="border-b border-row-divider p-4">
           <h2 className="text-sm text-muted-foreground">スタッフ</h2>
           <p className="mt-2 text-base font-bold">{staffLabel}</p>
         </section>

@@ -458,6 +458,7 @@ subtle #9AA0AB)で、実装は赤みの焦げ茶(本文 #2E2725 / 補足 `--mute
 | --muted | oklch(0.94 0.008 75)(#EEEAE5) | oklch(0.973 0.004 91.4)(#F7F6F3) |
 | --calendar-closed(新規) | — | oklch(0.93 0.012 60)(#EEE6E0。旧 --secondary) |
 | --calendar-closed-line(新規) | — | oklch(0.9 0.01 60)(#E3DDD8。旧 --border) |
+| --row-divider(新規) | — | oklch(0.955 0.008 91.5)(#F2F0EA。カード内の行の区切り) |
 
 ### 意味の区別の確認
 
@@ -505,7 +506,7 @@ subtle #9AA0AB)で、実装は赤みの焦げ茶(本文 #2E2725 / 補足 `--mute
 | 客5 | 予約内容のカード | 1px #ece9e3 | 枠なし | 修正: `border-border` を追加 |
 | 客7 | 予約カード | 1px #ece9e3 | 枠なし | 修正: `border-border` を追加 |
 | 客(モックなし) | 予約変更中の案内帯 | — | `bg-secondary/60` | 修正: `bg-secondary`(半透明ではページ背景と区別できない) |
-| 客4・D・E-2・F | カード内の行の区切り | #f0eee9・#f2f0ea | `border-border`(#e7e4dd)。D の候補リストは区切りなし | 要相談 |
+| 客4・D・E-2・F | カード内の行の区切り | #f0eee9・#f2f0ea | `border-border`(#e7e4dd)。D の候補リストは区切りなし | 修正: 新トークン `--row-divider`(#F2F0EA)の `border-row-divider` / `divide-row-divider`。D の候補リストに区切りを追加(要相談 → 2026-10-20 決定) |
 | A ログイン | 地・カード | #f7f6f3 にカードなし | ページ背景+白いカード(影) | 意図して変えない(既存のカードの形。影で区別できる) |
 | A ログイン | 入力欄 | #d5d2ca | `border-input` | 対応済み |
 | サイドバー | 地・境界線・ミニ集計の枠 | #f4f2ec / #e6e3dc | --sidebar / --sidebar-border | 対応済み(前節) |
@@ -544,7 +545,7 @@ subtle #9AA0AB)で、実装は赤みの焦げ茶(本文 #2E2725 / 補足 `--mute
 | F-2 | 「カスタム」の破線 | #c7c3ba | `border-border`+ `opacity-60` | 意図して変えない(実装は未提供の無効表示で、モックと状態が違う) |
 | F-2 | フォントのトグル | 枠 #d5d2ca | `border-input` | 対応済み |
 
-集計: 修正 32件 / 対応済み 21件 / 意図して変えない 3件 / 要相談 1件。
+集計: 修正 33件 / 対応済み 21件 / 意図して変えない 3件 / 要相談 0件。
 
 要相談:
 
@@ -554,6 +555,17 @@ subtle #9AA0AB)で、実装は赤みの焦げ茶(本文 #2E2725 / 補足 `--mute
   (a) 行の区切り用のトークン(例 `--divider-subtle` = #F2F0EA)を足す、(b) 値が同じ --secondary
   か --grid-line を流用する、(c) --border のまま。(b) は意味の違うトークンの流用になるので、
   足すなら (a)。差は明度 0.03 で、区切りが見えなくなるわけではないので修正していない
+  - **決定(2026-10-20)**: (a) を採る。行区切り用のトークン `--row-divider`
+    (oklch(0.955 0.008 91.5)、#F2F0EA)を :root のニュートラルの近くに足し、@theme inline に
+    `--color-row-divider` を登録した。モックの #f0eee9 と #f2f0ea は差がごくわずかなので #F2F0EA に
+    統一する。値は --secondary と同じだが、あちらは地(チップの面)でこちらは線なので別トークンに
+    した。当てたのは上の4か所のカードの中の行と行の間の線だけ(客4 の確認カード `step-confirm.tsx`、
+    D の候補リスト `proxy-registration-form.tsx`、E-2 の臨時休業の一覧 `business-settings-form.tsx`、
+    F のメニューの行 `menu-settings-form.tsx`)。カードの外枠(--border)と見出しとの区切り
+    (モックの #eceae4 / #ece9e3)は変えない。D の候補リストはモックどおり `divide-y` で行どうしの
+    間にだけ線を引く(最初の行の上・最後の行の下には引かない)。モックにある客4 の「日時」と合計行の
+    間の線、F の各カテゴリの最後の行の下の線は、実装にもともと線がない箇所なので足していない
+    (合計行は --accent の地、カテゴリ名の区切り行は --muted の地で分かれている)
 
 補足:
 
