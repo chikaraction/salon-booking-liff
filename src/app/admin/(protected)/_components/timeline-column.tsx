@@ -56,7 +56,10 @@ export function TimeGutter({ tickMarks }: { tickMarks: TickMark[] }) {
   );
 }
 
-/** 1時間ごとの横罫線(親要素は relative であること) */
+/**
+ * 1時間ごとの横罫線(親要素は relative であること)。色はモックの淡い罫線
+ * (--grid-line)。列の区切り線(--calendar-divider)より一段淡くする
+ */
 export function HourLines({ tickMarks }: { tickMarks: TickMark[] }) {
   return (
     <>
@@ -64,7 +67,7 @@ export function HourLines({ tickMarks }: { tickMarks: TickMark[] }) {
         <div
           key={mark.label}
           aria-hidden="true"
-          className="absolute inset-x-0 border-t border-border"
+          className="absolute inset-x-0 border-t border-grid-line"
           style={{ top: `${mark.topPercent}%` }}
         />
       ))}

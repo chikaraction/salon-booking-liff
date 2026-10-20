@@ -232,9 +232,12 @@ export function CalendarView({
   const handleNext = () => go(view, moveDay(date, view === "day" ? 1 : 7));
 
   return (
-    <div className="flex h-dvh flex-col md:h-screen">
+    // 予約カレンダーの地は白(--card。モックB・B-2・H)。ほかの管理ページは
+    // ページ背景(--background)+白いカードのまま。罫線・見出しの地の色は
+    // globals.css の --calendar-divider / --calendar-header / --grid-line
+    <div className="flex h-dvh flex-col bg-card md:h-screen">
       {/* ヘッダー(前後ナビ + 日付ピッカー + 今日 + 日/週トグル) */}
-      <header className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3 md:px-6">
+      <header className="flex flex-wrap items-center gap-3 border-b border-calendar-divider px-4 py-3 md:px-6">
         {/* 可視の見出しは日付ピッカーが兼ねる(日付の二重表示を避ける)。
             ページ見出しとしては読み上げ用に残す */}
         <h1 className="sr-only">{centerLabel}</h1>
@@ -343,7 +346,11 @@ export function CalendarView({
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-auto">
+      {/* スマホのリスト表示(モックI)だけは、地をページ背景にして白いカードを
+          並べる。切替の状態は DayView の中にあるため、リストの目印
+          (data-calendar-list)の有無で地を切り替える。リストは md 未満でしか
+          表示しないので max-md に限る(md 以上では非表示のまま残ることがある) */}
+      <div className="min-h-0 flex-1 overflow-auto max-md:has-[[data-calendar-list]]:bg-background">
         {view === "day" ? (
           <DayView
             staff={staff}
@@ -507,7 +514,8 @@ function DayView({
 
       {/* スマホ: タイムライン(1人)/ リスト の切替(モックH・I) */}
       <div className="md:hidden">
-        <div className="flex gap-0.5 border-b border-border p-3">
+        {/* リスト表示で地がページ背景になっても、ここはツールバーの続きとして白 */}
+        <div className="flex gap-0.5 border-b border-calendar-divider bg-card p-3">
           {(["timeline", "list"] as const).map((mode) => (
             <button
               key={mode}
@@ -532,7 +540,11 @@ function DayView({
             onCreateAt={onCreateAt}
           />
         ) : (
-          <ReservationList listItems={listItems} onSelect={onSelect} />
+          // data-calendar-list: CalendarView がスクロール領域の地を
+          // ページ背景に切り替える目印(モックI)
+          <div data-calendar-list>
+            <ReservationList listItems={listItems} onSelect={onSelect} />
+          </div>
         )}
       </div>
     </>
@@ -545,7 +557,7 @@ function DayView({
  */
 function ClosedDayBanner() {
   return (
-    <div className="flex items-center gap-2 border-b border-border bg-muted/50 px-4 py-2 md:px-6">
+    <div className="flex items-center gap-2 border-b border-calendar-divider bg-muted/50 px-4 py-2 md:px-6">
       <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-bold text-muted-foreground">
         定休日
       </span>
@@ -584,8 +596,8 @@ function DayTimelineGrid({
     // (mt-0.5 + text-xs ≒ 1.125rem)はみ出すので、本体の外側の下に余白を取る。
     // 本体の高さを増やすと列の矩形(空き枠クリックの縦比率→時刻)がずれるため外側に置く
     <div className="min-w-max pb-5 md:min-w-0">
-      {/* 列見出し */}
-      <div className="flex border-b border-border">
+      {/* 列見出し(モックB: 見出しの地は --calendar-header、時刻列の上は白のまま) */}
+      <div className="flex border-b border-calendar-divider">
         <div className="w-16 shrink-0" />
         <div
           className="grid flex-1"
@@ -594,7 +606,7 @@ function DayTimelineGrid({
           {timeline.columns.map((column) => (
             <div
               key={column.staffId}
-              className="border-l border-border px-3 py-2 text-center text-sm font-bold"
+              className="border-l border-calendar-divider bg-calendar-header px-3 py-2 text-center text-sm font-bold"
             >
               {column.heading}
             </div>
@@ -633,7 +645,7 @@ function DayTimelineGrid({
                         )
                 }
                 className={cn(
-                  "relative border-l border-border",
+                  "relative border-l border-calendar-divider",
                   axis !== null && onCreateAt !== undefined && emptySlotClass,
                 )}
               >
@@ -719,7 +731,7 @@ function MobileTimeline({
                   onCreateAt(column.staffId, columnClickPoint(event), axis)
           }
           className={cn(
-            "relative flex-1 border-l border-border",
+            "relative flex-1 border-l border-calendar-divider",
             axis !== null && onCreateAt !== undefined && emptySlotClass,
           )}
         >
@@ -766,7 +778,8 @@ function ReservationList({
               onSelect === undefined ? undefined : () => onSelect(item.id, null)
             }
             className={cn(
-              "flex w-full items-start gap-4 rounded-xl border border-border bg-card p-4 text-left",
+              // 枠はモックI の淡い枠(#ece9e3 ≒ --calendar-divider)
+              "flex w-full items-start gap-4 rounded-xl border border-calendar-divider bg-card p-4 text-left",
               onSelect !== undefined &&
                 "transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             )}
@@ -846,7 +859,7 @@ function WeekGrid({
           (本体の高さを増やすと列の矩形=空き枠クリックの時刻がずれるため外側) */}
       <div className="min-w-[48rem] pb-5">
         {/* 曜日見出し */}
-        <div className="flex border-b border-border">
+        <div className="flex border-b border-calendar-divider">
           <div className="w-16 shrink-0" />
           <div className="grid flex-1 grid-cols-7">
             {weekView.days.map((day) => (
@@ -854,11 +867,17 @@ function WeekGrid({
                 key={day.date}
                 aria-current={day.date === todayDate ? "date" : undefined}
                 className={cn(
-                  "border-l border-border px-2 py-2 text-center text-sm font-bold",
-                  // 定休日は本体セルと同じ下地を敷き、列全体が休みだと一目で分かるようにする
-                  day.isClosed && "bg-secondary text-muted-foreground",
-                  // 今日の列の見出しはテーマの淡色(モックB-2)。定休日の下地を優先する
-                  !day.isClosed && day.date === todayDate && "bg-accent",
+                  "border-l border-calendar-divider px-2 py-2 text-center text-sm font-bold",
+                  // 見出しの地は3択で排他にする(クラスの後勝ちに頼らない)。
+                  // 優先順: 定休日 > 今日 > 通常
+                  day.isClosed
+                    ? // 定休日は本体セルと同じ下地を敷き、列全体が休みだと一目で分かるようにする
+                      "bg-secondary text-muted-foreground"
+                    : day.date === todayDate
+                      ? // 今日の列の見出しはテーマの淡色(モックB-2)
+                        "bg-accent"
+                      : // 通常の見出しはモックB-2 の淡い地
+                        "bg-calendar-header",
                 )}
               >
                 {day.dayNumber} {day.weekdayLabel}
@@ -892,11 +911,11 @@ function WeekGrid({
                           onCreateAt(day.date, columnClickPoint(event), axis)
                   }
                   className={cn(
-                    "relative border-l border-border",
+                    "relative border-l border-calendar-divider",
                     // 定休日: 斜線ハッチングは実機で見分けがつきにくかったため、
-                    // べた塗りの背景色に変更。--secondary はページ背景(--background)
-                    // に対してライト 0.93/0.965、ダーク 0.269/0.145 と明度差があり、
-                    // 不透明度を下げずに敷くことで一目で休みだと分かる。色はトークンのみ
+                    // べた塗りの背景色に変更。--secondary はカレンダーの地(--card、
+                    // 白)に対して明度 0.93/1.0 と差があり、不透明度を下げずに
+                    // 敷くことで一目で休みだと分かる。色はトークンのみ
                     day.isClosed && "bg-secondary",
                     axis !== null && onCreateAt !== undefined && emptySlotClass,
                   )}

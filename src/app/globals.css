@@ -22,6 +22,9 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+  --color-calendar-header: var(--calendar-header);
+  --color-calendar-divider: var(--calendar-divider);
+  --color-grid-line: var(--grid-line);
   /* スタッフ色(src/lib/staff-colors.ts)。1人目はテーマ色そのもの(帯・凡例 =
      --primary、下地 = --accent)なので、:root に値を持たずここで直接指す。
      [data-theme] でテーマが替わると1人目の色も追従する */
@@ -137,14 +140,25 @@
   --break-surface: oklch(0.93 0.013 56); /* #efe6e0 */
   --break-foreground: oklch(0.572 0.075 50.5); /* #9c6b4f */
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
+  /* 管理画面のサイドバーと予約カレンダーの地・罫線。モック(docs/mockups/README.md
+     の Neutrals、mock.dc.html の B・B-2・H)準拠で、テーマに依らない3テーマ共通の
+     ニュートラル。サイドバーは淡いベージュの地+境界線、カレンダーは白(--card)の
+     地に淡い見出し・罫線を置く(予約カレンダー以外のページはページ背景+白いカードの
+     まま)。--sidebar / --sidebar-border は shadcn 既定の未使用トークンをこの値に
+     置き換えて使う。ほかの --sidebar-* はどこからも使っていない(shadcn 既定のまま) */
+  --sidebar: oklch(0.961 0.008 91.5); /* #f4f2ec サイドバーの地 */
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
+  /* #e6e3dc サイドバーの右の境界線・ミニ集計カードの枠 */
+  --sidebar-border: oklch(0.916 0.01 87.5);
   --sidebar-ring: oklch(0.708 0 0);
+  --calendar-header: oklch(0.982 0.004 91.4); /* #faf9f6 列見出しの地 */
+  /* #eceae4 区切り線(ツールバーの下・列見出しの下・時刻列の右・列の間) */
+  --calendar-divider: oklch(0.937 0.008 91.5);
+  --grid-line: oklch(0.955 0.008 91.5); /* #f2f0ea 1時間ごとの横罫線 */
 }
 
 /* テーマカラーのプリセット(salon_settings.theme_preset。表示設定で切り替える)。

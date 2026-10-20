@@ -178,9 +178,13 @@ export function AdminSidebar({ salonName, role, miniSummary }: Props) {
   const footer = (
     <div className="flex flex-col gap-3">
       {/* ミニ集計スロット(今日の予約件数・LINEプッシュ n/200 バー)。
-          後続タスク(カレンダー)がここを埋める */}
+          後続タスク(カレンダー)がここを埋める。モックB どおり、サイドバーの
+          地(--sidebar)の上に白いカード+細い枠で置く(スマホの展開メニューでも
+          同じカードを使う。白地の上でも枠で区切りが分かる) */}
       {miniSummary !== undefined && miniSummary !== null && (
-        <div className="rounded-xl bg-card p-4">{miniSummary}</div>
+        <div className="rounded-xl border border-sidebar-border bg-card p-4">
+          {miniSummary}
+        </div>
       )}
       {errorMessage !== null && (
         <p role="alert" className="text-sm text-destructive">
@@ -231,8 +235,10 @@ export function AdminSidebar({ salonName, role, miniSummary }: Props) {
         </div>
       )}
 
-      {/* PC/タブレット幅: 常時表示のサイドバー */}
-      <aside className="hidden w-60 shrink-0 flex-col justify-between border-r border-border bg-card p-4 md:flex">
+      {/* PC/タブレット幅: 常時表示のサイドバー。地と右の境界線はモックB の
+          ニュートラル(--sidebar / --sidebar-border。globals.css)。スマホ幅の
+          ヘッダーバー・展開メニューは白(bg-card)のまま */}
+      <aside className="hidden w-60 shrink-0 flex-col justify-between border-r border-sidebar-border bg-sidebar p-4 md:flex">
         <div className="flex flex-col gap-6">
           <p className="px-4 pt-2 text-sm font-bold tracking-widest text-primary">
             {salonName} 管理
