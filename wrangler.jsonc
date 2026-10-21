@@ -1,0 +1,23 @@
+// Cloudflare Workers の設定(M6。docs/milestone-6-plan.md)。
+// テンプレート: node_modules/@opennextjs/cloudflare/templates/wrangler.jsonc
+// - name は店名を含まない汎用名(ADR-007。2店舗目は別の Cloudflare アカウントに同じ名前で置く)
+// - 全ページが動的(ルートレイアウトの connection())で ISR/SSG を使わないので、
+//   テンプレートの R2 キャッシュ・WORKER_SELF_REFERENCE・images は入れない
+//   (open-next.config.ts は既定の dummy キャッシュ)
+// - 環境変数・シークレットはここに書かない(Cloudflare の画面で設定する)
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "salon-booking-liff",
+  "main": ".open-next/worker.js",
+  // インストール済みの workerd(1.20261019.1)が対応する日付
+  "compatibility_date": "2026-10-19",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS",
+  },
+  // 実行時の変数(LINE_LOGIN_CHANNEL_ID など Text のもの)は Cloudflare の画面で設定する。
+  // 既定の wrangler deploy は画面で設定した vars を削除するので残す(Secret はもともと消えない)
+  // (node_modules/wrangler/config-schema.json の keep_vars)
+  "keep_vars": true,
+}
