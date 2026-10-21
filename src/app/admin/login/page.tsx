@@ -6,7 +6,7 @@ import { LoginForm } from "./_components/login-form";
 export const dynamic = "force-dynamic";
 
 // 管理画面ログイン(モックA: 店名+「管理画面ログイン」+1カード)。
-// ログイン済みユーザーのリダイレクトは src/proxy.ts が行う。
+// ログイン済みユーザーのリダイレクトは src/middleware.ts が行う。
 export default async function AdminLoginPage() {
   const salonName = await fetchSalonNameForLogin();
 
