@@ -273,8 +273,9 @@ Claude はアカウント作成・ログイン・認証情報の入力をしな�
    「すり合わせ済みの決定」のとおり、店の公式アカウントも後でここに入れる)
 2. そのプロバイダーに **LINE ログインチャネル**を作成(アプリタイプ: ウェブアプリ)
 3. チャネル基本設定の**チャネルID**を控える → Cloudflare の `LINE_LOGIN_CHANNEL_ID` に入れる
-4. チャネルを**公開**状態にする(開発中のままだと管理者・テスター以外がログインできない
-   — 推測。実施時に LINE のドキュメントで確認して手順を確定する)
+4. 客に使わせる前にチャネルを**公開**(Published)にする。作成直後は開発中(Developing)で、
+   管理者・テスターしか LINE ログインできない(LINE Developers のドキュメントで確認済み)。
+   テスト用公式アカウントでの確認は開発中のままでよい
 
 ### C. LIFF アプリの作成
 
@@ -372,3 +373,47 @@ Claude はアカウント作成・ログイン・認証情報の入力をしな�
   - 日付・時刻の表示が JST(Workers は UTC)。今日の予約・空き枠・締切判定
   - ダブルブッキング防止(ADR-004)の同時確定を本番URLで1回
   - Workers のメトリクスで CPU 時間とエラー(1102)を確認(リスク1)
+
+## 実装の結果(2026-10-21)
+
+実施順序 1〜5 はサブエージェントが1ステップ1コミットで実装し、メインでレビュー・
+ブラウザのスモークテスト(スタブの dev で `/`→`/booking`、未ログインの `/admin/dashboard`→
+`/admin/login`、`/my`)を行った。test 669件・build・lint が通っている。
+
+確認できた事実(推測だった箇所の答え):
+
+- **Next 16.4.2**: 16.3/16.4 で必須の移行作業はなし。`logging.serverFunctions` は有効なまま。
+  **16.3 以降の `next dev` は AI エージェントを検出すると `AGENTS.md` を自動生成する**ので、
+  `next.config.ts` に `agentRules: false` を追加した(`next-config-js/agentRules.md`)
+- **middleware.ts は runtime を書かなければ Edge**(`next/dist/build/entries.js`)。
+  ビルド後の `middleware-manifest.json` の `middleware["/"]` に Edge のエントリがあり、
+  OpenNext の Node ミドルウェア警告は出ない。16.4 のドキュメントでは Edge Runtime 自体も
+  deprecated 扱いになったが、`runtime` を書かない middleware.ts では警告は出ない
+- **`liff.init()` と `liff.state`**(`@line/liff` 2.29.1 の `@liff/init`): 遷移先が今の URL と
+  違えば `location.replace()` のあと解決しない Promise を待つ。つまり init 後の
+  `router.replace` は SDK が遷移しなかったときだけ動き、二重遷移は起きない。
+  LIFF ID 未設定・init 失敗時は SDK が遷移しないので `/booking` へ送る(`initFailed`。
+  設計に追加)
+- **デプロイ前チェック**は `scripts/check-deploy-env.mjs` から Node のネイティブ型除去で
+  `src/lib/deploy-env.ts` を読む。Workers Builds の既定 Node は 24.18.0 で、`.node-version`
+  (24.18.0)で固定した(Cloudflare の build-image ドキュメント)
+- **`wrangler.jsonc` に `keep_vars: true`**: 既定の `wrangler deploy` は画面で設定した Text 変数
+  (`LINE_LOGIN_CHANNEL_ID`)をデプロイのたびに消すため(設計に追加)
+- `compatibility_date` は `2026-10-19`(インストールした workerd 1.20261019.1 の対応日付)
+- **Windows でも `opennextjs-cloudflare build` と `preview` は動いた**(「Windows 非完全対応」の
+  警告は出る)。preview(workerd)で `/`・`/booking`・`/my`・`/admin/login` が 200、`/admin` 配下は
+  `/admin/login` へ 307、フォントの woff2 も配信され、Supabase にも接続できた。dummy キャッシュで
+  警告・エラーなし。ただし本番デプロイは方針どおり Workers Builds(秘密が焼き込まれないため)
+- **Worker のサイズ**: `wrangler deploy --dry-run` で 7,359 KiB(gzip 1,552 KiB)。上限 64 MiB に
+  余裕がある
+- テンプレートの `public/*.svg`(未使用)を削除した
+
+残課題(M6 の範囲では対応しない):
+
+- `_next/static/*` が `Cache-Control: max-age=0, must-revalidate` で配信される(preview で確認)。
+  長期キャッシュには `public/_headers` が要りそうだが未確認。CPU 時間には影響しない
+  (静的アセットは Worker を起動しない)ので、表示速度が気になったら対応する
+- Workers Builds の main 以外のブランチのビルドのコマンド(OpenNext で使えるか)は未確認。
+  使わない想定
+- npm の allow-scripts で esbuild・workerd の postinstall はブロックされたまま(プラットフォーム別
+  バイナリで動いた)。Workers Builds の Linux でも動くかは初回ビルドで確認する
