@@ -15,6 +15,18 @@ const STUB_ID_TOKEN = `${STUB_TOKEN_PREFIX}U-dev-user-1`;
 let initPromise: Promise<void> | null = null;
 
 /**
+ * LIFF SDK を読み込み、初期化を(共有の Promise で)待って SDK を返す。
+ * 失敗時は例外をそのまま投げる(initPromise の後始末は呼び出し側)。
+ */
+async function initializedLiff(liffId: string) {
+  // スタブモードでSDKを読み込まないよう動的importにする
+  const { default: liff } = await import("@line/liff");
+  initPromise ??= liff.init({ liffId });
+  await initPromise;
+  return liff;
+}
+
+/**
  * LIFFを初期化してIDトークンを返す。取得できなければ null。
  * (LIFF ID未設定・初期化失敗・LINEログインしていない場合など)
  */
@@ -29,14 +41,37 @@ export async function getLineIdToken(): Promise<string | null> {
   }
 
   try {
-    // スタブモードでSDKを読み込まないよう動的importにする
-    const { default: liff } = await import("@line/liff");
-    initPromise ??= liff.init({ liffId });
-    await initPromise;
+    const liff = await initializedLiff(liffId);
     return liff.getIDToken();
   } catch {
     // 初期化失敗は「未認証」として扱う。次回呼び出しで再試行できるようにする
     initPromise = null;
     return null;
+  }
+}
+
+/**
+ * LIFFを初期化するだけ(エントリーページ / 用)。初期化できたら true、
+ * LIFF ID未設定・初期化失敗なら false。スタブモードではSDKを呼ばず true。
+ * URLに liff.state があり SDK が2次リダイレクトするときは、SDK が
+ * location.replace() したあと解決しない Promise を待つため、この Promise も解決しない
+ * (@line/liff 2.29.1 の @liff/init で確認。src/lib/liff-entry.ts の冒頭コメント)。
+ */
+export async function initLiff(): Promise<boolean> {
+  if (process.env.NEXT_PUBLIC_LIFF_STUB === "1") {
+    return true;
+  }
+
+  const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
+  if (!liffId) {
+    return false;
+  }
+
+  try {
+    await initializedLiff(liffId);
+    return true;
+  } catch {
+    initPromise = null;
+    return false;
   }
 }
