@@ -36,7 +36,7 @@ export function CancelSheet({
         onClick={onClose}
       />
       {/* シート本体(画面下から表示) */}
-      <div className="absolute inset-x-0 bottom-0 mx-auto w-full max-w-md rounded-t-3xl bg-card px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6 animate-in slide-in-from-bottom duration-200">
+      <div className="absolute inset-x-0 bottom-0 mx-auto w-full max-w-md rounded-t-3xl bg-card px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-6 animate-in slide-in-from-bottom duration-200">
         <h2 id="cancel-sheet-title" className="text-center text-xl font-bold">
           予約をキャンセルしますか？
         </h2>

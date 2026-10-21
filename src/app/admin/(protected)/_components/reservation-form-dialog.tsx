@@ -278,8 +278,16 @@ export function ReservationFormDialog({
         </button>
       </div>
 
-      {/* 本体(フォームが縦に長いのでパネル内でスクロールする) */}
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+      {/* 本体(フォームが縦に長いのでパネル内でスクロールする)。
+          md未満のシートでは送信ボタン・「詳細に戻る」がこの本体の末尾 = 画面最下部に
+          来るので、ホームバー・角の丸みと重ならないようセーフエリアぶんの下余白を足す */}
+      <div
+        className={
+          isDesktop
+            ? "min-h-0 flex-1 overflow-y-auto px-4 py-4"
+            : "min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]"
+        }
+      >
         <ProxyRegistrationForm
           variant="dialog"
           mode={target.mode}

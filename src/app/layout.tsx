@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Noto_Sans_JP } from "next/font/google";
 import localFont from "next/font/local";
 
@@ -35,6 +35,15 @@ const notoSansJP = Noto_Sans_JP({
 export const metadata: Metadata = {
   title: "予約システム",
   description: "美容室の来店予約システム",
+};
+
+// iOS(LINE内ブラウザ含む)は viewport-fit=cover を宣言しないと
+// env(safe-area-inset-*) が常に0になり、画面下に固定したボタンがホームバーや
+// 角の丸みと重なる。width=device-width / initial-scale=1 は Next の既定が残る。
+// cover にすると横向きで左右の切り欠きにもかかり得るが、客側は縦向き前提なので
+// 今回は下部(safe-area-inset-bottom)のみ対応している
+export const viewport: Viewport = {
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({
