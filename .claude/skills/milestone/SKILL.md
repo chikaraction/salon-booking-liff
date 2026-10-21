@@ -46,6 +46,15 @@ tendledgeプロジェクトで確立した進め方をsalon-booking用に翻案�
 
 - スキーマ変更は必ずマイグレーションファイルとして残す(Supabaseダッシュボードでの
   直接変更は禁止)。EXCLUDE制約(ADR-004)を壊す変更は特に慎重に。
+- **public にテーブルを作るときは、同じマイグレーションで grant を書く。**
+  Supabaseは2026-10-30以降、新しいテーブルにData APIの権限を自動では付けない
+  (書き忘れるとアプリから「permission denied」になる)。形は既存テーブルに合わせる
+  (`supabase/migrations/20261021000000_explicit_table_grants.sql`):
+  `grant select, insert, update, delete on table public.<テーブル> to authenticated, service_role;`
+  anon には付けない(客側は service_role、管理画面は authenticated で読む)。誰が何を
+  できるかはRLSポリシーで決めるので、RLSの有効化とポリシーも同じマイグレーションに書く。
+  PGliteで検証するときは alter default privileges をしないこと(自動grantがある前提だと
+  書き忘れを見逃す)。
 - 管理画面(/admin)を触るときはアクセス制御(ミドルウェア+RLS)の確認を検証項目に含める。
 - LINEプッシュ送信を増やす変更は、無料枠200通/月の消費見積もりをADR-002と照合する。
 - 店舗固有の値(店名・メニュー・営業時間)をコードに書かない(ADR-007)。
