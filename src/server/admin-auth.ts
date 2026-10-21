@@ -52,7 +52,7 @@ export async function createAdminAuthClient(): Promise<SupabaseClient> {
           );
         } catch {
           // Server Component からは cookie を書けない(Next.jsの制約)。
-          // トークン更新の書き戻しは src/proxy.ts が行うため、ここでは無視してよい
+          // トークン更新の書き戻しは src/middleware.ts が行うため、ここでは無視してよい
         }
       },
     },

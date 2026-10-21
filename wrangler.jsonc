@@ -20,4 +20,10 @@
   // 既定の wrangler deploy は画面で設定した vars を削除するので残す(Secret はもともと消えない)
   // (node_modules/wrangler/config-schema.json の keep_vars)
   "keep_vars": true,
+  // Workers Logs(console.error と未捕捉の例外をダッシュボードの Observability で見られる)。
+  // 本番だけで起きるエラーの中身を調べるために常時有効にする。無料プランは
+  // 1日20万件・保持3日(https://developers.cloudflare.com/workers/observability/logs/workers-logs/)
+  "observability": {
+    "enabled": true,
+  },
 }
