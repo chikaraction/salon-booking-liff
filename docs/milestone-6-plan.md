@@ -417,3 +417,30 @@ Claude はアカウント作成・ログイン・認証情報の入力をしな�
   使わない想定
 - npm の allow-scripts で esbuild・workerd の postinstall はブロックされたまま(プラットフォーム別
   バイナリで動いた)。Workers Builds の Linux でも動くかは初回ビルドで確認する
+
+## デプロイと実機確認の結果(2026-10-21)
+
+- PR #6 マージ → Workers Builds で初回デプロイ。URL は
+  `https://<worker-name>.<subdomain>.workers.dev`
+- **初回は `/admin/login`・`/booking` が 500**。ミドルウェア(anon キー)は動き、service_role で
+  DB を読む画面だけが落ちていた。手元で本番と同じ条件(`.env` なし、変数は外から渡す)で
+  ビルドすると正常だったので、コード・構成ではなく画面に入れた値を疑い、シークレット
+  `SUPABASE_SERVICE_ROLE_KEY` を**ローテートで貼り直したら直った**(最初の値が不正だった)
+- エラーの中身が見られなかったので、PR #7 で Workers Logs(`observability`)を常時有効にした
+- **LIFF ID が効かなかった**: Build variables に入れたあと、変数を足した版(再ビルドなし)が
+  動いていた。Next はビルド時に値がある `NEXT_PUBLIC_*` だけを文字列に置き換えるので、
+  `env.NEXT_PUBLIC_LIFF_ID` を読む形のまま残っていた。ビルドの**再試行**で埋め込まれた
+- Cloudflare の画面・AI は `wrangler.jsonc` の `vars` に `LINE_LOGIN_CHANNEL_ID` を書くよう勧めるが、
+  `keep_vars: true` で画面の値が残るので不要。コードに書くと2店舗目で1店舗目の値が使われる(ADR-007)
+- **LINE 実機(テスト用公式アカウント)の確認は OK**: リッチメニューから `/booking`・`/my`、
+  本人特定、2回目の入力スキップ、自分の予約だけ表示、テーマ・フォント
+- 実機での指摘: 画面下のボタンが端末の角の丸みと重なる・下端との余白が欲しい →
+  `viewport-fit=cover` が無く `env(safe-area-inset-bottom)` が 0 だった。下部余白を
+  「基本 + セーフエリア」にする修正を別 PR で行う
+
+残り(M6 の範囲):
+
+- Workers のメトリクスで CPU 時間と 1102 エラーを、しばらく運用してから確認する(リスク1)
+- 本番運用の前に、テスト用に入れた予約・顧客・Auth ユーザーを削除する(手順 E。SQL を用意する)
+- 本番切り替え(店の公式アカウントで Messaging API を有効化するとき同じプロバイダーを選ぶ・
+  リッチメニュー作成・ログインチャネルを公開)は M5 と合わせて行う
