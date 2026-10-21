@@ -509,7 +509,7 @@ export function BookingWizard({
         )}
       </main>
 
-      <footer className="sticky bottom-0 z-10 border-t border-border bg-card px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+      <footer className="sticky bottom-0 z-10 border-t border-border bg-card px-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-3">
         {step === "menu" && (
           <>
             <div className="flex items-baseline justify-between pb-2">
