@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "check:deploy-env": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-deploy-env.mjs",
     "start": "next start",
     "lint": "eslint",
     "format": "prettier --write .",
