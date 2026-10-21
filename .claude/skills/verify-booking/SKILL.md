@@ -29,7 +29,7 @@ description: ローカルの自動テストだけでは検証できない項目(
 | `/admin/settings/salon` | 店舗・予約設定 | オーナーのみ |
 | `/admin/settings/display` | 表示設定 | オーナーのみ。モックF-2 |
 
-`/admin` 配下はすべてログインが必要(`src/proxy.ts` の matcher が `/admin/:path*`)。
+`/admin` 配下はすべてログインが必要(`src/middleware.ts` の matcher が `/admin/:path*`)。
 設定の5画面はサイドバーの「設定」グループから開けるが、スタッフロールでは
 リンクが出ず、直URLでも弾かれる。`/admin/settings` 自体のページは無い(404)。
 
@@ -43,10 +43,10 @@ description: ローカルの自動テストだけでは検証できない項目(
 LINEを通さずブラウザで開くには `NEXT_PUBLIC_LIFF_STUB=1`(LINEログインの代わりに
 `stub:<userId>` のダミートークンを使う。本番では必ず拒否される)。
 
-### まだ手を付けていないURL
+| `/` | LIFFの入口(M6) | LIFFのエンドポイントURL。`liff.init()` で `liff.state` の行き先(`/my` など)へ、無ければ `/booking` へ。スタブ時は常に `/booking` |
 
-- `/` — create-next-app のテンプレートのまま。客側の入口はLINEのリッチメニューから
-  `/booking`・`/my` を直接開く形なので、ここは使っていない
+本番(M6〜)は `https://<Worker名>.<サブドメイン>.workers.dev`。LINEからは
+`https://liff.line.me/<LIFF ID>/booking`・`/my`(リッチメニューのリンク)で開く。
 
 ## ダブルブッキング防止(ADR-004)
 
@@ -85,12 +85,65 @@ LINEを通さずブラウザで開くには `NEXT_PUBLIC_LIFF_STUB=1`(LINEログ
       対象予約に変化がない(RPC内の本人確認)
 - [ ] LINE実機: リッチメニューの「マイ予約」ボタンから /my が直接開く(M6デプロイ後)
 
-## LIFF・LINEログイン(ADR-003)
+## LIFF・LINEログイン(ADR-003、M6デプロイ後)
+
+LINE実機でしか確認できない。M6 ではテスト用の公式アカウントのリッチメニューから開く。
 
 - [ ] LINEアプリのリッチメニューから予約画面が開き、ログイン操作なしで
       本人が特定されている(初回は名前・電話番号の入力画面が出る)
 - [ ] 2回目以降の予約で個人情報の入力がスキップされる
 - [ ] マイ予約に自分の予約だけが表示される(他人の予約が見えない)
+
+## M6 デプロイ後(Cloudflare Workers)
+
+`docs/milestone-6-plan.md`。デプロイは Workers Builds(`main` へのマージ)。
+上の「(M6デプロイ後)」の項目と「LIFF・LINEログイン」節もこのタイミングで消化する。
+
+### ビルド・設定
+
+- [ ] Workers Builds のビルドログでデプロイ前チェックが通り、警告
+      (`NEXT_PUBLIC_LIFF_ID` 未設定など)が想定どおり。OpenNext の
+      「Node.js middleware support is experimental」警告が**出ていない**
+      (ミドルウェアは Edge の `src/middleware.ts`)
+- [ ] `NEXT_PUBLIC_LIFF_STUB` を Build variables に入れると、ビルドがデプロイ前チェックで止まる
+      (確認したら変数を消して再ビルド)
+- [ ] 本番のクライアントJS(DevTools の Sources / `_next/static/chunks`)に
+      service_role キーの値と `stub:` のダミートークンが含まれない
+
+### 客側(LINE実機。テスト用公式アカウント)
+
+- [ ] リッチメニュー「予約する」→ `/booking` が開き、ログイン操作なしで本人が特定される
+- [ ] リッチメニュー「マイ予約」→ **`/my` が直接開く**(`/` の入口から `liff.state` で振り分け。
+      一度 `/booking` が見えてから移る・二重に遷移する、がない)
+- [ ] LINE内ブラウザでテーマカラー・フォントが表示設定どおり(Noto Sans JP は初回に
+      一瞬フォールバックが出ることがある)。表示設定を変えると**再ビルドなしで**反映される
+- [ ] LINE内ブラウザ(スマホ縦)で客側の全画面が崩れない
+- [ ] 本番に `stub:U-test` のIDトークンで Server Action を送ると認証エラーになる
+      (スタブは本番で必ず拒否: `src/lib/liff-stub.ts`)
+- [ ] LINE以外のブラウザで本番の `/booking` を開いたときの表示が想定どおり
+      (IDトークンが取れない扱い)
+
+### 管理画面
+
+- [ ] 未ログインで本番の `/admin` 配下 → `/admin/login`。ログイン後は各画面が開く
+- [ ] ログインして**1時間以上たってから**操作しても使い続けられる
+      (アクセストークン期限後に、ミドルウェアのトークン更新が Edge で効いている)
+- [ ] 設定画面で保存 → 再読み込みで反映される(`revalidatePath` と OpenNext の dummy キャッシュ)
+- [ ] 日付・時刻が JST で正しい(Workers は UTC)。今日の予約・カレンダーの「今日」・
+      客側の締切(直前60分)・祝日の休業判定を、日付の変わり目に近い時刻で1回見る
+
+### 予約の整合性
+
+- [ ] ダブルブッキング防止(ADR-004)の同時確定を本番URLで1回行う(上の節の1項目目)
+
+### 運用
+
+- [ ] Workers のメトリクスで CPU 時間とエラーを確認する。無料プランは CPU 10ms/リクエスト。
+      Error 1102(exceededCpu)が恒常的に出るなら有料プラン(月$5)が必要で、ADR-001 の予算を
+      超えるので新ADRで相談する
+- [ ] 本番の客に使わせる前に、LINEログインチャネルを公開(Published)にした
+- [ ] 本番切り替えのとき、店の公式アカウントで Messaging API を有効化する場合は
+      **LIFF と同じプロバイダー**を選んだ(変更不可。M5 のプッシュの前提)
 
 ## 通知(ADR-002)
 

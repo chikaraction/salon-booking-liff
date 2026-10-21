@@ -10,7 +10,7 @@ import { fetchSalonName, getAdminMiniSummary } from "@/server/admin-data";
 import { AdminSidebar } from "./_components/admin-sidebar";
 import { MiniSummary } from "./_components/mini-summary";
 
-// 保護配下のレイアウト。src/proxy.ts のリダイレクトに加えて、ここでも
+// 保護配下のレイアウト。src/middleware.ts のリダイレクトに加えて、ここでも
 // 検証済みの getUser でセッションを再確認する(二重チェック:
 // docs/milestone-4-plan.md「アクセス制御」)。
 export default async function AdminProtectedLayout({

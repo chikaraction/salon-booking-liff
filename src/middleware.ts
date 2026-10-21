@@ -1,8 +1,18 @@
 // /admin 配下のアクセス制御(ADR-005)。
-// Next.js 16 では middleware.ts が非推奨になり proxy.ts に改名された
-// (node_modules/next/dist/build/index.js の警告文と
-//  dist/build/templates/middleware.js の `mod.proxy` 解決で確認)。
-// エクスポート名は `proxy` または default。matcher の書式は middleware と同じ。
+//
+// あえて非推奨の middleware.ts(Edge ランタイム)を使っている(M6 で proxy.ts から戻した):
+// - Next 16 の proxy.ts は Node.js ランタイム固定。「Edge ランタイムを使い続けたいなら
+//   middleware を使い続けること」と移行ガイドにある
+//   (node_modules/next/dist/docs/01-app/02-guides/upgrading/version-16.md「middleware to proxy」)
+// - Cloudflare Workers に載せる OpenNext は、Node.js ミドルウェアを
+//   「experimental … not officially maintained by OpenNext maintainers. Use at your own risk.」
+//   と警告する(@opennextjs/cloudflare の dist/cli/build/build.js)。ログイン判定を
+//   保守対象外の経路に乗せないため Edge で動かす
+// - middleware.ts は runtime を書かなければ Edge になる
+//   (next/dist/build/entries.js の runDependingOnPageType: middleware は
+//    runtime が 'nodejs' のときだけ Node、それ以外は Edge)
+// → OpenNext が Node.js ミドルウェアを正式対応したら proxy.ts に戻す
+//   (ファイル名を proxy.ts、関数名を proxy にするだけ。中身は変えなくてよい)
 //
 // ここでの役割:
 // 1. Supabaseセッションのトークン更新(@supabase/ssr はミドルウェアでの
@@ -16,7 +26,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const LOGIN_PATH = "/admin/login";
 
-export async function proxy(request: NextRequest): Promise<NextResponse> {
+export async function middleware(request: NextRequest): Promise<NextResponse> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey) {
