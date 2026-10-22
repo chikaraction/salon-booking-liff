@@ -158,7 +158,7 @@ Secrets 側に入れる。
    - Build command: `npm run build:cloudflare`
    - Deploy command: `npx opennextjs-cloudflare deploy`
    - Git branch: `main`
-   - Node.js: リポジトリ直下の `.node-version`(24.18.0)が使われる
+   - Node.js: リポジトリ直下の `.node-version`(24.22.1)が使われる
    - 実行時の変数は `wrangler.jsonc` の `keep_vars: true` により、デプロイのたびに消えない
      (Deploy command に `--keep-vars` を付ける必要はない)
    - main 以外のブランチのビルド(プレビュー)は使わない想定。OpenNext でのプレビュー用
