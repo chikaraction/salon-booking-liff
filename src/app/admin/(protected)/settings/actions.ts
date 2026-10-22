@@ -1029,6 +1029,7 @@ function revalidateSalonName(): void {
  * - 管理画面カレンダー(空き枠クリック時の刻み): /admin
  * キャンセル締切は客側のマイ予約が使うが、あちらはServer Action経由の
  * 実行時取得(キャッシュされない)なので再検証の対象が無い。
+ * 前日リマインドの送信時刻も、毎時の Cron がその都度DBから読むので対象が無い。
  */
 function revalidateBookingPolicy(): void {
   revalidatePath(SALON_SETTINGS_PATH);
@@ -1072,7 +1073,8 @@ export async function saveSalonName(
 }
 
 /**
- * 予約の受付ルール(刻み・受付期間・直前締切・キャンセル締切)を保存する。
+ * 予約の受付ルール(刻み・受付期間・直前締切・キャンセル締切)と
+ * 前日リマインドの送信時刻を保存する。
  * 検証は salon-settings.ts の純粋関数(DB制約と同じルール + 極端な値の
  * ガードレール + 直前締切と受付期間の整合)。最後の砦はDBのcheck制約。
  */
@@ -1089,6 +1091,7 @@ export async function saveBookingPolicy(
       validated.errors.bookingWindowDays ??
       validated.errors.minLeadMinutes ??
       validated.errors.cancelDeadlineMinutes ??
+      validated.errors.reminderHour ??
       validated.message;
     return { ok: false, message };
   }
@@ -1102,6 +1105,7 @@ export async function saveBookingPolicy(
         booking_window_days: validated.value.bookingWindowDays,
         min_lead_minutes: validated.value.minLeadMinutes,
         cancel_deadline_minutes: validated.value.cancelDeadlineMinutes,
+        reminder_hour: validated.value.reminderHour,
       })
       .eq("id", true)
       .select("id");

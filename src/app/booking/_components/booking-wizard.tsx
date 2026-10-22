@@ -17,7 +17,7 @@ import {
   type ChangeSource,
 } from "@/app/booking/actions";
 import { Button } from "@/components/ui/button";
-import { getLineIdToken } from "@/liff/client";
+import { getLineIdToken, sendConfirmationMessage } from "@/liff/client";
 import {
   formatJstDateTimeLabel,
   formatYen,
@@ -44,6 +44,8 @@ type CompletedReservation = {
   staffName: string;
   totalPrice: number;
   totalDurationMinutes: number;
+  /** 予約確認の定型文をLINEに送れたか(M5。完了画面の補足文の出し分け) */
+  lineMessageSent: boolean;
 };
 
 const SLOT_TAKEN_MESSAGE = "その枠は埋まりました。別の時間をお選びください";
@@ -305,18 +307,25 @@ export function BookingWizard({
         : undefined,
       changeReservationId,
     });
-    setBusy(false);
 
     if (result.ok) {
+      // 予約は確定済み。LINEへの定型文の送信を待ってから完了画面へ進む
+      // (送れなくても完了画面は出す。補足文を出さないだけ。ADR-004)
+      const lineMessageSent = await sendConfirmationMessage(
+        isChangeMode ? "change" : "new",
+      );
+      setBusy(false);
       setCompleted({
         startISO: result.reservation.startISO,
         staffName: result.reservation.staffName,
         totalPrice: result.reservation.totalPrice,
         totalDurationMinutes: result.reservation.totalDurationMinutes,
+        lineMessageSent,
       });
       setStep("complete");
       return;
     }
+    setBusy(false);
     switch (result.reason) {
       case "slot_taken":
         // 枠が埋まっていたら日時選択に戻し、空き枠を取り直す
@@ -505,6 +514,7 @@ export function BookingWizard({
             staffName={completed.staffName}
             totalPrice={completed.totalPrice}
             totalDurationMinutes={completed.totalDurationMinutes}
+            lineMessageSent={completed.lineMessageSent}
           />
         )}
       </main>

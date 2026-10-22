@@ -291,6 +291,8 @@ export type SalonSettings = {
   bookingWindowDays: number;
   minLeadMinutes: number;
   cancelDeadlineMinutes: number;
+  /** 前日リマインドの送信時刻(JSTの時。0〜23) */
+  reminderHour: number;
 };
 
 type SalonSettingsRow = {
@@ -299,10 +301,11 @@ type SalonSettingsRow = {
   booking_window_days: number;
   min_lead_minutes: number;
   cancel_deadline_minutes: number;
+  reminder_hour: number;
 };
 
 /**
- * 店名と予約ポリシー4値を取得する(salon_settings は id=true の1行だけ)。
+ * 店名と予約ポリシー4値・前日リマインドの送信時刻を取得する(salon_settings は id=true の1行だけ)。
  *
  * close_on_holidays は同じテーブルの列だが休業日ルールの一部なので、
  * 営業日設定画面の fetchBusinessSettings が持つ。画面ごとに必要な列だけを
@@ -314,7 +317,7 @@ export async function fetchSalonSettings(
   const result = await supabase
     .from("salon_settings")
     .select(
-      "name, slot_interval_minutes, booking_window_days, min_lead_minutes, cancel_deadline_minutes",
+      "name, slot_interval_minutes, booking_window_days, min_lead_minutes, cancel_deadline_minutes, reminder_hour",
     )
     .single();
   const row: SalonSettingsRow = must(result, "店舗設定");
@@ -325,6 +328,7 @@ export async function fetchSalonSettings(
     bookingWindowDays: row.booking_window_days,
     minLeadMinutes: row.min_lead_minutes,
     cancelDeadlineMinutes: row.cancel_deadline_minutes,
+    reminderHour: row.reminder_hour,
   };
 }
 

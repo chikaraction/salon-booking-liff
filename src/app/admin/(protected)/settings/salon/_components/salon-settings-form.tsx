@@ -23,12 +23,15 @@ import {
 } from "@/app/admin/(protected)/settings/_components/unsaved-changes";
 import {
   BOOKING_POLICY_LIMITS,
+  REMINDER_HOUR_OPTIONS,
   SALON_NAME_MAX_LENGTH,
   changedBookingPolicyFields,
   describeBookingWindow,
   describeCancelDeadline,
   describeMinLead,
+  describeReminderHour,
   describeSlotInterval,
+  formatReminderHour,
   isSalonNameChanged,
   validateBookingPolicyInput,
   validateSalonName,
@@ -44,7 +47,7 @@ const fieldLabelClass = "text-base font-bold text-foreground";
 type Props = {
   /** 現在の店名(salon_settings.name) */
   name: string;
-  /** 現在の予約ポリシー(数値の入力欄なので文字列で持つ) */
+  /** 現在の予約ポリシーと前日リマインドの送信時刻(入力欄の値なので文字列で持つ) */
   policy: BookingPolicyInput;
 };
 
@@ -69,7 +72,7 @@ export function SalonSettingsForm({ name, policy }: Props) {
             予約の受付ルール
           </h2>
           <p className="mt-2 text-base text-muted-foreground">
-            お客様の予約画面で、いつ・どの時刻の枠を出すかを決める設定です。
+            お客様の予約画面で、いつ・どの時刻の枠を出すか、前日のリマインドをいつ送るかを決める設定です。
           </p>
         </div>
         <div className="p-6 md:p-8">
@@ -172,7 +175,8 @@ function SalonNameSection({ name }: { name: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// 予約の受付ルール(刻み・受付期間・直前締切・キャンセル締切)
+// 予約の受付ルール(刻み・受付期間・直前締切・キャンセル締切・
+// 前日リマインドの送信時刻)
 // ---------------------------------------------------------------------------
 
 function BookingPolicySection({ policy }: { policy: BookingPolicyInput }) {
@@ -294,6 +298,15 @@ function BookingPolicySection({ policy }: { policy: BookingPolicyInput }) {
         onChange={(next) => update({ cancelDeadlineMinutes: next })}
       />
 
+      <ReminderHourField
+        id="reminder-hour"
+        changed={changedFields.includes("reminderHour")}
+        value={input.reminderHour}
+        description={describeReminderHour(input.reminderHour)}
+        error={errors.reminderHour}
+        onChange={(next) => update({ reminderHour: next })}
+      />
+
       <SectionFooter
         isPending={isPending}
         isDirty={isDirty}
@@ -360,6 +373,63 @@ function PolicyField({
         />
         <span className="text-base text-foreground">{unit}</span>
       </div>
+      {description !== null && (
+        <p id={describedBy} className="text-sm text-muted-foreground">
+          {description}
+        </p>
+      )}
+      {error !== undefined && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 前日リマインドの送信時刻(0〜23時のセレクト)。行の形は PolicyField に揃える。
+ * 選択肢と表示(「18:00」)・補足文は純粋関数が組み立てる。
+ */
+function ReminderHourField({
+  id,
+  value,
+  description,
+  error,
+  changed,
+  onChange,
+}: {
+  id: string;
+  value: string;
+  description: string | null;
+  error: string | undefined;
+  /** 保存済みの値から変わっているか(変更箇所の目印を出す) */
+  changed: boolean;
+  onChange: (value: string) => void;
+}) {
+  const describedBy = description === null ? undefined : `${id}-description`;
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <label htmlFor={id} className={fieldLabelClass}>
+          前日リマインドの送信時刻
+        </label>
+        {changed && <ChangedMark />}
+      </div>
+      <select
+        id={id}
+        value={value}
+        aria-describedby={describedBy}
+        onChange={(event) => onChange(event.target.value)}
+        className={cn(inputClass, "w-28")}
+      >
+        {REMINDER_HOUR_OPTIONS.map((hour) => (
+          <option key={hour} value={String(hour)}>
+            {formatReminderHour(hour)}
+          </option>
+        ))}
+      </select>
       {description !== null && (
         <p id={describedBy} className="text-sm text-muted-foreground">
           {description}
