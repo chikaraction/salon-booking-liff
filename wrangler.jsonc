@@ -8,7 +8,8 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "salon-booking-liff",
-  "main": ".open-next/worker.js",
+  // OpenNext の生成物(.open-next/worker.js)に Cron 用の scheduled を足したカスタムワーカー(M5)
+  "main": "worker.ts",
   // インストール済みの workerd(1.20261019.1)が対応する日付
   "compatibility_date": "2026-10-19",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
@@ -25,5 +26,14 @@
   // 1日20万件・保持3日(https://developers.cloudflare.com/workers/observability/logs/workers-logs/)
   "observability": {
     "enabled": true,
+  },
+  // 前日リマインド(M5)の Cron Triggers。毎時0分に worker.ts の scheduled が呼ばれる。
+  // Cron は UTC 指定だが、毎時なので JST とずれない。送るかどうか(店舗設定の送信時刻〜21時台)は
+  // src/server/reminders.ts(判断は src/lib/reminders.ts)が決める。
+  // 無料プランは Cron Triggers 5個/アカウント
+  // (https://developers.cloudflare.com/workers/configuration/cron-triggers/ ・
+  //  https://developers.cloudflare.com/workers/platform/limits/)
+  "triggers": {
+    "crons": ["0 * * * *"],
   },
 }

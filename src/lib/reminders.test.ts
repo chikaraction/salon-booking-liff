@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  type ReminderOutcome,
   type ReminderReservation,
   canSendPush,
+  isPushMessageRecorded,
   reminderWindow,
   selectReminderTargets,
+  summarizeReminderRun,
 } from "./reminders";
 
 /** JSTの壁時計時刻で Date を作る */
@@ -262,5 +265,63 @@ describe("canSendPush(今月の無料枠が残っているか)", () => {
   it("200通に達したら送らない", () => {
     expect(canSendPush(200)).toBe(false);
     expect(canSendPush(250)).toBe(false);
+  });
+});
+
+describe("isPushMessageRecorded(push_messages への記録の結果)", () => {
+  it("エラーが無ければ記録できた", () => {
+    expect(isPushMessageRecorded(null)).toBe(true);
+  });
+
+  it("一意制約違反(23505)は記録済みなので成功扱い(1予約1通の一意インデックス)", () => {
+    expect(isPushMessageRecorded("23505")).toBe(true);
+  });
+
+  it("それ以外のエラーコードは記録の失敗", () => {
+    expect(isPushMessageRecorded("42501")).toBe(false); // permission denied
+    expect(isPushMessageRecorded("23503")).toBe(false); // 外部キー違反
+    expect(isPushMessageRecorded("")).toBe(false);
+  });
+});
+
+describe("summarizeReminderRun(1回の実行の集計)", () => {
+  it("送れない時間帯なら理由を status にして件数はすべて0", () => {
+    expect(summarizeReminderRun("before_send_hour", [])).toEqual({
+      status: "before_send_hour",
+      sent: 0,
+      alreadyAccepted: 0,
+      failed: 0,
+      skippedByQuota: 0,
+    });
+    expect(summarizeReminderRun("too_late", []).status).toBe("too_late");
+  });
+
+  it("対象がいなければ status は done で件数はすべて0", () => {
+    expect(summarizeReminderRun("done", [])).toEqual({
+      status: "done",
+      sent: 0,
+      alreadyAccepted: 0,
+      failed: 0,
+      skippedByQuota: 0,
+    });
+  });
+
+  it("1件ごとの結果を種類別に数える", () => {
+    const outcomes: ReminderOutcome[] = [
+      "sent",
+      "sent",
+      "alreadyAccepted",
+      "failed",
+      "skippedByQuota",
+      "skippedByQuota",
+      "skippedByQuota",
+    ];
+    expect(summarizeReminderRun("done", outcomes)).toEqual({
+      status: "done",
+      sent: 2,
+      alreadyAccepted: 1,
+      failed: 1,
+      skippedByQuota: 3,
+    });
   });
 });
