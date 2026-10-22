@@ -137,6 +137,8 @@ npm run preview:cloudflare  # ビルドしてローカルの workerd で動か�
 | `NEXT_PUBLIC_LIFF_STUB`                                                              | **設定しない**                                     | 設定するとデプロイ前チェックでビルドが止まる |
 | `SUPABASE_SERVICE_ROLE_KEY`                                                          | Settings → **Variables and Secrets**(Secret)       | 実行時に読む                                 |
 | `LINE_LOGIN_CHANNEL_ID`                                                              | Settings → **Variables and Secrets**(Text)         | 実行時に読む                                 |
+| `LINE_CHANNEL_SECRET` / `LINE_CHANNEL_ACCESS_TOKEN`                                  | Settings → **Variables and Secrets**(Secret)       | Messaging API(通知)。実行時に読む            |
+| `CRON_SECRET`                                                                        | Settings → **Variables and Secrets**(Secret)       | 前日リマインドの Cron の入口を守る           |
 
 Build variables は実行時には見えない(Cloudflare の仕様)。実行時の値は Variables and
 Secrets 側に入れる。
@@ -186,12 +188,26 @@ Messaging API チャネル(公式アカウント)は**必ず同じプロバイ�
 5. LIFF ID を Cloudflare の Build variables `NEXT_PUBLIC_LIFF_ID` に入れて**再ビルド**
    (Deployments から再実行、または `main` に push)
 
-**3. LINE 公式アカウント**
+**3. LINE 公式アカウント(通知: 予約確認の応答・前日リマインド)**
 
-1. 公式アカウントの Messaging API を有効にするときは、手順2-1 のプロバイダーを選ぶ
-2. リッチメニューを作成し、ボタンのリンクを次にする
+1. LINE Official Account Manager → 設定 → Messaging API → 有効化。プロバイダーは
+   **手順2-1 のもの**を選ぶ(変更不可)
+2. LINE Developers に出来た Messaging API チャネルで、チャネルシークレット(チャネル基本設定)と
+   長期のチャネルアクセストークン(Messaging API設定)を発行し、Cloudflare の Variables and
+   Secrets に `LINE_CHANNEL_SECRET` / `LINE_CHANNEL_ACCESS_TOKEN`(Secret)として入れる。
+   あわせて `CRON_SECRET`(Secret。ランダムな長い文字列。生成例は `.env.example`)も入れる。
+   実行時の値なので再ビルドは要らない
+3. Messaging API設定の Webhook URL に `https://<Worker名>.<サブドメイン>.workers.dev/api/line/webhook`
+   を入れて「検証」→「Webhookの利用」をオン
+4. OA Manager の応答設定: **チャット オン・Webhook オン・応答メッセージ オフ**
+   (応答メッセージがオンだと、予約確認の定型文に自動応答も二重に返る。店のふだんのチャットは
+   そのまま使える。Webhook は定型文にしか応答しない)
+5. リッチメニューを作成し、ボタンのリンクを次にする
    - 予約する: `https://liff.line.me/<LIFF ID>/booking`
    - マイ予約: `https://liff.line.me/<LIFF ID>/my`
+
+前日リマインドは Cron Triggers(`wrangler.jsonc` の `triggers.crons`、毎時0分)で動き、
+送信時刻は管理画面の店舗設定で変えられる(既定 18:00)。Cron はデプロイで自動的に登録される。
 
 **4. データベースと店舗の設定**
 
@@ -209,6 +225,9 @@ Messaging API チャネル(公式アカウント)は**必ず同じプロバイ�
   実行時のシークレット(`SUPABASE_SERVICE_ROLE_KEY`)の値を疑う。初回デプロイでは、貼り付けた
   値が不正で全画面が 500 になり、**ローテートで貼り直したら直った**(末尾の改行・空白や
   別のキーが混ざっていないか)
+- 前日リマインドの結果は Workers Logs に「前日リマインド: …」で残る(Cron の実行は Worker の
+  画面の Cron の実行履歴でも見られるはず。画面の項目名は未確認)。Webhook の失敗は「LINE Webhook の処理に失敗しました」
+  「予約確認の応答に失敗しました」
 
 ## 2店舗目の追加(ADR-007)
 

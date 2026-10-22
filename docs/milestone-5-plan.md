@@ -376,3 +376,58 @@ headers: { authorization: "Bearer " + env.CRON_SECRET } }), env, ctx)`
   ダッシュボードの送信数が1増える・次の時間に2通目が来ない
 - 代行登録の電話客(`line_user_id` なし)の翌日予約には送られない
 - LINE の `Get consumption` の値と `push_messages` の件数を一度照合する
+
+## 実装の結果(2026-10-22)
+
+実施順序 2〜10 はサブエージェントが実装し、メインでレビューして機能ごとにコミットした。
+`npm test`(773件)・`npm run build`・`npm run lint` が通っている。
+
+計画からの変更・確定したこと:
+
+- **メニュー名の区切りは「カット + カラー」**(空白あり)。「文面」節の「カット+カラー」ではなく、
+  完了画面・マイ予約と同じ既存の `menuNamesLabel` を使った
+- **変更時の応答の冒頭**は「ご予約の変更を承りました。」「変更後の内容は以下のとおりです。」。
+  3行目以降は新規と同じ。定型文の種類は `"new" | "change"`(`line-messages.ts` の
+  `ConfirmationKind`。`reservations.kind` の booking/block とは別物)
+- **送信時刻の設定**は店舗設定の「予約の受付ルール」節の1項目(保存ボタンも共通)。
+  補足文は 21時以前と 22・23時で出し分ける(22・23時は「その1時間だけ送る」)。21時の上限は
+  `reminders.ts` の `LATEST_SEND_HOUR` を両方で使う
+- **LINE API の 409**(受理済みのリトライキー)は `{ ok: true, alreadyAccepted: true }`
+  (`src/lib/line-api-result.ts`)。リマインドは 409 でも記録して無料枠に数える
+- **記録の一意制約違反(23505)は「記録済み」**(`isPushMessageRecorded`)。部分インデックスなので
+  supabase-js の upsert は使わず普通の insert にした(PGlite で `on conflict do nothing` も通ることは確認済み)
+- **カスタムワーカーはリポジトリ直下の `worker.ts`**(計画の `src/worker.ts` から変更。OpenNext の
+  ドキュメントの例と同じ位置)。`.open-next/worker.js` は `next build` の時点では無いので、
+  `tsconfig.json` の `exclude` で型チェックから外した。Cloudflare の型パッケージは入れず、使う分の型を
+  ファイル内に書いた。`scheduled` は `https://internal/api/cron/reminders` への POST を同じ handler の
+  `fetch` に直接渡す
+- **Cron の入口の認証**は `src/lib/cron-auth.ts`(`Bearer {CRON_SECRET}` の定数時間比較)
+- `NEXT_PUBLIC_LIFF_ID` は送る予約があるときだけ確かめる(送信時間帯の外で 500 にしないため)
+
+確認できたこと:
+
+- PGlite: マイグレーション全件の適用、`reminder_hour` の既定値18・範囲外の拒否、同じ予約の
+  `reminder` 2行目が 23505、`other` と `reservation_id` が null の行は重複してよい、既存の grant
+- `npm run dev` と curl: Webhook は署名なし・不正署名が 401、正しい署名の `events: []` と
+  定型文以外が 200。Cron の入口は Bearer なし・不一致が 401
+- `opennextjs-cloudflare build` → `preview`(Windows): `/cdn-cgi/local/scheduled` で `scheduled` を
+  発火させると、内部の fetch が `/api/cron/reminders` に届き、`CRON_SECRET` の認証を通った
+  (`env` の値は OpenNext の `populateProcessEnv` で `process.env` に入る)。`wrangler deploy --dry-run`
+  は 8,021 KiB(gzip 1,682 KiB)で通り、`scheduled` がバンドルに入っている
+- リモートDBへの読み取りだけで、翌日の予約のクエリ(`ov` と埋め込み)と送信済みIDのクエリが通る
+
+確認できていないこと(実機で確認する。verify-booking「通知」節):
+
+- `reminder_hour` 列が未適用のため、Cron の入口が 200 と集計を返すところ・店舗設定の画面
+- Webhook の直近の予約のクエリを実データで実行すること、応答・プッシュを実際に送ること
+- リッチメニューから開いた LIFF で `liff.sendMessages` が使えるか(リスク1)
+
+残るリスク(推測):
+
+- OpenNext は `scheduled` から渡したリクエストでも `process.env.__NEXT_PRIVATE_ORIGIN` を
+  `https://internal` に書き換える。同じ isolate で同時に処理中の Server Action のリダイレクトが
+  影響を受けうる時間がごく短くある(毎時1回・数百ms)。本番のホスト名は `scheduled` からは
+  分からないので対策していない。症状(管理画面のログイン後のリダイレクト先がおかしい等)が出たら、
+  ホスト名を実行時の変数で渡す
+- `/api/cron/reminders` が 2xx 以外でも `scheduled` 自体は成功扱い(console.error だけ)。
+  Cron の実行履歴で失敗として見たくなったら例外を投げる形に変える
