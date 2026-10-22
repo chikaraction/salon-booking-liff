@@ -1,4 +1,4 @@
-// 店舗・予約設定(モックなし。店名 + 予約の受付ルール)。
+// 店舗・予約設定(モックなし。店名 + 予約の受付ルール + 前日リマインドの送信時刻)。
 // サーバーコンポーネント: authenticated クライアント(RLS適用)で
 // salon_settings の1行を取得し、クライアントフォームへ渡す配線に徹する。
 // 検証・補足文の組み立ては純粋関数(salon-settings.ts)。
@@ -25,6 +25,7 @@ export default async function SalonSettingsPage() {
         bookingWindowDays: String(settings.bookingWindowDays),
         minLeadMinutes: String(settings.minLeadMinutes),
         cancelDeadlineMinutes: String(settings.cancelDeadlineMinutes),
+        reminderHour: String(settings.reminderHour),
       }}
     />
   );

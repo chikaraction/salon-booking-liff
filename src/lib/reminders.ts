@@ -9,7 +9,7 @@ import { PUSH_MONTHLY_FREE_LIMIT } from "./dashboard";
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
 /** 送信時刻を過ぎていても、この時(21時台)より遅くは送らない(夜中に届くのを避ける) */
-const LATEST_SEND_HOUR = 21;
+export const LATEST_SEND_HOUR = 21;
 
 /** 翌日(JST)の範囲 [start, endExclusive) */
 export type ReminderDayRange = { start: Date; endExclusive: Date };

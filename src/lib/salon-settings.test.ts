@@ -3,13 +3,18 @@ import { describe, expect, it } from "vitest";
 import {
   BOOKING_POLICY_INVALID_MESSAGE,
   BOOKING_POLICY_LIMITS,
+  MIN_LEAD_EXCEEDS_WINDOW_MESSAGE,
+  REMINDER_HOUR_INVALID_MESSAGE,
+  REMINDER_HOUR_OPTIONS,
   SALON_NAME_MAX_LENGTH,
   changedBookingPolicyFields,
   describeBookingWindow,
   describeCancelDeadline,
   describeMinLead,
+  describeReminderHour,
   describeSlotInterval,
   formatMinutesDuration,
+  formatReminderHour,
   isSalonNameChanged,
   validateBookingPolicyInput,
   validateSalonName,
@@ -27,6 +32,7 @@ function policyInput(
     bookingWindowDays: "30",
     minLeadMinutes: "60",
     cancelDeadlineMinutes: "60",
+    reminderHour: "18",
     ...patch,
   };
 }
@@ -60,13 +66,14 @@ describe("validateSalonName", () => {
 });
 
 describe("validateBookingPolicyInput", () => {
-  it("4つの値を整数に変換して返す", () => {
+  it("各項目の値を整数に変換して返す", () => {
     const result = validateBookingPolicyInput(
       policyInput({
         slotIntervalMinutes: "15",
         bookingWindowDays: "14",
         minLeadMinutes: "120",
         cancelDeadlineMinutes: "0",
+        reminderHour: "9",
       }),
     );
     expect(result).toEqual({
@@ -76,6 +83,30 @@ describe("validateBookingPolicyInput", () => {
         bookingWindowDays: 14,
         minLeadMinutes: 120,
         cancelDeadlineMinutes: 0,
+        reminderHour: 9,
+      },
+    });
+  });
+
+  it("前後に空白が付いた数値も整数として読む", () => {
+    const result = validateBookingPolicyInput(
+      policyInput({ slotIntervalMinutes: " 15 " }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.slotIntervalMinutes).toBe(15);
+  });
+
+  it("妥当な入力ではエラーを返さない(他の項目の値に引きずられない)", () => {
+    const result = validateBookingPolicyInput(policyInput());
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        slotIntervalMinutes: 30,
+        bookingWindowDays: 30,
+        minLeadMinutes: 60,
+        cancelDeadlineMinutes: 60,
+        reminderHour: 18,
       },
     });
   });
@@ -235,6 +266,16 @@ describe("validateBookingPolicyInput(極端な値のガードレール)", () => 
     expect(result.ok).toBe(true);
   });
 
+  it("直前締切と受付期間が噛み合わないときは、範囲外とは別の文言で知らせる", () => {
+    const result = validateBookingPolicyInput(
+      policyInput({ bookingWindowDays: "1", minLeadMinutes: "1440" }),
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors.minLeadMinutes).toBe(MIN_LEAD_EXCEEDS_WINDOW_MESSAGE);
+    expect(result.errors.bookingWindowDays).toBeUndefined();
+  });
+
   it("受付期間そのものが不正なときは、直前締切との突き合わせを行わない", () => {
     const result = validateBookingPolicyInput(
       policyInput({ bookingWindowDays: "0", minLeadMinutes: "1440" }),
@@ -242,6 +283,80 @@ describe("validateBookingPolicyInput(極端な値のガードレール)", () => 
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.errors.minLeadMinutes).toBeUndefined();
+  });
+});
+
+// 前日リマインドの送信時刻(salon_settings.reminder_hour)。
+// DBの check(0〜23)と同じルールを先出しする。値はセレクトから来るが、
+// Server Action はクライアントから任意の値で呼べるので検証は省かない。
+describe("validateBookingPolicyInput(前日リマインドの送信時刻)", () => {
+  it("0時と23時はどちらも通る(DBの check は 0〜23)", () => {
+    for (const hour of ["0", "23"]) {
+      const result = validateBookingPolicyInput(
+        policyInput({ reminderHour: hour }),
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.value.reminderHour).toBe(Number(hour));
+    }
+  });
+
+  it("24時以上・負数は範囲外として弾く", () => {
+    for (const hour of ["24", "-1"]) {
+      const result = validateBookingPolicyInput(
+        policyInput({ reminderHour: hour }),
+      );
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.errors.reminderHour).toBe(REMINDER_HOUR_INVALID_MESSAGE);
+    }
+  });
+
+  it("小数・空文字・数値として読めない値は弾く", () => {
+    for (const hour of ["18.5", "", "abc"]) {
+      const result = validateBookingPolicyInput(
+        policyInput({ reminderHour: hour }),
+      );
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.errors.reminderHour).toBe(REMINDER_HOUR_INVALID_MESSAGE);
+    }
+  });
+
+  it("送信時刻だけが不正なら、他の項目のエラーは出さない", () => {
+    const result = validateBookingPolicyInput(
+      policyInput({ reminderHour: "24" }),
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(Object.keys(result.errors)).toEqual(["reminderHour"]);
+    expect(result.message).toBe(BOOKING_POLICY_INVALID_MESSAGE);
+  });
+
+  it("他の項目のエラーと一緒に返す", () => {
+    const result = validateBookingPolicyInput(
+      policyInput({ slotIntervalMinutes: "0", reminderHour: "24" }),
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(Object.keys(result.errors).sort()).toEqual([
+      "reminderHour",
+      "slotIntervalMinutes",
+    ]);
+  });
+});
+
+describe("前日リマインドの送信時刻の選択肢と表示", () => {
+  it("選択肢は0〜23時の24個を昇順で持つ", () => {
+    expect(REMINDER_HOUR_OPTIONS).toHaveLength(24);
+    expect(REMINDER_HOUR_OPTIONS[0]).toBe(0);
+    expect(REMINDER_HOUR_OPTIONS[23]).toBe(23);
+  });
+
+  it("時を「18:00」の形で表す(1桁の時は0で埋める)", () => {
+    expect(formatReminderHour(18)).toBe("18:00");
+    expect(formatReminderHour(9)).toBe("09:00");
+    expect(formatReminderHour(0)).toBe("00:00");
   });
 });
 
@@ -307,6 +422,29 @@ describe("設定値の補足文", () => {
     expect(describeCancelDeadline("0")).toContain("開始時刻ちょうど");
   });
 
+  // reminders.ts の reminderWindow は「送信時刻〜21時台」に送り、毎時の Cron で
+  // 送り直す。送信時刻自体が22・23時なら、その1時間だけ送る
+  it("前日リマインドの送信時刻は、その時刻以降に送り22時以降は送らないと述べる", () => {
+    const text = describeReminderHour("18");
+    expect(text).not.toBeNull();
+    expect(text).toContain("前日");
+    expect(text).toContain("18:00");
+    expect(text).toContain("22:00以降は送りません");
+  });
+
+  it("送信時刻が22時・23時なら、その時刻の1時間だけ送ると述べる", () => {
+    const text = describeReminderHour("22");
+    expect(text).not.toBeNull();
+    expect(text).toContain("22:00");
+    expect(text).not.toContain("22:00以降は送りません");
+    expect(describeReminderHour("23")).toContain("23:00");
+  });
+
+  it("送信時刻が範囲外・読めない値なら補足を出さない", () => {
+    expect(describeReminderHour("24")).toBeNull();
+    expect(describeReminderHour("")).toBeNull();
+  });
+
   it("数値として読めない入力では補足を出さない", () => {
     expect(describeSlotInterval("")).toBeNull();
     expect(describeBookingWindow("abc")).toBeNull();
@@ -351,6 +489,15 @@ describe("changedBookingPolicyFields", () => {
         policyInput({ slotIntervalMinutes: "15" }),
       ),
     ).toEqual(["slotIntervalMinutes"]);
+  });
+
+  it("前日リマインドの送信時刻の変更も検出し、並び順の最後に置く", () => {
+    expect(
+      changedBookingPolicyFields(
+        policyInput(),
+        policyInput({ reminderHour: "9", slotIntervalMinutes: "15" }),
+      ),
+    ).toEqual(["slotIntervalMinutes", "reminderHour"]);
   });
 
   it("複数を変えたら画面の並び順(刻み・受付期間・直前締切・キャンセル締切)で返す", () => {

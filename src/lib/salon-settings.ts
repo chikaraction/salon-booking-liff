@@ -2,12 +2,13 @@
 // UI・Server Action は配線に徹し、判断はここへ押し戻す(CLAUDE.md)。
 // DOM・Supabaseクライアントのimportはしない。
 //
-// 扱うのは salon_settings(単一行)のうち次の5列:
+// 扱うのは salon_settings(単一行)のうち次の6列:
 //   1. name                    … 店名
 //   2. slot_interval_minutes   … 空き枠の開始時刻の刻み(分)
 //   3. booking_window_days     … 何日先まで予約を受け付けるか
 //   4. min_lead_minutes        … 開始何分前まで予約できるか(直前締切)
 //   5. cancel_deadline_minutes … 開始何分前まで客自身でキャンセル・変更できるか
+//   6. reminder_hour           … 前日リマインドの送信時刻(JSTの時。M5)
 //
 // close_on_holidays(祝日を休業にする)は同じテーブルの列だが、休業日ルールの
 // 一部なので営業日設定画面(business-settings.ts)の担当。ここでは触らない。
@@ -15,6 +16,8 @@
 // DB制約と同じルールをUIでも先出しするのがこのファイルの役割で、
 // 最後の砦はあくまでDB制約(ADR-004と同じ考え方)。
 // 店名・刻みなどの実際の値はここには書かない(ADR-007)。
+
+import { LATEST_SEND_HOUR } from "./reminders";
 
 // ---------------------------------------------------------------------------
 // 1. 店名(salon_settings.name)
@@ -89,12 +92,32 @@ export const BOOKING_POLICY_LIMITS = {
   cancelDeadlineMinutes: { min: 0, max: 30 * MINUTES_PER_DAY },
 } as const;
 
-/** フォームの入力値(input[type=number] の生の文字列) */
+/**
+ * 前日リマインドの送信時刻(salon_settings.reminder_hour)の選択肢。
+ * DBの check(reminder_hour between 0 and 23)と同じ0〜23時。
+ * ガードレールではなくDB制約そのものなので、上の BOOKING_POLICY_LIMITS とは分けている。
+ */
+export const REMINDER_HOUR_OPTIONS: readonly number[] = Array.from(
+  { length: 24 },
+  (_, hour) => hour,
+);
+
+/** 送信時刻が0〜23の整数でないときの文言 */
+export const REMINDER_HOUR_INVALID_MESSAGE =
+  "前日リマインドの送信時刻は0〜23時から選んでください";
+
+/** 送信時刻を「18:00」の形で表す(セレクトの表示・補足文に使う) */
+export function formatReminderHour(hour: number): string {
+  return `${String(hour).padStart(2, "0")}:00`;
+}
+
+/** フォームの入力値(input[type=number]・select の生の文字列) */
 export type BookingPolicyInput = {
   slotIntervalMinutes: string;
   bookingWindowDays: string;
   minLeadMinutes: string;
   cancelDeadlineMinutes: string;
+  reminderHour: string;
 };
 
 /** 各項目のエラーメッセージ(存在する項目だけ入る) */
@@ -103,6 +126,7 @@ export type BookingPolicyErrors = {
   bookingWindowDays?: string;
   minLeadMinutes?: string;
   cancelDeadlineMinutes?: string;
+  reminderHour?: string;
 };
 
 /** 検証済みの値(そのまま salon_settings へ update できる形) */
@@ -111,6 +135,7 @@ export type BookingPolicyValue = {
   bookingWindowDays: number;
   minLeadMinutes: number;
   cancelDeadlineMinutes: number;
+  reminderHour: number;
 };
 
 export type BookingPolicyResult =
@@ -124,6 +149,11 @@ export const BOOKING_POLICY_INVALID_MESSAGE =
 /** 直前締切が受付期間を超えていて枠が1つも出なくなるときの文言 */
 export const MIN_LEAD_EXCEEDS_WINDOW_MESSAGE =
   "直前締切が受付期間より長いため、予約できる枠が無くなります";
+
+/** 前日リマインドの送信時刻として使える値(0〜23の整数)か */
+function isReminderHour(hour: number | null): hour is number {
+  return hour !== null && hour >= 0 && hour <= 23;
+}
 
 /**
  * 入力欄の生の文字列を整数として読む。整数でない・空文字なら null。
@@ -147,7 +177,7 @@ function rangeMessage(params: {
 }
 
 /**
- * 予約ポリシー4値を検証する。DB制約と同じルールを先出しし、
+ * 予約ポリシー4値と前日リマインドの送信時刻を検証する。DB制約と同じルールを先出しし、
  * さらに BOOKING_POLICY_LIMITS のガードレールと、値どうしの整合を1つ見る。
  *
  * 値どうしの整合(直前締切 < 受付期間):
@@ -217,6 +247,11 @@ export function validateBookingPolicyInput(
     });
   }
 
+  const reminderHour = parseIntegerInput(input.reminderHour);
+  if (!isReminderHour(reminderHour)) {
+    errors.reminderHour = REMINDER_HOUR_INVALID_MESSAGE;
+  }
+
   // 突き合わせは両方が単独で妥当なときだけ行う(片方が不正なら、その項目の
   // エラーを直すのが先。関係のないエラーを重ねて出さない)
   if (
@@ -236,11 +271,12 @@ export function validateBookingPolicyInput(
   return {
     ok: true,
     value: {
-      // 上の検証を通っているので4つとも整数
+      // 上の検証を通っているので5つとも整数
       slotIntervalMinutes: slotIntervalMinutes as number,
       bookingWindowDays: bookingWindowDays as number,
       minLeadMinutes: minLeadMinutes as number,
       cancelDeadlineMinutes: cancelDeadlineMinutes as number,
+      reminderHour: reminderHour as number,
     },
   };
 }
@@ -258,6 +294,8 @@ export function validateBookingPolicyInput(
 //                    (ちょうど締切時刻の枠は残る)
 //   - キャンセル締切 … canModifyReservation / DBのRPCが「開始 - 締切」で判定する
 //                    (ちょうど締切時刻は可。店側キャンセルには適用しない)
+//   - リマインド送信時刻 … reminderWindow(reminders.ts)が送信時刻〜21時台に送り、
+//                    毎時の Cron で送り直す。送信時刻自体が22・23時ならその1時間だけ
 
 /**
  * 分数を「1日1時間30分」のような読みやすい表記にする。
@@ -325,6 +363,23 @@ export function describeCancelDeadline(value: string): string | null {
   return `開始${duration}前を過ぎると、お客様自身ではキャンセル・変更できなくなります(ちょうど${duration}前は可)。店側からのキャンセルはこの設定に左右されません。`;
 }
 
+/**
+ * 前日リマインドの送信時刻の補足文。
+ * 送信時刻が21時までなら「その時刻以降〜21時台」に送る(送れなかった分は毎時送り直す)。
+ * 22・23時ならその1時間だけ送る(夜遅いので送り直す余地が無い)。
+ */
+export function describeReminderHour(value: string): string | null {
+  const hour = parseIntegerInput(value);
+  if (!isReminderHour(hour)) return null;
+  const time = formatReminderHour(hour);
+  // 補足文の「22:00以降は送りません」は reminders.ts の送信上限から組み立てる
+  if (hour <= LATEST_SEND_HOUR) {
+    const cutoff = formatReminderHour(LATEST_SEND_HOUR + 1);
+    return `予約の前日の${time}以降に、LINEでリマインドをお送りします(${cutoff}以降は送りません)。`;
+  }
+  return `予約の前日の${time}台にだけ、LINEでリマインドをお送りします(夜遅い時刻のため、この1時間に送れなかった分は送りません)。`;
+}
+
 // ---------------------------------------------------------------------------
 // 4. 未保存の変更の判定(節ごとの保存ボタン・「元に戻す」・変更箇所の目印)
 // ---------------------------------------------------------------------------
@@ -351,6 +406,7 @@ const BOOKING_POLICY_FIELD_KEYS: readonly BookingPolicyFieldKey[] = [
   "bookingWindowDays",
   "minLeadMinutes",
   "cancelDeadlineMinutes",
+  "reminderHour",
 ];
 
 /**
