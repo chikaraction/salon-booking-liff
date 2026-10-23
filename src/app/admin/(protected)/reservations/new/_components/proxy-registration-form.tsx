@@ -592,16 +592,20 @@ export function ProxyRegistrationForm({
               <label htmlFor="proxy-date" className={labelClass}>
                 日付
               </label>
-              <input
-                id="proxy-date"
-                type="date"
-                value={date}
-                onChange={(event) => {
-                  setDate(event.target.value);
-                  setFieldErrors((prev) => ({ ...prev, date: undefined }));
-                }}
-                className={cn(inputClass, "mt-2")}
-              />
+              {/* iOSは幅が固定でない日付・時刻入力を content-box にするので、w-full だと
+                  パディングとボーダーの分はみ出す。flex で幅を決める */}
+              <div className="mt-2 flex">
+                <input
+                  id="proxy-date"
+                  type="date"
+                  value={date}
+                  onChange={(event) => {
+                    setDate(event.target.value);
+                    setFieldErrors((prev) => ({ ...prev, date: undefined }));
+                  }}
+                  className={cn(inputClass, "min-w-0 flex-1")}
+                />
+              </div>
               {fieldErrors.date !== undefined && (
                 <p role="alert" className="mt-1 text-sm text-destructive">
                   {fieldErrors.date}
@@ -612,16 +616,19 @@ export function ProxyRegistrationForm({
               <label htmlFor="proxy-time" className={labelClass}>
                 時間
               </label>
-              <input
-                id="proxy-time"
-                type="time"
-                value={time}
-                onChange={(event) => {
-                  setTime(event.target.value);
-                  setFieldErrors((prev) => ({ ...prev, time: undefined }));
-                }}
-                className={cn(inputClass, "mt-2")}
-              />
+              {/* 日付と同じく flex で幅を決める(iOSのはみ出し対策) */}
+              <div className="mt-2 flex">
+                <input
+                  id="proxy-time"
+                  type="time"
+                  value={time}
+                  onChange={(event) => {
+                    setTime(event.target.value);
+                    setFieldErrors((prev) => ({ ...prev, time: undefined }));
+                  }}
+                  className={cn(inputClass, "min-w-0 flex-1")}
+                />
+              </div>
               {fieldErrors.time !== undefined && (
                 <p role="alert" className="mt-1 text-sm text-destructive">
                   {fieldErrors.time}

@@ -707,6 +707,8 @@ function WorkingHoursSection({
                   >
                     開始
                   </label>
+                  {/* iOSは幅が固定でない日付・時刻入力を content-box にするので、w-full だと
+                      パディングとボーダーの分はみ出す。幅は親の flex-col の stretch に任せる */}
                   <input
                     id={`start-${day.weekday}`}
                     type="time"
@@ -714,7 +716,7 @@ function WorkingHoursSection({
                     onChange={(event) =>
                       update(day.weekday, { startTime: event.target.value })
                     }
-                    className={cn(inputClass, "w-full")}
+                    className={inputClass}
                   />
                 </div>
 
@@ -725,6 +727,7 @@ function WorkingHoursSection({
                   >
                     終了
                   </label>
+                  {/* 開始と同じく w-full を付けない(iOSのはみ出し対策) */}
                   <input
                     id={`end-${day.weekday}`}
                     type="time"
@@ -732,7 +735,7 @@ function WorkingHoursSection({
                     onChange={(event) =>
                       update(day.weekday, { endTime: event.target.value })
                     }
-                    className={cn(inputClass, "w-full")}
+                    className={inputClass}
                   />
                 </div>
 
@@ -920,13 +923,21 @@ function BlockSection({
             <label htmlFor="block-date" className={fieldLabelClass}>
               日付
             </label>
-            <input
-              id="block-date"
-              type="date"
-              value={input.date}
-              onChange={(event) => update({ date: event.target.value })}
-              className={cn(inputClass, "mt-1 w-full sm:w-56")}
-            />
+            {/* iOSは幅が固定でない日付入力を content-box にするので、w-full だと
+                パディングとボーダーの分はみ出す。flex で幅を決める。
+                PC幅では従来どおりラベルの横に並ぶよう inline-flex にする */}
+            <div className="mt-1 flex sm:inline-flex">
+              <input
+                id="block-date"
+                type="date"
+                value={input.date}
+                onChange={(event) => update({ date: event.target.value })}
+                className={cn(
+                  inputClass,
+                  "min-w-0 flex-1 sm:w-56 sm:flex-none",
+                )}
+              />
+            </div>
             {errors.date !== undefined && (
               <p role="alert" className="mt-1 text-sm text-destructive">
                 {errors.date}
