@@ -23,6 +23,7 @@ import {
   saveStaff,
   saveStaffWorkingHours,
 } from "@/app/admin/(protected)/settings/actions";
+import { PickerInput } from "@/app/admin/(protected)/_components/picker-input";
 import {
   ChangedMark,
   RevertButton,
@@ -55,8 +56,18 @@ import {
 } from "@/lib/staff-settings";
 import { cn } from "@/lib/utils";
 
-const inputClass =
-  "h-11 rounded-xl border border-input bg-card px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50";
+// 日付・時刻の PickerInput は左右の余白をアイコンの位置と組で持つので、
+// 余白(px-3)を除いた見た目だけを渡す
+const pickerInputClass =
+  "h-11 rounded-xl border border-input bg-card text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50";
+const inputClass = `${pickerInputClass} px-3`;
+// 勤務時間の PC 幅(md 以上)の列: 曜日 / 開始 / 終了 / 休憩開始 / 〜 / 休憩終了。
+// 1fr(= minmax(auto,1fr))だと列幅が中身の最低幅の見積もりに左右され、
+// ブラウザで休憩欄の幅が違った。minmax(0,1fr) で4つの時刻欄を同じ幅に揃える。
+// 〜 の列は見出し行と本体の行で幅が変わらないよう 1rem に固定(「〜」の幅)。
+// 見出し行と各曜日の行で同じテンプレートを使う
+const workingHoursGridClass =
+  "md:grid-cols-[5rem_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_1rem_minmax(0,1fr)]";
 const sectionLabelClass = "text-base font-bold text-muted-foreground";
 const saveButtonClass = "h-11 rounded-xl px-5 text-base";
 /**
@@ -678,11 +689,17 @@ function WorkingHoursSection({
         <div className="flex flex-col gap-3">
           {/* モックは「開始」「終了」「休憩」の3入力。DBは曜日ごとに1行なので
               曜日ごとに入力欄を出し、見出しは1回だけ(PC幅)にしてモックに寄せる */}
-          <div className="hidden gap-3 text-sm text-muted-foreground md:grid md:grid-cols-[5rem_1fr_1fr_1.6fr]">
+          <div
+            className={cn(
+              "hidden gap-3 text-sm text-muted-foreground md:grid",
+              workingHoursGridClass,
+            )}
+          >
             <span>曜日</span>
             <span>開始</span>
             <span>終了</span>
-            <span>休憩</span>
+            {/* 休憩開始・〜・休憩終了の3列の上に出す */}
+            <span className="md:col-span-3">休憩</span>
           </div>
 
           {workingDaysOnly.map((day) => (
@@ -694,7 +711,12 @@ function WorkingHoursSection({
                 changedWeekdays.includes(day.weekday) && changedRowClass,
               )}
             >
-              <div className="grid grid-cols-1 gap-2 rounded-xl border border-border p-3 md:grid-cols-[5rem_1fr_1fr_1.6fr] md:items-center md:gap-3 md:rounded-none md:border-0 md:p-0">
+              <div
+                className={cn(
+                  "grid grid-cols-1 gap-2 rounded-xl border border-border p-3 md:items-center md:gap-3 md:rounded-none md:border-0 md:p-0",
+                  workingHoursGridClass,
+                )}
+              >
                 <span className="flex flex-wrap items-center gap-2 text-base font-bold text-foreground md:font-normal">
                   {weekdayLongLabel(day.weekday)}
                   {changedWeekdays.includes(day.weekday) && <ChangedMark />}
@@ -707,16 +729,19 @@ function WorkingHoursSection({
                   >
                     開始
                   </label>
-                  {/* iOSは幅が固定でない日付・時刻入力を content-box にするので、w-full だと
-                      パディングとボーダーの分はみ出す。幅は親の flex-col の stretch に任せる */}
-                  <input
+                  {/* スマホ(md 未満)は span を w-32 にして中の文字以上に伸ばさない。
+                      md 以上は span の幅を auto にし、親の flex-col の stretch で
+                      セル幅いっぱいにする。input は span の中で flex-1 で伸ばす
+                      (iOS は % 幅の時刻入力を content-box にしてはみ出すので w-full は使わない) */}
+                  <PickerInput
                     id={`start-${day.weekday}`}
                     type="time"
                     value={day.startTime}
                     onChange={(event) =>
                       update(day.weekday, { startTime: event.target.value })
                     }
-                    className={inputClass}
+                    wrapperClassName="w-32 md:w-auto"
+                    className={cn(pickerInputClass, "min-w-0 flex-1")}
                   />
                 </div>
 
@@ -727,37 +752,44 @@ function WorkingHoursSection({
                   >
                     終了
                   </label>
-                  {/* 開始と同じく w-full を付けない(iOSのはみ出し対策) */}
-                  <input
+                  {/* 開始と同じ幅の決め方 */}
+                  <PickerInput
                     id={`end-${day.weekday}`}
                     type="time"
                     value={day.endTime}
                     onChange={(event) =>
                       update(day.weekday, { endTime: event.target.value })
                     }
-                    className={inputClass}
+                    wrapperClassName="w-32 md:w-auto"
+                    className={cn(pickerInputClass, "min-w-0 flex-1")}
                   />
                 </div>
 
-                <div className="flex flex-col gap-1">
+                {/* md 以上は2つの div を md:contents で箱ごと消し、休憩開始・〜・
+                    休憩終了をそれぞれ行の grid のセルに並べる(md:hidden の見出しと
+                    sr-only の label はセルを取らない)。スマホは見出しの下に2欄の flex 行 */}
+                <div className="flex flex-col gap-1 md:contents">
                   <span className="text-sm text-muted-foreground md:hidden">
                     休憩 <span className="text-xs">(なしの場合は両方空欄)</span>
                   </span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 md:contents">
                     <label
                       className="sr-only"
                       htmlFor={`break-start-${day.weekday}`}
                     >
                       {weekdayLongLabel(day.weekday)}の休憩開始
                     </label>
-                    <input
+                    {/* スマホは w-32 を上限に(狭い画面では縮む)。md 以上は span が
+                        grid のセルになって stretch でセル幅いっぱい、input はその中で伸ばす */}
+                    <PickerInput
                       id={`break-start-${day.weekday}`}
                       type="time"
                       value={day.breakStart}
                       onChange={(event) =>
                         update(day.weekday, { breakStart: event.target.value })
                       }
-                      className={cn(inputClass, "w-full min-w-0")}
+                      wrapperClassName="min-w-0"
+                      className={cn(pickerInputClass, "w-32 min-w-0 md:flex-1")}
                     />
                     <span className="text-muted-foreground">〜</span>
                     <label
@@ -766,14 +798,15 @@ function WorkingHoursSection({
                     >
                       {weekdayLongLabel(day.weekday)}の休憩終了
                     </label>
-                    <input
+                    <PickerInput
                       id={`break-end-${day.weekday}`}
                       type="time"
                       value={day.breakEnd}
                       onChange={(event) =>
                         update(day.weekday, { breakEnd: event.target.value })
                       }
-                      className={cn(inputClass, "w-full min-w-0")}
+                      wrapperClassName="min-w-0"
+                      className={cn(pickerInputClass, "w-32 min-w-0 md:flex-1")}
                     />
                   </div>
                 </div>
@@ -923,19 +956,17 @@ function BlockSection({
             <label htmlFor="block-date" className={fieldLabelClass}>
               日付
             </label>
-            {/* iOSは幅が固定でない日付入力を content-box にするので、w-full だと
-                パディングとボーダーの分はみ出す。flex で幅を決める。
+            {/* スマホも PC と同じ w-56 を上限にする(狭い画面では縮む)。固定幅なので
+                iOS の content-box の補正は掛からない。
                 PC幅では従来どおりラベルの横に並ぶよう inline-flex にする */}
             <div className="mt-1 flex sm:inline-flex">
-              <input
+              <PickerInput
                 id="block-date"
                 type="date"
                 value={input.date}
                 onChange={(event) => update({ date: event.target.value })}
-                className={cn(
-                  inputClass,
-                  "min-w-0 flex-1 sm:w-56 sm:flex-none",
-                )}
+                wrapperClassName="min-w-0"
+                className={cn(pickerInputClass, "w-56 min-w-0")}
               />
             </div>
             {errors.date !== undefined && (
@@ -987,25 +1018,27 @@ function BlockSection({
                 <label className="sr-only" htmlFor="block-start">
                   臨時休の開始時刻
                 </label>
-                <input
+                <PickerInput
                   id="block-start"
                   type="time"
                   value={input.startTime}
                   onChange={(event) =>
                     update({ startTime: event.target.value })
                   }
-                  className={cn(inputClass, "w-32")}
+                  wrapperClassName="min-w-0"
+                  className={cn(pickerInputClass, "w-32 min-w-0")}
                 />
                 <span className="text-muted-foreground">〜</span>
                 <label className="sr-only" htmlFor="block-end">
                   臨時休の終了時刻
                 </label>
-                <input
+                <PickerInput
                   id="block-end"
                   type="time"
                   value={input.endTime}
                   onChange={(event) => update({ endTime: event.target.value })}
-                  className={cn(inputClass, "w-32")}
+                  wrapperClassName="min-w-0"
+                  className={cn(pickerInputClass, "w-32 min-w-0")}
                 />
               </div>
               {errors.time !== undefined && (

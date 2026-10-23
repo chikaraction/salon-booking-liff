@@ -20,6 +20,7 @@ import {
   saveNthWeekdayClosures,
   saveWeeklyBusinessHours,
 } from "@/app/admin/(protected)/settings/actions";
+import { PickerInput } from "@/app/admin/(protected)/_components/picker-input";
 import {
   ChangedMark,
   SectionFooter,
@@ -49,8 +50,11 @@ import {
 import type { ClosureListItem } from "@/lib/closures";
 import { cn } from "@/lib/utils";
 
-const inputClass =
-  "h-11 rounded-xl border border-input bg-card px-3 text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50";
+// 日付・時刻の PickerInput は左右の余白をアイコンの位置と組で持つので、
+// 余白(px-3)を除いた見た目だけを渡す
+const pickerInputClass =
+  "h-11 rounded-xl border border-input bg-card text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50";
+const inputClass = `${pickerInputClass} px-3`;
 const sectionLabelClass = "text-base font-bold text-muted-foreground";
 const saveButtonClass = "h-11 rounded-xl px-5 text-base";
 /**
@@ -254,7 +258,11 @@ function WeeklyHoursSection({
                 <label className="sr-only" htmlFor={`open-${day.weekday}`}>
                   {weekdayLongLabel(day.weekday)}の開店時刻
                 </label>
-                <input
+                {/* 幅は w-32 を上限にし、狭い画面では縮む(flex の既定は
+                    grow 0 / shrink 1。flex-1 だと中の文字以上に伸びていた)。
+                    固定幅なので iOS の content-box の補正は掛からない。
+                    span が flex 行の項目になるので、span にも min-w-0 を付ける */}
+                <PickerInput
                   id={`open-${day.weekday}`}
                   type="time"
                   value={day.openTime}
@@ -262,13 +270,14 @@ function WeeklyHoursSection({
                   onChange={(event) =>
                     update(day.weekday, { openTime: event.target.value })
                   }
-                  className={cn(inputClass, "w-32 min-w-0 flex-1 sm:flex-none")}
+                  wrapperClassName="min-w-0"
+                  className={cn(pickerInputClass, "w-32 min-w-0")}
                 />
                 <span className="text-muted-foreground">〜</span>
                 <label className="sr-only" htmlFor={`close-${day.weekday}`}>
                   {weekdayLongLabel(day.weekday)}の閉店時刻
                 </label>
-                <input
+                <PickerInput
                   id={`close-${day.weekday}`}
                   type="time"
                   value={day.closeTime}
@@ -276,7 +285,8 @@ function WeeklyHoursSection({
                   onChange={(event) =>
                     update(day.weekday, { closeTime: event.target.value })
                   }
-                  className={cn(inputClass, "w-32 min-w-0 flex-1 sm:flex-none")}
+                  wrapperClassName="min-w-0"
+                  className={cn(pickerInputClass, "w-32 min-w-0")}
                 />
                 {!day.isOpen && (
                   <span className="shrink-0 text-sm text-muted-foreground">
@@ -681,9 +691,10 @@ function DateOverrideSection({
                 開始日
               </label>
               {/* iOSは幅が固定でない日付入力を content-box にするので、w-full だと
-                  パディングとボーダーの分はみ出す。flex で幅を決める */}
+                  パディングとボーダーの分はみ出す。flex で幅を決める
+                  (PickerInput の span を行いっぱいに伸ばし、その中で入力欄を伸ばす) */}
               <div className="mt-1 flex">
-                <input
+                <PickerInput
                   id="override-start"
                   type="date"
                   value={input.startDate}
@@ -696,7 +707,8 @@ function DateOverrideSection({
                         : { startDate },
                     );
                   }}
-                  className={cn(inputClass, "min-w-0 flex-1")}
+                  wrapperClassName="min-w-0 flex-1"
+                  className={cn(pickerInputClass, "min-w-0 flex-1")}
                 />
               </div>
               {errors.startDate !== undefined && (
@@ -717,12 +729,13 @@ function DateOverrideSection({
               </label>
               {/* 開始日と同じく flex で幅を決める(iOSのはみ出し対策) */}
               <div className="mt-1 flex">
-                <input
+                <PickerInput
                   id="override-end"
                   type="date"
                   value={input.endDate}
                   onChange={(event) => update({ endDate: event.target.value })}
-                  className={cn(inputClass, "min-w-0 flex-1")}
+                  wrapperClassName="min-w-0 flex-1"
+                  className={cn(pickerInputClass, "min-w-0 flex-1")}
                 />
               </div>
               {errors.endDate !== undefined && (
@@ -796,25 +809,28 @@ function DateOverrideSection({
                 <label className="sr-only" htmlFor="override-open">
                   臨時営業の開店時刻
                 </label>
-                <input
+                {/* 曜日ごとの営業時間と同じく w-32 を上限にして縮める */}
+                <PickerInput
                   id="override-open"
                   type="time"
                   value={input.openTime}
                   onChange={(event) => update({ openTime: event.target.value })}
-                  className={cn(inputClass, "w-32")}
+                  wrapperClassName="min-w-0"
+                  className={cn(pickerInputClass, "w-32 min-w-0")}
                 />
                 <span className="text-muted-foreground">〜</span>
                 <label className="sr-only" htmlFor="override-close">
                   臨時営業の閉店時刻
                 </label>
-                <input
+                <PickerInput
                   id="override-close"
                   type="time"
                   value={input.closeTime}
                   onChange={(event) =>
                     update({ closeTime: event.target.value })
                   }
-                  className={cn(inputClass, "w-32")}
+                  wrapperClassName="min-w-0"
+                  className={cn(pickerInputClass, "w-32 min-w-0")}
                 />
               </div>
               {errors.time !== undefined && (
