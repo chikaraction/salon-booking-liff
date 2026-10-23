@@ -264,7 +264,9 @@ export function CalendarView({
               モバイルの Chromium は描かない)ので、押せると分かるよう自前で描く。
               PC の Chromium のアイコンは透明にして同じ位置に重ね、押すと
               ピッカーが開くのは従来どおり。Firefox は独自のボタンを出すので
-              自前のほうを隠す */}
+              自前のほうを隠す。
+              幅は中身に合わせる(フォント・ブラウザで日付の文字幅が変わり、
+              固定幅だと右端のアイコンが数字に重なった)。最小は従来の 9.5rem */}
           <span className="relative flex max-sm:min-w-0 max-sm:flex-1">
             <input
               type="date"
@@ -277,7 +279,7 @@ export function CalendarView({
                 go(view, next);
               }}
               className={cn(
-                "relative h-9 w-[9.5rem] rounded-lg border border-input bg-card pr-8 pl-2 text-sm font-medium text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50",
+                "relative h-9 min-w-[9.5rem] rounded-lg border border-input bg-card pr-8 pl-2 text-sm font-medium text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50",
                 "max-sm:min-w-0 max-sm:flex-1",
                 "[&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-y-0 [&::-webkit-calendar-picker-indicator]:right-2 [&::-webkit-calendar-picker-indicator]:m-0 [&::-webkit-calendar-picker-indicator]:my-auto [&::-webkit-calendar-picker-indicator]:size-4 [&::-webkit-calendar-picker-indicator]:p-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0",
               )}
