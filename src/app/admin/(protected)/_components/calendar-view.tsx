@@ -5,7 +5,7 @@
 // ナビゲーションをURL遷移(?view=&date=)に変換するだけ。
 // 色はスタッフの並び順から src/lib/staff-colors.ts が決める(ADR-007)。
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -242,8 +242,11 @@ export function CalendarView({
             ページ見出しとしては読み上げ用に残す */}
         <h1 className="sr-only">{centerLabel}</h1>
 
-        {/* ‹ › が日付ピッカーを左右から挟む(移動対象が一目で分かる) */}
-        <div className="flex items-center gap-1">
+        {/* ‹ › が日付ピッカーを左右から挟む(移動対象が一目で分かる)。
+            スマホ幅(sm 未満)は1行に収まらないので、1行目を ‹ 日付 › に充て、
+            今日・日/週を2行目に回す。日付欄は flex-1 で伸ばす(iOS は % 幅の
+            日付入力を content-box にしてはみ出すので w-full は使わない) */}
+        <div className="flex items-center gap-1 max-sm:w-full">
           <button
             type="button"
             onClick={handlePrev}
@@ -253,19 +256,34 @@ export function CalendarView({
             <ChevronLeft aria-hidden="true" className="size-5" />
           </button>
 
-          {/* 日付ジャンプ(‹ › は1日/1週ずつなので、遠い日付へは直接指定する) */}
-          <input
-            type="date"
-            value={date}
-            aria-label="日付を指定して移動"
-            onChange={(event) => {
-              const next = event.target.value;
-              // 入力途中・消去時は空文字や不正な日付になる。その間は遷移しない
-              if (!isCalendarDate(next)) return;
-              go(view, next);
-            }}
-            className="h-9 w-[9.5rem] rounded-lg border border-input bg-card px-2 text-sm font-medium text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
-          />
+          {/* 日付ジャンプ(‹ › は1日/1週ずつなので、遠い日付へは直接指定する)。
+              iOS・Android の日付入力にはピッカーのアイコンが出ない(WebKit・
+              モバイルの Chromium は描かない)ので、押せると分かるよう自前で描く。
+              PC の Chromium のアイコンは透明にして同じ位置に重ね、押すと
+              ピッカーが開くのは従来どおり。Firefox は独自のボタンを出すので
+              自前のほうを隠す */}
+          <span className="relative flex max-sm:min-w-0 max-sm:flex-1">
+            <input
+              type="date"
+              value={date}
+              aria-label="日付を指定して移動"
+              onChange={(event) => {
+                const next = event.target.value;
+                // 入力途中・消去時は空文字や不正な日付になる。その間は遷移しない
+                if (!isCalendarDate(next)) return;
+                go(view, next);
+              }}
+              className={cn(
+                "relative h-9 w-[9.5rem] rounded-lg border border-input bg-card pr-8 pl-2 text-sm font-medium text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50",
+                "max-sm:min-w-0 max-sm:flex-1",
+                "[&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-y-0 [&::-webkit-calendar-picker-indicator]:right-2 [&::-webkit-calendar-picker-indicator]:m-0 [&::-webkit-calendar-picker-indicator]:my-auto [&::-webkit-calendar-picker-indicator]:size-4 [&::-webkit-calendar-picker-indicator]:p-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0",
+              )}
+            />
+            <CalendarDays
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 right-[9px] my-auto size-4 text-muted-foreground supports-[-moz-orient:inherit]:hidden"
+            />
+          </span>
 
           {/* 日表示: ネイティブの日付入力は曜日を出さない。定休日の判断に要るので添える。
               週表示: 曜日ではなく ‹ › が動かす単位(週)を示す */}
