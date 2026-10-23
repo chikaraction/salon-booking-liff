@@ -722,47 +722,41 @@ function WorkingHoursSection({
                   {changedWeekdays.includes(day.weekday) && <ChangedMark />}
                 </span>
 
-                <div className="flex flex-col gap-1">
-                  <label
-                    htmlFor={`start-${day.weekday}`}
-                    className="text-sm text-muted-foreground md:hidden"
-                  >
-                    開始
-                  </label>
-                  {/* スマホ(md 未満)は span を w-32 にして中の文字以上に伸ばさない。
-                      md 以上は span の幅を auto にし、親の flex-col の stretch で
-                      セル幅いっぱいにする。input は span の中で flex-1 で伸ばす
-                      (iOS は % 幅の時刻入力を content-box にしてはみ出すので w-full は使わない) */}
-                  <PickerInput
-                    id={`start-${day.weekday}`}
-                    type="time"
-                    value={day.startTime}
-                    onChange={(event) =>
-                      update(day.weekday, { startTime: event.target.value })
-                    }
-                    wrapperClassName="w-32 md:w-auto"
-                    className={cn(pickerInputClass, "min-w-0 flex-1")}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label
-                    htmlFor={`end-${day.weekday}`}
-                    className="text-sm text-muted-foreground md:hidden"
-                  >
-                    終了
-                  </label>
-                  {/* 開始と同じ幅の決め方 */}
-                  <PickerInput
-                    id={`end-${day.weekday}`}
-                    type="time"
-                    value={day.endTime}
-                    onChange={(event) =>
-                      update(day.weekday, { endTime: event.target.value })
-                    }
-                    wrapperClassName="w-32 md:w-auto"
-                    className={cn(pickerInputClass, "min-w-0 flex-1")}
-                  />
+                {/* スマホは 開始〜終了 を休憩と同じく1行に並べる(画面幅 約321px 以上で
+                    収まる)。md 以上は md:contents で各欄が grid のセルになる(「〜」は md:hidden) */}
+                <div className="flex flex-col gap-1 md:contents">
+                  <span className="text-sm text-muted-foreground md:hidden">
+                    勤務時間
+                  </span>
+                  <div className="flex items-center gap-2 md:contents">
+                    <label className="sr-only" htmlFor={`start-${day.weekday}`}>
+                      {weekdayLongLabel(day.weekday)}の開始
+                    </label>
+                    <PickerInput
+                      id={`start-${day.weekday}`}
+                      type="time"
+                      value={day.startTime}
+                      onChange={(event) =>
+                        update(day.weekday, { startTime: event.target.value })
+                      }
+                      wrapperClassName="min-w-0"
+                      className={cn(pickerInputClass, "w-32 min-w-0 md:flex-1")}
+                    />
+                    <span className="text-muted-foreground md:hidden">〜</span>
+                    <label className="sr-only" htmlFor={`end-${day.weekday}`}>
+                      {weekdayLongLabel(day.weekday)}の終了
+                    </label>
+                    <PickerInput
+                      id={`end-${day.weekday}`}
+                      type="time"
+                      value={day.endTime}
+                      onChange={(event) =>
+                        update(day.weekday, { endTime: event.target.value })
+                      }
+                      wrapperClassName="min-w-0"
+                      className={cn(pickerInputClass, "w-32 min-w-0 md:flex-1")}
+                    />
+                  </div>
                 </div>
 
                 {/* md 以上は2つの div を md:contents で箱ごと消し、休憩開始・〜・
