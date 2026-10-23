@@ -20,6 +20,7 @@ import {
   searchCustomersAction,
   updateAdminReservation,
 } from "@/app/admin/actions";
+import { PickerInput } from "@/app/admin/(protected)/_components/picker-input";
 import { Button } from "@/components/ui/button";
 import { isCalendarDate } from "@/lib/availability";
 import type { ProxyRegistrationErrors } from "@/lib/admin-reservation-form";
@@ -33,8 +34,11 @@ import {
 import type { ActiveMenu, CustomerSearchResult } from "@/server/admin-data";
 import { cn } from "@/lib/utils";
 
-const inputClass =
-  "h-12 w-full rounded-xl border border-input bg-card px-4 text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50";
+// 日付・時刻の PickerInput は左右の余白をアイコンの位置と組で持ち、幅も
+// 欄ごとに決めるので、w-full と余白(px-4)を除いた見た目だけを渡す
+const pickerInputClass =
+  "h-12 rounded-xl border border-input bg-card text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50";
+const inputClass = `${pickerInputClass} w-full px-4`;
 const labelClass = "text-base font-bold";
 
 /** 変更モードの初期値(既存予約から復元する) */
@@ -592,10 +596,12 @@ export function ProxyRegistrationForm({
               <label htmlFor="proxy-date" className={labelClass}>
                 日付
               </label>
-              {/* iOSは幅が固定でない日付・時刻入力を content-box にするので、w-full だと
-                  パディングとボーダーの分はみ出す。flex で幅を決める */}
+              {/* スマホは w-56 を上限にして中の文字以上に伸ばさない。sm 以上は
+                  flex-1(basis 0 が w-56 より優先)でグリッドのセル幅いっぱい。
+                  iOS は % 幅の日付入力を content-box にしてはみ出すので w-full は
+                  使わない。pl-4 は他の入力欄と文字の左端を揃えるため */}
               <div className="mt-2 flex">
-                <input
+                <PickerInput
                   id="proxy-date"
                   type="date"
                   value={date}
@@ -603,7 +609,11 @@ export function ProxyRegistrationForm({
                     setDate(event.target.value);
                     setFieldErrors((prev) => ({ ...prev, date: undefined }));
                   }}
-                  className={cn(inputClass, "min-w-0 flex-1")}
+                  wrapperClassName="min-w-0 sm:flex-1"
+                  className={cn(
+                    pickerInputClass,
+                    "w-56 min-w-0 pl-4 sm:flex-1",
+                  )}
                 />
               </div>
               {fieldErrors.date !== undefined && (
@@ -616,9 +626,9 @@ export function ProxyRegistrationForm({
               <label htmlFor="proxy-time" className={labelClass}>
                 時間
               </label>
-              {/* 日付と同じく flex で幅を決める(iOSのはみ出し対策) */}
+              {/* 日付と同じ幅の決め方(スマホの上限は w-32) */}
               <div className="mt-2 flex">
-                <input
+                <PickerInput
                   id="proxy-time"
                   type="time"
                   value={time}
@@ -626,7 +636,11 @@ export function ProxyRegistrationForm({
                     setTime(event.target.value);
                     setFieldErrors((prev) => ({ ...prev, time: undefined }));
                   }}
-                  className={cn(inputClass, "min-w-0 flex-1")}
+                  wrapperClassName="min-w-0 sm:flex-1"
+                  className={cn(
+                    pickerInputClass,
+                    "w-32 min-w-0 pl-4 sm:flex-1",
+                  )}
                 />
               </div>
               {fieldErrors.time !== undefined && (
