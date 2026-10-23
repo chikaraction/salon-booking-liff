@@ -680,21 +680,25 @@ function DateOverrideSection({
               >
                 開始日
               </label>
-              <input
-                id="override-start"
-                type="date"
-                value={input.startDate}
-                onChange={(event) => {
-                  const startDate = event.target.value;
-                  // 単日の登録が普通なので、終了日は開始日に追従させる
-                  update(
-                    input.endDate < startDate
-                      ? { startDate, endDate: startDate }
-                      : { startDate },
-                  );
-                }}
-                className={cn(inputClass, "mt-1 w-full")}
-              />
+              {/* iOSは幅が固定でない日付入力を content-box にするので、w-full だと
+                  パディングとボーダーの分はみ出す。flex で幅を決める */}
+              <div className="mt-1 flex">
+                <input
+                  id="override-start"
+                  type="date"
+                  value={input.startDate}
+                  onChange={(event) => {
+                    const startDate = event.target.value;
+                    // 単日の登録が普通なので、終了日は開始日に追従させる
+                    update(
+                      input.endDate < startDate
+                        ? { startDate, endDate: startDate }
+                        : { startDate },
+                    );
+                  }}
+                  className={cn(inputClass, "min-w-0 flex-1")}
+                />
+              </div>
               {errors.startDate !== undefined && (
                 <p role="alert" className="mt-1 text-sm text-destructive">
                   {errors.startDate}
@@ -711,13 +715,16 @@ function DateOverrideSection({
                   (単日は開始日と同じ)
                 </span>
               </label>
-              <input
-                id="override-end"
-                type="date"
-                value={input.endDate}
-                onChange={(event) => update({ endDate: event.target.value })}
-                className={cn(inputClass, "mt-1 w-full")}
-              />
+              {/* 開始日と同じく flex で幅を決める(iOSのはみ出し対策) */}
+              <div className="mt-1 flex">
+                <input
+                  id="override-end"
+                  type="date"
+                  value={input.endDate}
+                  onChange={(event) => update({ endDate: event.target.value })}
+                  className={cn(inputClass, "min-w-0 flex-1")}
+                />
+              </div>
               {errors.endDate !== undefined && (
                 <p role="alert" className="mt-1 text-sm text-destructive">
                   {errors.endDate}
