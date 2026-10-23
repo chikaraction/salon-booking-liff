@@ -5,7 +5,7 @@
 // ナビゲーションをURL遷移(?view=&date=)に変換するだけ。
 // 色はスタッフの並び順から src/lib/staff-colors.ts が決める(ADR-007)。
 
-import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -34,6 +34,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { ActiveMenu, ReservationDetail } from "@/server/admin-data";
 
+import { PickerInput } from "./picker-input";
 import { ReservationDetailDialog } from "./reservation-detail-dialog";
 import {
   ReservationFormDialog,
@@ -260,35 +261,23 @@ export function CalendarView({
           </button>
 
           {/* 日付ジャンプ(‹ › は1日/1週ずつなので、遠い日付へは直接指定する)。
-              iOS・Android の日付入力にはピッカーのアイコンが出ない(WebKit・
-              モバイルの Chromium は描かない)ので、押せると分かるよう自前で描く。
-              PC の Chromium のアイコンは透明にして同じ位置に重ね、押すと
-              ピッカーが開くのは従来どおり。Firefox は独自のボタンを出すので
-              自前のほうを隠す。
+              右端のアイコンは PickerInput が描く。
               幅は中身に合わせる(フォント・ブラウザで日付の文字幅が変わり、
               固定幅だと右端のアイコンが数字に重なった)。最小は従来の 9.5rem */}
-          <span className="relative flex max-sm:min-w-0 max-sm:flex-1">
-            <input
-              type="date"
-              value={date}
-              aria-label="日付を指定して移動"
-              onChange={(event) => {
-                const next = event.target.value;
-                // 入力途中・消去時は空文字や不正な日付になる。その間は遷移しない
-                if (!isCalendarDate(next)) return;
-                go(view, next);
-              }}
-              className={cn(
-                "relative h-9 min-w-[9.5rem] rounded-lg border border-input bg-card pr-8 pl-2 text-sm font-medium text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50",
-                "max-sm:min-w-0 max-sm:flex-1",
-                "[&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-y-0 [&::-webkit-calendar-picker-indicator]:right-2 [&::-webkit-calendar-picker-indicator]:m-0 [&::-webkit-calendar-picker-indicator]:my-auto [&::-webkit-calendar-picker-indicator]:size-4 [&::-webkit-calendar-picker-indicator]:p-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0",
-              )}
-            />
-            <CalendarDays
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 right-[9px] my-auto size-4 text-muted-foreground supports-[-moz-orient:inherit]:hidden"
-            />
-          </span>
+          <PickerInput
+            type="date"
+            compact
+            value={date}
+            aria-label="日付を指定して移動"
+            onChange={(event) => {
+              const next = event.target.value;
+              // 入力途中・消去時は空文字や不正な日付になる。その間は遷移しない
+              if (!isCalendarDate(next)) return;
+              go(view, next);
+            }}
+            wrapperClassName="max-sm:min-w-0 max-sm:flex-1"
+            className="h-9 min-w-[9.5rem] rounded-lg border border-input bg-card text-sm font-medium text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 max-sm:min-w-0 max-sm:flex-1"
+          />
 
           {/* 日表示: ネイティブの日付入力は曜日を出さない。定休日の判断に要るので添える。
               週表示: 曜日ではなく ‹ › が動かす単位(週)を示す */}
