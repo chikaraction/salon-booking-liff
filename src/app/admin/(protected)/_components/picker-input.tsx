@@ -3,7 +3,9 @@
 // 描かないので、押せると分かるよう自前で描く。PC の Chromium のアイコン
 // (::-webkit-calendar-picker-indicator)は透明にして同じ位置に重ねるので、
 // 押すとピッカーが開くのは従来どおり。Firefox は独自のボタンを出すので
-// 自前のほうを隠す。入力欄が無効のときはアイコンも薄くする。
+// 自前のほうを隠す。Firefox は独自のアイコンを内容領域の右端に描くので、
+// 自前のアイコン用に取った右の余白を Firefox だけ通常に戻す(戻さないと
+// アイコンが文字に寄って数字に重なる)。入力欄が無効のときはアイコンも薄くする。
 // 左右の余白はアイコンの位置と組なので部品が持つ(呼び出し側は px- を渡さない)。
 
 import { CalendarDays, Clock } from "lucide-react";
@@ -41,7 +43,9 @@ export function PickerInput({
         {...props}
         className={cn(
           "peer relative",
-          compact ? "pr-8 pl-2" : "pr-9 pl-3",
+          compact
+            ? "pr-8 pl-2 supports-[-moz-orient:inherit]:pr-2"
+            : "pr-9 pl-3 supports-[-moz-orient:inherit]:pr-3",
           compact ? compactIndicatorClass : defaultIndicatorClass,
           className,
         )}
