@@ -591,7 +591,17 @@ function MenuEditDialog({
           ))}
         </p>
 
-        <div className="flex flex-wrap items-center gap-3">
+        {/* 横並びは右寄せで「やめる(左) → 決定(右)」(docs/ui-guidelines.md)。
+            カテゴリ編集ダイアログと同じ並び・大きさ */}
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            className="h-11 rounded-xl px-5 text-base"
+          >
+            キャンセル
+          </Button>
           <Button
             type="button"
             onClick={handleSave}
@@ -602,14 +612,6 @@ function MenuEditDialog({
               <Loader2 aria-hidden="true" className="size-4 animate-spin" />
             )}
             保存する
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={onClose}
-            className="h-11 rounded-xl px-4 text-base"
-          >
-            キャンセル
           </Button>
         </div>
 

@@ -264,8 +264,8 @@ export function ReservationFormDialog({
         )}
         <h2 className="text-base font-bold">{title}</h2>
         {/* 「詳細に戻る」はタイトルバーだと気づかれないという実機フィードバックを
-            受けて、フォームの送信ボタンの下へ移した(キャンセル確認の
-            「キャンセルする / 戻る」と同じ並び)。ここには置かない */}
+            受けて、フォームの送信ボタンの下へ移した(縦並びは決定が上・やめるが下。
+            docs/ui-guidelines.md)。ここには置かない */}
         <button
           type="button"
           aria-label="閉じる"
