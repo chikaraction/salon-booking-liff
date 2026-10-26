@@ -6,7 +6,9 @@ import {
   jstCalendarDate,
   jstClockTime,
   jstDateTime,
+  jstMinutesOfDay,
   jstParts,
+  minutesLabel,
   WEEKDAY_LABELS,
 } from "./jst";
 
@@ -176,5 +178,58 @@ describe("jstParts", () => {
       hours: 11,
       minutes: 5,
     });
+  });
+});
+
+describe("minutesLabel", () => {
+  it("0時からの分数を「13:00」形式にする", () => {
+    expect(minutesLabel(13 * 60)).toBe("13:00");
+    expect(minutesLabel(18 * 60 + 30)).toBe("18:30");
+  });
+
+  it("時は先頭0なし・分は2桁にする", () => {
+    expect(minutesLabel(9 * 60 + 5)).toBe("9:05");
+    expect(minutesLabel(0)).toBe("0:00");
+  });
+
+  it("24時以降の分数は24時を超える時のまま表す(日をまたいで繰り返さない)", () => {
+    expect(minutesLabel(25 * 60 + 15)).toBe("25:15");
+  });
+});
+
+describe("jstMinutesOfDay", () => {
+  it("UTCのDateを対象日(JST)の0時からの分数に変換する", () => {
+    // JST 2026-07-18 13:30 = UTC 04:30
+    expect(
+      jstMinutesOfDay("2026-07-18", new Date("2026-07-18T04:30:00Z")),
+    ).toBe(13 * 60 + 30);
+  });
+
+  it("対象日の0時ちょうどは0になる", () => {
+    expect(
+      jstMinutesOfDay("2026-07-18", jstDateTime("2026-07-18", "00:00")),
+    ).toBe(0);
+  });
+
+  it("翌日にかかる時刻は24時間ぶん(1440分)を超えた分数になる", () => {
+    expect(
+      jstMinutesOfDay("2026-07-18", jstDateTime("2026-07-19", "01:00")),
+    ).toBe(25 * 60);
+  });
+
+  it("対象日より前の時刻は負の分数になる", () => {
+    expect(
+      jstMinutesOfDay("2026-07-18", jstDateTime("2026-07-17", "23:30")),
+    ).toBe(-30);
+  });
+
+  it("秒以下は最も近い分に丸める", () => {
+    const at = jstDateTime("2026-07-18", "10:00");
+    expect(
+      jstMinutesOfDay("2026-07-18", new Date(at.getTime() + 29 * 1000)),
+    ).toBe(600);
+    expect(
+      jstMinutesOfDay("2026-07-18", new Date(at.getTime() + 31 * 1000)),
+    ).toBe(601);
   });
 });

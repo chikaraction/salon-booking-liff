@@ -11,7 +11,7 @@ import {
   describeSlotAvailability,
   type ProxyDaySlot,
   type SlotAvailability,
-} from "@/lib/admin-calendar";
+} from "@/lib/admin-proxy-slots";
 import { describeLoginError, validateLoginInput } from "@/lib/admin-login";
 import {
   isPastStart,

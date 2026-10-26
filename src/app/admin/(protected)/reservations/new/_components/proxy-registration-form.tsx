@@ -2,7 +2,7 @@
 
 // 代行登録フォーム(電話予約用・モックD)。配線に徹する:
 // 入力検証は src/lib/admin-reservation-form.ts、空き判定は
-// src/lib/admin-calendar.ts、RPC呼び出しは Server Action が担う。
+// src/lib/admin-proxy-slots.ts、RPC呼び出しは Server Action が担う。
 // - お客様名は検索型(入力→候補→選択で既存顧客を確定、候補になければ新規客)
 // - メニューは複数選択(データモデルに合わせる。モックは単一だが複数可)
 // - スタッフ・日付・時間が揃うと空き状況を表示する(補助表示。最後の砦は
@@ -24,12 +24,12 @@ import { PickerInput } from "@/app/admin/(protected)/_components/picker-input";
 import { Button } from "@/components/ui/button";
 import type { ProxyRegistrationErrors } from "@/lib/admin-reservation-form";
 import { formatYen, summarizeSelectedMenus } from "@/lib/booking";
+import type { AdminStaff } from "@/lib/admin-calendar";
 import {
   buildProxySlotOptions,
-  type AdminStaff,
   type ProxyDaySlot,
   type SlotAvailability,
-} from "@/lib/admin-calendar";
+} from "@/lib/admin-proxy-slots";
 import { isCalendarDate } from "@/lib/jst";
 import type { ActiveMenu, CustomerSearchResult } from "@/server/admin-data";
 import { cn } from "@/lib/utils";
