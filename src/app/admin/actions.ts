@@ -28,7 +28,7 @@ import {
   type BusinessDay,
 } from "@/lib/availability";
 import { isSlotTakenError, isUuid } from "@/lib/booking";
-import { resolveBusinessDay } from "@/lib/closures";
+import { resolveBusinessDay, weeklyBusinessDayOf } from "@/lib/closures";
 import { createAdminAuthClient } from "@/server/admin-auth";
 import {
   fetchAdminBusinessHours,
@@ -298,10 +298,14 @@ async function resolveAdminBusinessDay(
 ): Promise<BusinessDay> {
   const businessHours = await fetchAdminBusinessHours(supabase);
   const closureRules = await fetchClosureRules(supabase, businessHours);
-  const weeklyBusinessDay = businessHours.find(
-    (hours) => hours.weekday === calendarWeekday(date),
-  ) ?? { isOpen: false, openTime: null, closeTime: null };
-  return resolveBusinessDay({ date, weeklyBusinessDay, rules: closureRules });
+  return resolveBusinessDay({
+    date,
+    weeklyBusinessDay: weeklyBusinessDayOf(
+      businessHours,
+      calendarWeekday(date),
+    ),
+    rules: closureRules,
+  });
 }
 
 /**

@@ -42,7 +42,12 @@ import {
   type NthWeekdayGroup,
   type WeeklyHoursInput,
 } from "@/lib/business-settings";
-import { resolveBusinessDay, resolveStaffWorkingDay } from "@/lib/closures";
+import {
+  closedWeekdaysOf,
+  resolveBusinessDay,
+  resolveStaffWorkingDay,
+  weeklyBusinessDayOf,
+} from "@/lib/closures";
 import {
   validateDisplaySettingsInput,
   type DisplaySettingsInput,
@@ -276,22 +281,16 @@ export async function addDateOverride(
     // 休業の登録ではこのルールが働かないので問い合わせ自体を省く
     let closedWeekdays: number[] = [];
     if (input.isOpen) {
-      const hoursResult = await supabase
-        .from("business_hours")
-        .select("weekday, is_open");
-      if (hoursResult.error !== null || hoursResult.data === null) {
-        console.error("addDateOverride failed", hoursResult.error);
+      // 取得失敗の文言は従来どおり「営業時間の取得に失敗しました」にする
+      // (外側の catch に任せると登録失敗の文言になるため)
+      try {
+        closedWeekdays = closedWeekdaysOf(
+          await fetchAdminBusinessHours(supabase),
+        );
+      } catch (error) {
+        console.error("addDateOverride failed", error);
         return { ok: false, message: "営業時間の取得に失敗しました" };
       }
-      const hours = hoursResult.data as Array<{
-        weekday: number;
-        is_open: boolean;
-      }>;
-      // business_hours に行が無い曜日も休業(closures.ts の判定と揃える)
-      closedWeekdays = [0, 1, 2, 3, 4, 5, 6].filter(
-        (weekday) =>
-          hours.find((row) => row.weekday === weekday)?.is_open !== true,
-      );
     }
 
     const validated = validateDateOverride({ input, closedWeekdays });
@@ -592,10 +591,7 @@ export async function addStaffBlock(params: {
       fetchStaffWorkingHoursForWeekday(supabase, weekday),
     ]);
 
-    // business_hours に行が無い曜日は休業(closures.ts の判定と揃える)
-    const weeklyBusinessDay = businessHours.find(
-      (day) => day.weekday === weekday,
-    ) ?? { isOpen: false, openTime: null, closeTime: null };
+    const weeklyBusinessDay = weeklyBusinessDayOf(businessHours, weekday);
     const businessDay = resolveBusinessDay({
       date: input.date,
       weeklyBusinessDay,

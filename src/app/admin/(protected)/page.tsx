@@ -22,6 +22,7 @@ import {
   makeBusinessDayOf,
   makeIsClosedDay,
   resolveBusinessDay,
+  weeklyBusinessDayOf,
 } from "@/lib/closures";
 import { createAdminAuthClient } from "@/server/admin-auth";
 import {
@@ -85,16 +86,11 @@ export default async function AdminCalendarPage({
 
   if (view === "day") {
     const weekday = calendarWeekday(date);
-    const weeklyDay = businessHours.find((h) => h.weekday === weekday) ?? {
-      isOpen: false,
-      openTime: null,
-      closeTime: null,
-    };
     // 第◯曜日・祝日・臨時休業の休業日も日表示で休業として出し、
     // 時刻付きの臨時営業の日はその時刻を日表示の時間軸にする
     const businessDay = resolveBusinessDay({
       date,
-      weeklyBusinessDay: weeklyDay,
+      weeklyBusinessDay: weeklyBusinessDayOf(businessHours, weekday),
       rules: closureRules,
     });
     const [items, workingHours] = await Promise.all([

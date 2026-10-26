@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { BusinessDay, StaffWorkingDay } from "./availability";
 import {
   buildClosureListItems,
+  closedWeekdaysOf,
   japaneseHolidayName,
   makeBusinessDayOf,
   makeIsClosedDay,
@@ -10,6 +11,7 @@ import {
   resolveBusinessDay,
   resolveDayClosure,
   resolveStaffWorkingDay,
+  weeklyBusinessDayOf,
   type ClosureRules,
 } from "./closures";
 
@@ -1188,5 +1190,101 @@ describe("makeBusinessDayOf: その日の実効営業時間の関数化", () => 
           .isOpen,
       ).toBe(false);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 9. business_hours から曜日の営業時間を引く(行が無い曜日は休業)
+// ---------------------------------------------------------------------------
+
+describe("weeklyBusinessDayOf: 曜日の営業時間(行が無い曜日は休業)", () => {
+  /** 月曜定休。他の曜日は 9:00〜21:00(business_hours の全行) */
+  const weeklyBusinessHours = [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
+    weekday,
+    isOpen: weekday !== 1,
+    openTime: weekday === 1 ? null : "09:00:00",
+    closeTime: weekday === 1 ? null : "21:00:00",
+  }));
+
+  it("行がある営業曜日は、その行の営業時間を返す", () => {
+    expect(weeklyBusinessDayOf(weeklyBusinessHours, 6)).toEqual({
+      isOpen: true,
+      openTime: "09:00:00",
+      closeTime: "21:00:00",
+    });
+  });
+
+  it("行がある定休曜日は、その行(isOpen:false)を返す", () => {
+    expect(weeklyBusinessDayOf(weeklyBusinessHours, 1)).toEqual({
+      isOpen: false,
+      openTime: null,
+      closeTime: null,
+    });
+  });
+
+  it("行が無い曜日は休業({ isOpen:false, 時刻なし })を返す", () => {
+    const partial = weeklyBusinessHours.filter((row) => row.weekday !== 6);
+    expect(weeklyBusinessDayOf(partial, 6)).toEqual({
+      isOpen: false,
+      openTime: null,
+      closeTime: null,
+    });
+    expect(weeklyBusinessDayOf([], 0)).toEqual({
+      isOpen: false,
+      openTime: null,
+      closeTime: null,
+    });
+  });
+
+  it("weekday などの余分な項目は返さない(BusinessDay の3項目だけ)", () => {
+    const withExtra = [{ ...weeklyBusinessHours[6], note: "余分な項目" }];
+    expect(Object.keys(weeklyBusinessDayOf(withExtra, 6)).sort()).toEqual([
+      "closeTime",
+      "isOpen",
+      "openTime",
+    ]);
+  });
+
+  it("戻り値を書き換えても元の行は変わらない(行そのものを返さない)", () => {
+    const rows = [{ ...weeklyBusinessHours[6] }];
+    const day = weeklyBusinessDayOf(rows, 6);
+    day.openTime = "10:00:00";
+    expect(rows[0].openTime).toBe("09:00:00");
+  });
+});
+
+describe("closedWeekdaysOf: 毎週の定休曜日の一覧", () => {
+  it("isOpen が false の曜日を昇順で返す", () => {
+    const hours = [6, 3, 0, 1, 2, 4, 5].map((weekday) => ({
+      weekday,
+      isOpen: weekday !== 1 && weekday !== 3,
+      openTime: weekday === 1 || weekday === 3 ? null : "09:00:00",
+      closeTime: weekday === 1 || weekday === 3 ? null : "21:00:00",
+    }));
+    expect(closedWeekdaysOf(hours)).toEqual([1, 3]);
+  });
+
+  it("行が無い曜日も定休曜日に含める", () => {
+    const hours = [1, 2, 3, 4, 5].map((weekday) => ({
+      weekday,
+      isOpen: true,
+      openTime: "09:00:00",
+      closeTime: "21:00:00",
+    }));
+    expect(closedWeekdaysOf(hours)).toEqual([0, 6]);
+  });
+
+  it("全曜日が営業なら空配列を返す", () => {
+    const hours = [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
+      weekday,
+      isOpen: true,
+      openTime: "09:00:00",
+      closeTime: "21:00:00",
+    }));
+    expect(closedWeekdaysOf(hours)).toEqual([]);
+  });
+
+  it("行が1つも無ければ全曜日(0〜6)を返す", () => {
+    expect(closedWeekdaysOf([])).toEqual([0, 1, 2, 3, 4, 5, 6]);
   });
 });
