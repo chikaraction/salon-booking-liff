@@ -241,7 +241,8 @@ function DetailBody({
         </p>
       </div>
 
-      {/* スタッフメモ(店内用・スタッフが記入 = customers.note。編集可) */}
+      {/* スタッフメモ(お客様ごと・店内用 = customers.note。編集可)。同じお客様のどの予約詳細にも出るので、
+          「この予約だけのメモ」と誤解されないよう見出しに明記する(docs/milestone-4-plan.md の決定4の追記) */}
       <div className="rounded-xl bg-muted p-4">
         {/* スマホ幅で「編集」が押しつぶされて縦に折り返さないよう、折り返すのはラベル側にする。
             gap-3 は「編集」の押せる範囲(左へ約8px はみ出す)がラベルの文字に重ならないための間隔 */}
@@ -249,7 +250,7 @@ function DetailBody({
           <p className="min-w-0 text-sm font-bold">
             スタッフメモ{" "}
             <span className="font-normal text-muted-foreground">
-              (店内用・スタッフが記入)
+              (お客様ごと・店内用)
             </span>
           </p>
           {!editing && (
