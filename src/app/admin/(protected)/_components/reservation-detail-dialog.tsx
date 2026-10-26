@@ -20,6 +20,14 @@ import { Button } from "@/components/ui/button";
 import { buildReservationDetailLabels } from "@/lib/admin-calendar";
 import type { ReservationDetail } from "@/server/admin-data";
 
+/**
+ * 店側キャンセルの確認ステップが出てから「キャンセルする」を押せるようになるまでの待ち時間(ms)。
+ * 確認ステップは「店側でキャンセル」と同じ場所に入れ替わって出るため、「キャンセルする」が
+ * 直前に押した位置に重なり、素早い2回押しで確認を飛ばしてしまう。それを防ぐ
+ * (docs/ui-guidelines.md「破壊的な確認は、出てから0.5秒は決定を押せなくする」)
+ */
+const CANCEL_CONFIRM_ARM_DELAY_MS = 500;
+
 type Props = {
   /** 表示中の予約ID(カレンダーの予約カードから受け取る) */
   reservationId: string;
@@ -158,6 +166,20 @@ function DetailBody({
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  // 確認ステップが出てから一定時間たち、「キャンセルする」を押せる状態か。
+  // false に戻すのは確認ステップを開く onClick の中(effect内で同期的にsetStateしない)
+  const [cancelArmed, setCancelArmed] = useState(false);
+
+  // 確認ステップが出ている間だけタイマーを張り、時間がたったら押せるようにする。
+  // 閉じたとき・アンマウントのときは cleanup でタイマーを片付ける
+  useEffect(() => {
+    if (!confirmingCancel) return;
+    const timer = setTimeout(
+      () => setCancelArmed(true),
+      CANCEL_CONFIRM_ARM_DELAY_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [confirmingCancel]);
 
   function startEdit() {
     setMemoDraft(memo ?? "");
@@ -308,7 +330,7 @@ function DetailBody({
               size="lg"
               variant="destructive"
               className="h-[46px] flex-1 rounded-lg"
-              disabled={cancelling}
+              disabled={cancelling || !cancelArmed}
               onClick={() => void confirmCancel()}
             >
               {cancelling ? "キャンセルしています…" : "キャンセルする"}
@@ -333,6 +355,8 @@ function DetailBody({
             className="h-[46px] flex-1 rounded-lg"
             onClick={() => {
               setCancelError(null);
+              // 開き直すたびに、出てから0.5秒は押せない状態から始める
+              setCancelArmed(false);
               setConfirmingCancel(true);
             }}
           >
