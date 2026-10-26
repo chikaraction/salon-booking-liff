@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { jstDateTime, type BusinessDay, type BusyRange } from "./availability";
+import type { BusinessDay, BusyRange } from "./availability";
 import {
   makeBusinessDayOf,
   makeIsClosedDay,
@@ -29,6 +29,7 @@ import {
   weekdayLabel,
   type AdminCalendarItem,
 } from "./admin-calendar";
+import { jstDateTime } from "./jst";
 
 // ---------------------------------------------------------------------------
 // 共通のテストデータ(JST 2026-07-18 は土曜)

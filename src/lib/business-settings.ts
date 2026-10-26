@@ -12,14 +12,13 @@
 // 休業日そのものの判定(優先順位・祝日・第◯曜日)は closures.ts が持つ。
 // ここは「設定を編集して保存するまで」に必要な判断だけを置く。
 
+import { isSlotTakenError } from "./booking";
 import {
   addCalendarDays,
   calendarWeekday,
   isCalendarDate,
-} from "./availability";
-import { isSlotTakenError } from "./booking";
-
-const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
+  WEEKDAY_LABELS,
+} from "./jst";
 
 /** すべての曜日(0=日曜〜6=土曜)。チップの描画・入力の検証で使う */
 export const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] as const;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { jstDateTime, type BookingPolicy } from "./availability";
+import type { BookingPolicy } from "./availability";
 import { makeIsClosedDay } from "./closures";
 import {
   addMonths,
@@ -12,6 +12,7 @@ import {
   jstYearMonth,
   yearMonthLabel,
 } from "./calendar";
+import { jstDateTime } from "./jst";
 
 const policy: BookingPolicy = {
   slotIntervalMinutes: 30,

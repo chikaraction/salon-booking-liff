@@ -1,18 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  calendarWeekday,
   computeStaffDaySlots,
-  isCalendarDate,
   isWithinBookingWindow,
-  jstCalendarDate,
-  jstClockTime,
-  jstDateTime,
   mergeStaffSlots,
   pickStaffForStart,
   type BookingPolicy,
   type Slot,
 } from "./availability";
+import { jstDateTime } from "./jst";
 
 const policy: BookingPolicy = {
   slotIntervalMinutes: 30,
@@ -47,66 +43,6 @@ const starts = (slots: Slot[]) => slots.map((s) => s.start.toISOString());
 const at = (time: string) => jstDateTime(date, time).toISOString();
 const statusAt = (slots: Slot[], time: string) =>
   slots.find((s) => s.start.toISOString() === at(time))?.status;
-
-describe("jstDateTime", () => {
-  it("JSTの暦日と壁時計時刻をUTCのDateに変換する", () => {
-    expect(jstDateTime("2026-07-18", "11:00").toISOString()).toBe(
-      "2026-07-18T02:00:00.000Z",
-    );
-  });
-
-  it("PostgreSQLのtime型が返す HH:MM:SS 形式も受け付ける", () => {
-    expect(jstDateTime("2026-07-18", "09:30:00").toISOString()).toBe(
-      "2026-07-18T00:30:00.000Z",
-    );
-  });
-});
-
-describe("jstCalendarDate", () => {
-  it("UTCのDateをJSTの暦日に変換する(日付をまたぐケース)", () => {
-    // UTC 7/17 20:00 = JST 7/18 05:00
-    expect(jstCalendarDate(new Date("2026-07-17T20:00:00Z"))).toBe(
-      "2026-07-18",
-    );
-  });
-});
-
-describe("jstClockTime", () => {
-  it("UTCのDateをJSTの壁時計時刻 HH:MM(ゼロ埋め)にする", () => {
-    // UTC 02:00 = JST 11:00
-    expect(jstClockTime(new Date("2026-07-18T02:00:00Z"))).toBe("11:00");
-  });
-
-  it('時・分ともゼロ埋めする(<input type="time"> にそのまま入る形)', () => {
-    // UTC 00:30 = JST 09:30
-    expect(jstClockTime(new Date("2026-07-18T00:30:00Z"))).toBe("09:30");
-  });
-
-  it("日付をまたぐ深夜も壁時計時刻を返す", () => {
-    // UTC 7/17 20:05 = JST 7/18 05:05
-    expect(jstClockTime(new Date("2026-07-17T20:05:00Z"))).toBe("05:05");
-  });
-});
-
-describe("calendarWeekday", () => {
-  it("JSTの暦日の曜日を返す(0=日曜〜6=土曜。DBのweekday列と同じ)", () => {
-    expect(calendarWeekday("2026-07-18")).toBe(6); // 土曜
-    expect(calendarWeekday("2026-07-19")).toBe(0); // 日曜
-  });
-});
-
-describe("isCalendarDate", () => {
-  it("実在する YYYY-MM-DD の暦日を受理する", () => {
-    expect(isCalendarDate("2026-07-18")).toBe(true);
-  });
-
-  it("形式違い・実在しない日付は拒否する", () => {
-    expect(isCalendarDate("2026/07/18")).toBe(false);
-    expect(isCalendarDate("2026-7-18")).toBe(false);
-    expect(isCalendarDate("2026-02-30")).toBe(false);
-    expect(isCalendarDate("")).toBe(false);
-  });
-});
 
 describe("isWithinBookingWindow", () => {
   it("今日(JST)から booking_window_days 日後までが予約可能", () => {

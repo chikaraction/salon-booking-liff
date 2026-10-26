@@ -13,13 +13,9 @@
 
 import { getHolidaysOf } from "japanese-holidays";
 
-import {
-  addCalendarDays,
-  calendarWeekday,
-  type BusinessDay,
-  type StaffWorkingDay,
-} from "./availability";
+import type { BusinessDay, StaffWorkingDay } from "./availability";
 import { calendarDateLabel } from "./calendar";
+import { addCalendarDays, calendarWeekday } from "./jst";
 
 export type ClosureRules = {
   /** 毎週の定休(weekday 0=日曜〜6=土曜)。行がない曜日は休業として扱う */

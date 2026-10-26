@@ -12,14 +12,11 @@
 // 臨時休ブロックの重なりは EXCLUDE制約 reservations_no_overlap が拒否する。
 
 import { isStaffRole, type StaffRole } from "./admin-permissions";
-import {
-  isCalendarDate,
-  jstDateTime,
-  type StaffWorkingDay,
-} from "./availability";
+import type { StaffWorkingDay } from "./availability";
 import { isSlotTakenError } from "./booking";
 import { WEEKDAYS, canonicalTimeInput } from "./business-settings";
 import { calendarDateLabel } from "./calendar";
+import { isCalendarDate, jstDateTime } from "./jst";
 
 /** "HH:MM"(00:00〜23:59)形式の壁時計時刻か */
 function isWallClockTime(value: string): boolean {

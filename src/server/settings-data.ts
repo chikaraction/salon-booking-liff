@@ -9,7 +9,6 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { isStaffRole, type StaffRole } from "@/lib/admin-permissions";
-import { jstDateTime } from "@/lib/availability";
 import {
   fillWeeklyBusinessHours,
   type NthWeekdayClosureRow,
@@ -19,6 +18,7 @@ import {
   resolveDisplaySettings,
   type DisplaySettings,
 } from "@/lib/display-settings";
+import { jstDateTime } from "@/lib/jst";
 import type { MenuCategoryRecord, MenuRecord } from "@/lib/menu-settings";
 import type { StaffWorkingHoursRow } from "@/lib/staff-settings";
 import { formatTstzrange, parseTstzrange } from "@/lib/tstzrange";

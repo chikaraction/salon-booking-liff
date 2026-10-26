@@ -9,8 +9,6 @@
 // - 戻り値はすべて判別可能なResult型(ok + reason)でUIが分岐に迷わない形にする
 
 import {
-  isCalendarDate,
-  jstCalendarDate,
   mergeStaffSlots,
   pickStaffForStart,
   type Slot,
@@ -25,6 +23,7 @@ import {
   validateCustomerInfo,
   type CustomerInfoErrors,
 } from "@/lib/booking";
+import { isCalendarDate, jstCalendarDate } from "@/lib/jst";
 import {
   findCustomerByLineUserId,
   findOwnConfirmedBooking,

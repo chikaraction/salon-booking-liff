@@ -19,9 +19,8 @@ import {
   jstYearMonth,
   yearMonthLabel,
 } from "@/lib/calendar";
+import { WEEKDAY_LABELS } from "@/lib/jst";
 import { cn } from "@/lib/utils";
-
-const WEEKDAY_HEADERS = ["日", "月", "火", "水", "木", "金", "土"];
 
 type Props = {
   /** 休業日ルール(毎週の定休・第◯曜日・祝日・臨時休業) */
@@ -86,7 +85,7 @@ export function StepDatetime({
           </MonthNavButton>
         </div>
         <div className="mt-2 grid grid-cols-7 text-center">
-          {WEEKDAY_HEADERS.map((label, weekday) => (
+          {WEEKDAY_LABELS.map((label, weekday) => (
             <span
               key={label}
               className={cn(

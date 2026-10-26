@@ -3,13 +3,14 @@
 // カレンダーで無効化するのは定休日・受付期間外・過去の日付のみで、
 // 日ごとの空き有無は日付選択時に空き枠計算(availability.ts)で判定する。
 
+import { isWithinBookingWindow, type BookingPolicy } from "./availability";
 import {
   addCalendarDays,
   calendarWeekday,
-  isWithinBookingWindow,
   jstCalendarDate,
-  type BookingPolicy,
-} from "./availability";
+  jstParts,
+  WEEKDAY_LABELS,
+} from "./jst";
 
 export type CalendarDay = {
   date: string; // "YYYY-MM-DD"
@@ -18,8 +19,6 @@ export type CalendarDay = {
 
 /** カレンダーの1マス。月外の詰め物は null */
 export type CalendarCell = CalendarDay | null;
-
-const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
 
 /** UTCのDateをJSTの年月("YYYY-MM")に変換する */
 export function jstYearMonth(at: Date): string {
@@ -98,8 +97,8 @@ export function canMoveToMonth(
 
 /** 開始時刻(UTC)をJSTの「10:00」形式にする(時は先頭0なし・分は2桁) */
 export function formatJstTime(at: Date): string {
-  const jst = new Date(at.getTime() + 9 * 60 * 60 * 1000);
-  return `${jst.getUTCHours()}:${String(jst.getUTCMinutes()).padStart(2, "0")}`;
+  const { hours, minutes } = jstParts(at);
+  return `${hours}:${String(minutes).padStart(2, "0")}`;
 }
 
 /** JSTの暦日("YYYY-MM-DD")を「7月18日(土)」形式にする */

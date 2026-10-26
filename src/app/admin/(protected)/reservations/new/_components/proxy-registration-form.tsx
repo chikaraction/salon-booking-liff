@@ -22,7 +22,6 @@ import {
 } from "@/app/admin/actions";
 import { PickerInput } from "@/app/admin/(protected)/_components/picker-input";
 import { Button } from "@/components/ui/button";
-import { isCalendarDate } from "@/lib/availability";
 import type { ProxyRegistrationErrors } from "@/lib/admin-reservation-form";
 import { formatYen, summarizeSelectedMenus } from "@/lib/booking";
 import {
@@ -31,6 +30,7 @@ import {
   type ProxyDaySlot,
   type SlotAvailability,
 } from "@/lib/admin-calendar";
+import { isCalendarDate } from "@/lib/jst";
 import type { ActiveMenu, CustomerSearchResult } from "@/server/admin-data";
 import { cn } from "@/lib/utils";
 

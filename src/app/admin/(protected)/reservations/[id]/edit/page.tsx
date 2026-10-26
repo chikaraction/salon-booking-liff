@@ -8,8 +8,8 @@
 import { notFound } from "next/navigation";
 
 import { restoreSelectableMenuIds } from "@/lib/admin-reservation-form";
-import { jstCalendarDate, jstClockTime } from "@/lib/availability";
 import { isUuid } from "@/lib/booking";
+import { jstCalendarDate, jstClockTime } from "@/lib/jst";
 import { createAdminAuthClient } from "@/server/admin-auth";
 import {
   fetchActiveMenus,

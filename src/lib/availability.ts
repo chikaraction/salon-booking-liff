@@ -1,8 +1,15 @@
 // 空き枠計算(純粋関数)。
 // 営業時間・勤務時間は店舗ローカル(JST)の壁時計時刻、予約はUTCのDateで扱う。
-// 日本にDSTはないため JST = UTC+9 固定で変換する。
+// JSTとUTCの変換は jst.ts に任せる(JST = UTC+9 固定)。
 // このロジックはUX向上のための表示用フィルタであり、
 // ダブルブッキング防止の最後の砦はDBのEXCLUDE制約(ADR-004)。
+
+import {
+  addCalendarDays,
+  jstCalendarDate,
+  jstDateTime,
+  timeToMinutes,
+} from "./jst";
 
 export type BookingPolicy = {
   slotIntervalMinutes: number;
@@ -40,61 +47,7 @@ export type StaffSlots = {
   slots: Slot[];
 };
 
-const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const MINUTE_MS = 60 * 1000;
-
-/** "HH:MM" / "HH:MM:SS" を0時からの分数に変換する */
-function timeToMinutes(time: string): number {
-  const [hours, minutes] = time.split(":").map(Number);
-  return hours * 60 + minutes;
-}
-
-/** JSTの暦日("YYYY-MM-DD")と壁時計時刻をUTCのDateに変換する */
-export function jstDateTime(date: string, time: string): Date {
-  const midnight = new Date(`${date}T00:00:00+09:00`);
-  return new Date(midnight.getTime() + timeToMinutes(time) * MINUTE_MS);
-}
-
-/** UTCのDateをJSTの暦日("YYYY-MM-DD")に変換する */
-export function jstCalendarDate(at: Date): string {
-  return new Date(at.getTime() + JST_OFFSET_MS).toISOString().slice(0, 10);
-}
-
-/**
- * UTCのDateをJSTの壁時計時刻 "HH:MM"(24時間・時も分もゼロ埋め)にする。
- * <input type="time"> の value や isWallClockTime が受け付ける形式で、
- * 店側変更の初期時刻を既存予約の開始時刻から復元するのに使う。
- */
-export function jstClockTime(at: Date): string {
-  const jst = new Date(at.getTime() + JST_OFFSET_MS);
-  const hours = String(jst.getUTCHours()).padStart(2, "0");
-  const minutes = String(jst.getUTCMinutes()).padStart(2, "0");
-  return `${hours}:${minutes}`;
-}
-
-/** JSTの暦日にn日を加算する */
-export function addCalendarDays(date: string, days: number): string {
-  const d = new Date(`${date}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
-/** JSTの暦日("YYYY-MM-DD")の曜日を返す(0=日曜〜6=土曜。DBのweekday列と同じ) */
-export function calendarWeekday(date: string): number {
-  return new Date(`${date}T00:00:00Z`).getUTCDay();
-}
-
-/** "YYYY-MM-DD" 形式の実在する暦日かどうかを判定する(クライアント入力の検証用) */
-export function isCalendarDate(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const parsed = new Date(`${value}T00:00:00Z`);
-  // Dateは "2026-02-30" のような実在しない日を翌月に繰り越して解釈するため、
-  // 往復変換して元の文字列に戻ることを確認する
-  return (
-    !Number.isNaN(parsed.getTime()) &&
-    parsed.toISOString().slice(0, 10) === value
-  );
-}
 
 /** 今日(JST)から booking_window_days 日後までの日付だけ予約を受け付ける */
 export function isWithinBookingWindow(

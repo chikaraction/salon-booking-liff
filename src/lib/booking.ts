@@ -1,6 +1,8 @@
 // 予約確定フローの判断ロジック(純粋関数)。
 // メニュー合計・顧客情報バリデーション・枠埋まりエラー判定・表示フォーマットを扱う。
-// 日本にDSTはないため JST = UTC+9 固定で変換する(availability.ts と同じ前提)。
+// JSTの壁時計への変換は jst.ts に任せる(JST = UTC+9 固定)。
+
+import { jstParts, WEEKDAY_LABELS } from "./jst";
 
 export type SelectedMenu = {
   price: number;
@@ -26,8 +28,6 @@ export type CustomerInfoErrors = {
 export type CustomerInfoResult =
   | { ok: true; value: { name: string; phone: string } }
   | { ok: false; errors: CustomerInfoErrors };
-
-const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
 /** 選択メニューの件数・合計金額・合計所要時間をまとめる */
 export function summarizeSelectedMenus(menus: SelectedMenu[]): MenuSummary {
@@ -205,15 +205,8 @@ export function formatYen(price: number): string {
   return `¥${String(price).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
 }
 
-const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
-
 /** 開始日時(UTC)を「7月18日(土)11:00〜」形式(JSTの暦日・壁時計時刻)にする */
 export function formatJstDateTimeLabel(start: Date): string {
-  const jst = new Date(start.getTime() + JST_OFFSET_MS);
-  const month = jst.getUTCMonth() + 1;
-  const day = jst.getUTCDate();
-  const weekday = WEEKDAY_LABELS[jst.getUTCDay()];
-  const hours = jst.getUTCHours();
-  const minutes = String(jst.getUTCMinutes()).padStart(2, "0");
-  return `${month}月${day}日(${weekday})${hours}:${minutes}〜`;
+  const { month, day, weekday, hours, minutes } = jstParts(start);
+  return `${month}月${day}日(${WEEKDAY_LABELS[weekday]})${hours}:${String(minutes).padStart(2, "0")}〜`;
 }

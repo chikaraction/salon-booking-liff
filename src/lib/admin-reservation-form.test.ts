@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { jstDateTime } from "./availability";
-
 import {
   isPastStart,
   isWallClockTime,
@@ -12,6 +10,7 @@ import {
   type ProxyRegistrationInput,
   type ReservationEditInput,
 } from "./admin-reservation-form";
+import { jstDateTime } from "./jst";
 
 // ---------------------------------------------------------------------------
 // 代行登録フォームの入力検証(モックD準拠)。

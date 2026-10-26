@@ -21,14 +21,10 @@ import {
   type ProxyRegistrationErrors,
   type ReservationEditErrors,
 } from "@/lib/admin-reservation-form";
-import {
-  calendarWeekday,
-  isCalendarDate,
-  jstDateTime,
-  type BusinessDay,
-} from "@/lib/availability";
+import type { BusinessDay } from "@/lib/availability";
 import { isSlotTakenError, isUuid } from "@/lib/booking";
 import { resolveBusinessDay, weeklyBusinessDayOf } from "@/lib/closures";
+import { calendarWeekday, isCalendarDate, jstDateTime } from "@/lib/jst";
 import { createAdminAuthClient } from "@/server/admin-auth";
 import {
   fetchReservationDetail,

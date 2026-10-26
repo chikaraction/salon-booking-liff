@@ -9,14 +9,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { AdminCalendarItem, AdminStaff } from "@/lib/admin-calendar";
 import { sortMenusForProxyRegistration } from "@/lib/admin-reservation-form";
-import {
-  addCalendarDays,
-  jstCalendarDate,
-  jstDateTime,
-  type StaffWorkingDay,
-} from "@/lib/availability";
+import type { StaffWorkingDay } from "@/lib/availability";
 import { addMonths } from "@/lib/calendar";
 import { monthRanges, type DashboardStaff } from "@/lib/dashboard";
+import { addCalendarDays, jstCalendarDate, jstDateTime } from "@/lib/jst";
 import type { ReservationMenuSnapshot } from "@/lib/my-reservations";
 import { parseTstzrange } from "@/lib/tstzrange";
 import { must } from "@/server/postgrest";

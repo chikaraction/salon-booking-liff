@@ -28,7 +28,6 @@
 import { revalidatePath } from "next/cache";
 
 import { isStaffRole } from "@/lib/admin-permissions";
-import { calendarWeekday, isCalendarDate } from "@/lib/availability";
 import { isUuid } from "@/lib/booking";
 import {
   DATE_OVERRIDE_OVERLAP_MESSAGE,
@@ -52,6 +51,7 @@ import {
   validateDisplaySettingsInput,
   type DisplaySettingsInput,
 } from "@/lib/display-settings";
+import { calendarWeekday, isCalendarDate } from "@/lib/jst";
 import {
   countMenusByCategory,
   diffMenuCategories,

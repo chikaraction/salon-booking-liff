@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { jstDateTime } from "./availability";
+import { jstDateTime } from "./jst";
 import {
   BLOCK_CONFLICT_MESSAGE,
   BLOCK_NO_WORKING_DAY_MESSAGE,
