@@ -233,12 +233,17 @@ LINE実機でしか確認できない。M6 ではテスト用の公式アカウ�
       しようとすると、RLSポリシーが無いため全拒否される(SQL/REST で確認)
 - [ ] **セルフサインアップ無効**: Supabase の Authentication 設定で新規サインアップが
       無効になっている(招待制: ADR-005)。/admin/login からアカウント作成できない
+- [ ] **staff 未紐付けユーザーの拒否**: `staff.auth_user_id` に紐付いていない Auth
+      ユーザーでログインすると、`customers` / `reservations` / `reservation_menus` /
+      `push_messages` が0件に見え、`admin_create_reservation` /
+      `admin_update_reservation` は 42501 で拒否される(SQL/REST で確認。
+      確認後そのユーザーは削除する)
 - [ ] service_role キーがクライアントバンドルに含まれない(NEXT_PUBLIC_ でない)
 - [ ] **本番の顧客データを入れる前**: 検証用に作ったAuthユーザー(権限差の確認で
       `staff.auth_user_id` を紐付けずに作ったものなど)を Authentication → Users から
-      **削除した**。紐付けが無くても予約の作成・キャンセルと顧客情報の閲覧はできる
-      (`reservations` / `customers` のRLSは authenticated 全許可)ため、
-      設定が触れないだけで無害なアカウントではない。
+      **削除した**。予約系テーブルと店側RPCは staff 紐付け必須にした
+      (`20261026000000_staff_only_booking_rls.sql`)ので紐付け無しでは何も読めないが、
+      ログインできるアカウントを残さない。
       1店舗目は開発に使っているSupabaseプロジェクトがそのまま本番になる構成
       (README「2店舗目の追加」は別プロジェクトを新規作成する手順)なので、
       開発用に作ったものが本番に残りうることに注意する
