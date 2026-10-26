@@ -4,6 +4,7 @@
 // 送信と記録は src/server/reminders.ts が担う。
 
 import { PUSH_MONTHLY_FREE_LIMIT } from "./dashboard";
+import { UNIQUE_VIOLATION } from "./db-errors";
 import { addCalendarDays, jstCalendarDate, jstDateTime, jstParts } from "./jst";
 
 /** 送信時刻を過ぎていても、この時(21時台)より遅くは送らない(夜中に届くのを避ける) */
@@ -91,9 +92,6 @@ export function selectReminderTargets<T extends ReminderReservation>(
 export function canSendPush(monthCount: number): boolean {
   return monthCount < PUSH_MONTHLY_FREE_LIMIT;
 }
-
-/** push_messages の一意制約違反(PostgreSQL のエラーコード unique_violation) */
-const UNIQUE_VIOLATION = "23505";
 
 /**
  * push_messages への insert の結果(エラーコード。成功なら null)から、記録が残っているかを返す。

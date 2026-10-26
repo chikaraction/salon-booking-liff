@@ -1,5 +1,6 @@
 // 予約確定フローの判断ロジック(純粋関数)。
-// メニュー合計・顧客情報バリデーション・枠埋まりエラー判定・表示フォーマットを扱う。
+// メニュー合計・顧客情報バリデーション・表示フォーマットを扱う。
+// 枠埋まりなどDBエラーの判定は db-errors.ts にある。
 // JSTの壁時計への変換は jst.ts に任せる(JST = UTC+9 固定)。
 
 import { jstParts, WEEKDAY_LABELS } from "./jst";
@@ -120,34 +121,6 @@ export function validateCustomerInfo(
     return { ok: false, errors };
   }
   return { ok: true, value: { name, phone } };
-}
-
-/**
- * 予約INSERTの失敗が「枠が埋まっていた」ことによるものか判定する。
- * ダブルブッキング防止の本体はDBのEXCLUDE制約で、違反時は
- * SQLSTATE 23P01 (exclusion_violation) が返る(ADR-004)。
- */
-export function isSlotTakenError(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code: unknown }).code === "23P01"
-  );
-}
-
-/**
- * 客側の新規予約の失敗が「1人あたりの、これからの予約の上限」によるものか判定する。
- * 上限超過時、create_reservation は独自に定義した SQLSTATE R0001 を返す
- * (マイグレーション 20261026110000_reservation_limit_per_customer.sql)。
- */
-export function isReservationLimitError(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code: unknown }).code === "R0001"
-  );
 }
 
 /**

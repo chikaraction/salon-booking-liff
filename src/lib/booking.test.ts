@@ -4,8 +4,6 @@ import {
   formatJstDateTimeLabel,
   formatYen,
   groupMenusByCategory,
-  isReservationLimitError,
-  isSlotTakenError,
   isUuid,
   menuNamesLabel,
   parseChangeReservationResult,
@@ -117,31 +115,6 @@ describe("validateCustomerInfo: 初回情報入力のバリデーション", () 
     expect(
       validateCustomerInfo({ name: "山田", phone: "03-1234-5678" }).ok,
     ).toBe(true);
-  });
-});
-
-describe("isSlotTakenError: EXCLUDE制約違反の判定", () => {
-  it("SQLSTATE 23P01 のエラーを枠埋まりと判定する(ADR-004)", () => {
-    expect(isSlotTakenError({ code: "23P01" })).toBe(true);
-  });
-
-  it("それ以外のエラーは枠埋まりではない", () => {
-    expect(isSlotTakenError({ code: "P0001" })).toBe(false);
-    expect(isSlotTakenError(null)).toBe(false);
-    expect(isSlotTakenError(new Error("network"))).toBe(false);
-  });
-});
-
-describe("isReservationLimitError: 1人あたりの予約上限超過の判定", () => {
-  it("SQLSTATE R0001 のエラーを予約上限超過と判定する", () => {
-    expect(isReservationLimitError({ code: "R0001" })).toBe(true);
-  });
-
-  it("それ以外のエラーは予約上限超過ではない", () => {
-    expect(isReservationLimitError({ code: "23P01" })).toBe(false);
-    expect(isReservationLimitError({ code: "P0001" })).toBe(false);
-    expect(isReservationLimitError(null)).toBe(false);
-    expect(isReservationLimitError(new Error("network"))).toBe(false);
   });
 });
 

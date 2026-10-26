@@ -13,9 +13,9 @@
 
 import { isStaffRole, type StaffRole } from "./admin-permissions";
 import type { StaffWorkingDay } from "./availability";
-import { isSlotTakenError } from "./booking";
 import { WEEKDAYS, canonicalTimeInput } from "./business-settings";
 import { calendarDateLabel } from "./calendar";
+import { isSlotTakenError } from "./db-errors";
 import { isCalendarDate, jstDateTime } from "./jst";
 
 /** "HH:MM"(00:00〜23:59)形式の壁時計時刻か */

@@ -12,7 +12,7 @@
 // 休業日そのものの判定(優先順位・祝日・第◯曜日)は closures.ts が持つ。
 // ここは「設定を編集して保存するまで」に必要な判断だけを置く。
 
-import { isSlotTakenError } from "./booking";
+import { isSlotTakenError } from "./db-errors";
 import {
   addCalendarDays,
   calendarWeekday,
@@ -462,7 +462,7 @@ export function findOverlappingOverride<
 /**
  * date_overrides_no_overlap(EXCLUDE制約)違反かどうか。
  * PostgreSQLのエラーコードは 23P01 で、予約枠の EXCLUDE 制約と同じ
- * (判定は booking.ts の isSlotTakenError を再利用する)。
+ * (判定は db-errors.ts の isSlotTakenError を再利用する)。
  * アプリ側の事前チェックはUXのためのもので、最後の砦はこの制約(ADR-004)。
  */
 export function isDateRangeOverlapError(error: unknown): boolean {
