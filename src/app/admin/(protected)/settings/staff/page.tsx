@@ -4,7 +4,7 @@
 // (staff-settings.ts)に任せ、結果をクライアントフォームへ渡す配線に徹する。
 // オーナー限定の確認は settings/layout.tsx が担う(ADR-005)。
 
-import { jstCalendarDate, jstClockTime } from "@/lib/availability";
+import { jstCalendarDate, jstClockTime } from "@/lib/jst";
 import { fillStaffWorkingHours } from "@/lib/staff-settings";
 import { createAdminAuthClient } from "@/server/admin-auth";
 import {

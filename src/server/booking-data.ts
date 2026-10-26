@@ -7,10 +7,7 @@ import "server-only";
 // - 空き枠計算そのものは src/lib/availability.ts の純粋関数が行う
 
 import {
-  addCalendarDays,
-  calendarWeekday,
   computeStaffDaySlots,
-  jstDateTime,
   type BookingPolicy,
   type BusinessDay,
   type BusyRange,
@@ -30,6 +27,7 @@ import {
   weeklyBusinessDayOf,
   type ClosureRules,
 } from "@/lib/closures";
+import { addCalendarDays, calendarWeekday, jstDateTime } from "@/lib/jst";
 import type { ReservationCardInput } from "@/lib/my-reservations";
 import { parseTstzrange } from "@/lib/tstzrange";
 import { fetchBusinessCalendar } from "@/server/closure-data";

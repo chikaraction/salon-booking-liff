@@ -2,7 +2,7 @@
 // サーバーコンポーネント: authenticated クライアント(RLS適用)でスタッフ・
 // メニューを取得し、配線に徹してクライアントフォームへ渡す。認証は保護レイアウトが担う。
 
-import { jstCalendarDate } from "@/lib/availability";
+import { jstCalendarDate } from "@/lib/jst";
 import { createAdminAuthClient } from "@/server/admin-auth";
 import { fetchActiveMenus, fetchAdminStaff } from "@/server/admin-data";
 

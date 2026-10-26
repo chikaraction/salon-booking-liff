@@ -26,11 +26,7 @@ import {
   type WeekView,
 } from "@/lib/admin-calendar";
 import { restoreSelectableMenuIds } from "@/lib/admin-reservation-form";
-import {
-  isCalendarDate,
-  jstCalendarDate,
-  jstClockTime,
-} from "@/lib/availability";
+import { isCalendarDate, jstCalendarDate, jstClockTime } from "@/lib/jst";
 import { cn } from "@/lib/utils";
 import type { ActiveMenu, ReservationDetail } from "@/server/admin-data";
 

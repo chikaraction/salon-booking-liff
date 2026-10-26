@@ -12,14 +12,13 @@
 // 休業日そのものの判定(優先順位・祝日・第◯曜日)は closures.ts が持つ。
 // ここは「設定を編集して保存するまで」に必要な判断だけを置く。
 
+import { isSlotTakenError } from "./db-errors";
 import {
   addCalendarDays,
   calendarWeekday,
   isCalendarDate,
-} from "./availability";
-import { isSlotTakenError } from "./booking";
-
-const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
+  WEEKDAY_LABELS,
+} from "./jst";
 
 /** すべての曜日(0=日曜〜6=土曜)。チップの描画・入力の検証で使う */
 export const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] as const;
@@ -463,7 +462,7 @@ export function findOverlappingOverride<
 /**
  * date_overrides_no_overlap(EXCLUDE制約)違反かどうか。
  * PostgreSQLのエラーコードは 23P01 で、予約枠の EXCLUDE 制約と同じ
- * (判定は booking.ts の isSlotTakenError を再利用する)。
+ * (判定は db-errors.ts の isSlotTakenError を再利用する)。
  * アプリ側の事前チェックはUXのためのもので、最後の砦はこの制約(ADR-004)。
  */
 export function isDateRangeOverlapError(error: unknown): boolean {

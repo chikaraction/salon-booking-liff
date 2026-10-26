@@ -1,6 +1,9 @@
 // 予約確定フローの判断ロジック(純粋関数)。
-// メニュー合計・顧客情報バリデーション・枠埋まりエラー判定・表示フォーマットを扱う。
-// 日本にDSTはないため JST = UTC+9 固定で変換する(availability.ts と同じ前提)。
+// メニュー合計・顧客情報バリデーション・表示フォーマットを扱う。
+// 枠埋まりなどDBエラーの判定は db-errors.ts にある。
+// JSTの壁時計への変換は jst.ts に任せる(JST = UTC+9 固定)。
+
+import { jstParts, WEEKDAY_LABELS } from "./jst";
 
 export type SelectedMenu = {
   price: number;
@@ -26,8 +29,6 @@ export type CustomerInfoErrors = {
 export type CustomerInfoResult =
   | { ok: true; value: { name: string; phone: string } }
   | { ok: false; errors: CustomerInfoErrors };
-
-const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
 /** 選択メニューの件数・合計金額・合計所要時間をまとめる */
 export function summarizeSelectedMenus(menus: SelectedMenu[]): MenuSummary {
@@ -123,34 +124,6 @@ export function validateCustomerInfo(
 }
 
 /**
- * 予約INSERTの失敗が「枠が埋まっていた」ことによるものか判定する。
- * ダブルブッキング防止の本体はDBのEXCLUDE制約で、違反時は
- * SQLSTATE 23P01 (exclusion_violation) が返る(ADR-004)。
- */
-export function isSlotTakenError(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code: unknown }).code === "23P01"
-  );
-}
-
-/**
- * 客側の新規予約の失敗が「1人あたりの、これからの予約の上限」によるものか判定する。
- * 上限超過時、create_reservation は独自に定義した SQLSTATE R0001 を返す
- * (マイグレーション 20261026110000_reservation_limit_per_customer.sql)。
- */
-export function isReservationLimitError(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code: unknown }).code === "R0001"
-  );
-}
-
-/**
  * UUID形式(ハイフン区切りの8-4-4-4-12の16進、大文字小文字は問わない)か判定する。
  * URL由来の予約IDをDBに問い合わせる前の形式チェックに使う
  * (不正な形式をuuid列と比較するとPostgRESTがエラーを返すため)。
@@ -205,15 +178,8 @@ export function formatYen(price: number): string {
   return `¥${String(price).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
 }
 
-const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
-
 /** 開始日時(UTC)を「7月18日(土)11:00〜」形式(JSTの暦日・壁時計時刻)にする */
 export function formatJstDateTimeLabel(start: Date): string {
-  const jst = new Date(start.getTime() + JST_OFFSET_MS);
-  const month = jst.getUTCMonth() + 1;
-  const day = jst.getUTCDate();
-  const weekday = WEEKDAY_LABELS[jst.getUTCDay()];
-  const hours = jst.getUTCHours();
-  const minutes = String(jst.getUTCMinutes()).padStart(2, "0");
-  return `${month}月${day}日(${weekday})${hours}:${minutes}〜`;
+  const { month, day, weekday, hours, minutes } = jstParts(start);
+  return `${month}月${day}日(${WEEKDAY_LABELS[weekday]})${hours}:${String(minutes).padStart(2, "0")}〜`;
 }

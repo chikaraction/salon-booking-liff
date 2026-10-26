@@ -21,14 +21,11 @@ import {
   type ProxyRegistrationErrors,
   type ReservationEditErrors,
 } from "@/lib/admin-reservation-form";
-import {
-  calendarWeekday,
-  isCalendarDate,
-  jstDateTime,
-  type BusinessDay,
-} from "@/lib/availability";
-import { isSlotTakenError, isUuid } from "@/lib/booking";
+import type { BusinessDay } from "@/lib/availability";
+import { isUuid } from "@/lib/booking";
 import { resolveBusinessDay, weeklyBusinessDayOf } from "@/lib/closures";
+import { isRpcRaisedError, isSlotTakenError } from "@/lib/db-errors";
+import { calendarWeekday, isCalendarDate, jstDateTime } from "@/lib/jst";
 import { createAdminAuthClient } from "@/server/admin-auth";
 import {
   fetchReservationDetail,
@@ -377,7 +374,7 @@ export async function createProxyReservation(
         };
       }
       // RPCが raise した業務エラー(無効メニュー・顧客名未指定・無効な顧客ID)
-      if ((error as { code?: string }).code === "P0001") {
+      if (isRpcRaisedError(error)) {
         return {
           ok: false,
           reason: "invalid",
@@ -520,7 +517,7 @@ export async function updateAdminReservation(
         };
       }
       // RPCが raise した業務エラー(無効メニュー)
-      if ((error as { code?: string }).code === "P0001") {
+      if (isRpcRaisedError(error)) {
         return {
           ok: false,
           reason: "invalid",

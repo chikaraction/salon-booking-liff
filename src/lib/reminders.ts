@@ -3,10 +3,9 @@
 // 時刻はすべてJSTの壁時計で判断する(Workers は UTC で動く。JST = UTC+9 固定)。
 // 送信と記録は src/server/reminders.ts が担う。
 
-import { addCalendarDays, jstCalendarDate, jstDateTime } from "./availability";
 import { PUSH_MONTHLY_FREE_LIMIT } from "./dashboard";
-
-const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+import { UNIQUE_VIOLATION } from "./db-errors";
+import { addCalendarDays, jstCalendarDate, jstDateTime, jstParts } from "./jst";
 
 /** 送信時刻を過ぎていても、この時(21時台)より遅くは送らない(夜中に届くのを避ける) */
 export const LATEST_SEND_HOUR = 21;
@@ -37,7 +36,7 @@ export function reminderWindow(
   now: Date,
   reminderHour: number,
 ): ReminderWindow {
-  const hour = new Date(now.getTime() + JST_OFFSET_MS).getUTCHours();
+  const hour = jstParts(now).hours;
   if (hour < reminderHour)
     return { sendable: false, reason: "before_send_hour" };
   if (hour > Math.max(reminderHour, LATEST_SEND_HOUR)) {
@@ -93,9 +92,6 @@ export function selectReminderTargets<T extends ReminderReservation>(
 export function canSendPush(monthCount: number): boolean {
   return monthCount < PUSH_MONTHLY_FREE_LIMIT;
 }
-
-/** push_messages の一意制約違反(PostgreSQL のエラーコード unique_violation) */
-const UNIQUE_VIOLATION = "23505";
 
 /**
  * push_messages への insert の結果(エラーコード。成功なら null)から、記録が残っているかを返す。

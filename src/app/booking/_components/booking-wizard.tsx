@@ -26,6 +26,7 @@ import {
   validateCustomerInfo,
   type CustomerInfoErrors,
 } from "@/lib/booking";
+import { staffHeadingLabel } from "@/lib/staff-settings";
 import type { BookingPageData } from "@/server/booking-data";
 
 import { StepComplete } from "./step-complete";
@@ -33,7 +34,7 @@ import { StepConfirm } from "./step-confirm";
 import { StepCustomerInfo } from "./step-customer-info";
 import { StepDatetime } from "./step-datetime";
 import { StepMenu } from "./step-menu";
-import { ANY_STAFF, STAFF_ROLE_LABELS, StepStaff } from "./step-staff";
+import { ANY_STAFF, StepStaff } from "./step-staff";
 import { WizardHeader } from "./wizard-header";
 
 type WizardStep =
@@ -178,7 +179,7 @@ export function BookingWizard({
     staffSelection === ANY_STAFF
       ? "どちらでも(空いているスタッフにお任せ)"
       : selectedStaff !== null
-        ? `${selectedStaff.name}(${STAFF_ROLE_LABELS[selectedStaff.role]})`
+        ? staffHeadingLabel(selectedStaff)
         : "";
 
   // 選択済みの内容を上部にチップで常時表示(メニュー要約・スタッフ・日時)

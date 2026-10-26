@@ -3,7 +3,7 @@
 // 最後の砦はDBのEXCLUDE制約(ADR-004)であり、ここは入力の形式検証に徹する。
 // DOM・Supabaseクライアントのimportはしない(CLAUDE.md)。
 
-import { isCalendarDate } from "./availability";
+import { isCalendarDate } from "./jst";
 
 export type ProxyRegistrationInput = {
   /** 既存顧客を選択した場合のID。新規客なら null */

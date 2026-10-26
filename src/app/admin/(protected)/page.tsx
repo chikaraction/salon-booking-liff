@@ -13,17 +13,17 @@ import {
   type WeekView,
 } from "@/lib/admin-calendar";
 import {
-  addCalendarDays,
-  calendarWeekday,
-  isCalendarDate,
-  jstCalendarDate,
-} from "@/lib/availability";
-import {
   makeBusinessDayOf,
   makeIsClosedDay,
   resolveBusinessDay,
   weeklyBusinessDayOf,
 } from "@/lib/closures";
+import {
+  addCalendarDays,
+  calendarWeekday,
+  isCalendarDate,
+  jstCalendarDate,
+} from "@/lib/jst";
 import { createAdminAuthClient } from "@/server/admin-auth";
 import {
   fetchActiveMenus,

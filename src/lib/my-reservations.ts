@@ -2,13 +2,13 @@
 // 残り日数ラベル・キャンセル/変更可否・予約カードの表示整形を扱う。
 // 日時の前提は availability.ts / booking.ts と同じ(JST = UTC+9 固定)。
 
-import { jstCalendarDate } from "./availability";
 import {
   formatJstDateTimeLabel,
   formatYen,
   menuNamesLabel,
   summarizeSelectedMenus,
 } from "./booking";
+import { jstCalendarDate } from "./jst";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MINUTE_MS = 60 * 1000;

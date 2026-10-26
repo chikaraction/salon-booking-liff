@@ -7,13 +7,7 @@
 // 予約を並べるため、別スタッフ同士が重なる。こちらはレーン分割で横に並べる。
 
 import {
-  addCalendarDays,
-  calendarWeekday,
-  isCalendarDate,
   isWithinBookingWindow,
-  jstCalendarDate,
-  jstClockTime,
-  jstDateTime,
   type BookingPolicy,
   type BusinessDay,
   type BusyRange,
@@ -27,10 +21,20 @@ import {
   summarizeSelectedMenus,
 } from "./booking";
 import { calendarDateLabel, formatJstTime } from "./calendar";
+import {
+  addCalendarDays,
+  calendarWeekday,
+  isCalendarDate,
+  jstCalendarDate,
+  jstClockTime,
+  jstDateTime,
+  timeToMinutes,
+  WEEKDAY_LABELS,
+} from "./jst";
 import type { ReservationMenuSnapshot } from "./my-reservations";
+import { staffHeadingLabel } from "./staff-settings";
 
 const MINUTE_MS = 60 * 1000;
-const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
 
 // 表示しきい値。カードの高さ(=所要分)に何行入るかで決める。
 // 時間軸は1時間 = 4rem = 64px(timeline-column.tsx の timelineHeight)なので、
@@ -79,12 +83,6 @@ export type AdminCalendarItem = AdminBooking | AdminBlock;
 // ---------------------------------------------------------------------------
 // 時刻の内部ヘルパ(壁時計の分数で扱う)
 // ---------------------------------------------------------------------------
-
-/** "HH:MM" / "HH:MM:SS" を0時からの分数に変換する */
-function timeToMinutes(time: string): number {
-  const [hours, minutes] = time.split(":").map(Number);
-  return hours * 60 + minutes;
-}
 
 /** 0時からの分数を「13:00」形式にする(時は先頭0なし・分は2桁) */
 function minutesLabel(minutes: number): string {
@@ -259,11 +257,6 @@ export type DayTimeline = {
   columns: DayColumn[];
 };
 
-/** スタッフ列の見出し「田中(オーナー)」を組み立てる */
-function staffHeading(staff: AdminStaff): string {
-  return `${staff.name}(${staff.role === "owner" ? "オーナー" : "スタッフ"})`;
-}
-
 /**
  * 休業日でも既存予約を隠さないための時間軸を items から決める。
  * - openMinutes = 最も早い開始を時(正時)で切り下げ
@@ -409,7 +402,7 @@ export function buildDayTimeline(params: {
       tickMarks: [],
       columns: staff.map((member) => ({
         staffId: member.id,
-        heading: staffHeading(member),
+        heading: staffHeadingLabel(member),
         blocks: [],
       })),
     };
@@ -432,7 +425,7 @@ export function buildDayTimeline(params: {
     );
     if (breakBlock !== null) blocks.push(breakBlock);
     blocks.sort((a, b) => a.topPercent - b.topPercent);
-    return { staffId: member.id, heading: staffHeading(member), blocks };
+    return { staffId: member.id, heading: staffHeadingLabel(member), blocks };
   });
 
   const marks = hourTickMarks(openMinutes, closeMinutes);

@@ -9,8 +9,6 @@
 // - 戻り値はすべて判別可能なResult型(ok + reason)でUIが分岐に迷わない形にする
 
 import {
-  isCalendarDate,
-  jstCalendarDate,
   mergeStaffSlots,
   pickStaffForStart,
   type Slot,
@@ -18,13 +16,13 @@ import {
 } from "@/lib/availability";
 import {
   formatJstDateTimeLabel,
-  isReservationLimitError,
-  isSlotTakenError,
   isUuid,
   parseChangeReservationResult,
   validateCustomerInfo,
   type CustomerInfoErrors,
 } from "@/lib/booking";
+import { isReservationLimitError, isSlotTakenError } from "@/lib/db-errors";
+import { isCalendarDate, jstCalendarDate } from "@/lib/jst";
 import {
   findCustomerByLineUserId,
   findOwnConfirmedBooking,
