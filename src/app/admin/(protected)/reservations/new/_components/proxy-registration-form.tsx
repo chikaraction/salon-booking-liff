@@ -396,7 +396,7 @@ export function ProxyRegistrationForm({
             </h1>
             <p className="mt-1 text-base text-muted-foreground">
               {isEdit
-                ? "メニュー・スタッフ・日時・メモを変更できます"
+                ? "メニュー・スタッフ・日時・ご要望を変更できます"
                 : "オーナーが電話で受けた予約を登録します"}
             </p>
           </>
@@ -741,21 +741,32 @@ export function ProxyRegistrationForm({
             </p>
           )}
 
-          {/* メモ(任意・店内用) */}
+          {/* ご要望・ご相談(任意)。保存先の reservations.note は客側の
+              「ご要望・ご相談」と同じ列で、予約詳細では「お客様からのご要望」、
+              客がマイ予約から変更するときは客の欄に表示される。店内用のメモは
+              スタッフメモ(customers.note)へ案内する
+              (docs/milestone-4-plan.md の決定5。モックDの「メモ(任意・店内用)」とは違う) */}
           <div>
             <label htmlFor="proxy-note" className={labelClass}>
-              メモ{" "}
+              ご要望・ご相談{" "}
               <span className="text-sm font-normal text-muted-foreground">
-                (任意・店内用)
+                (任意)
               </span>
             </label>
             <textarea
               id="proxy-note"
               value={note}
               rows={3}
+              aria-describedby="proxy-note-hint"
               onChange={(event) => setNote(event.target.value)}
               className="mt-2 w-full rounded-xl border border-input bg-card px-4 py-3 text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
             />
+            <p
+              id="proxy-note-hint"
+              className="mt-1 text-sm text-muted-foreground"
+            >
+              予約詳細の「お客様からのご要望」に表示され、お客様がマイ予約から予約を変更するときにもお客様に見えます。店内用のメモは、予約詳細の「スタッフメモ」に書いてください。
+            </p>
           </div>
 
           {formError !== null && (
