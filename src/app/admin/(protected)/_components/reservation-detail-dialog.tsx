@@ -20,6 +20,14 @@ import { Button } from "@/components/ui/button";
 import { buildReservationDetailLabels } from "@/lib/admin-calendar";
 import type { ReservationDetail } from "@/server/admin-data";
 
+/**
+ * 店側キャンセルの確認ステップが出てから「キャンセルする」を押せるようになるまでの待ち時間(ms)。
+ * 確認ステップは「店側でキャンセル」と同じ場所に入れ替わって出るため、「キャンセルする」が
+ * 直前に押した位置に重なり、素早い2回押しで確認を飛ばしてしまう。それを防ぐ
+ * (docs/ui-guidelines.md「破壊的な確認は、出てから0.5秒は決定を押せなくする」)
+ */
+const CANCEL_CONFIRM_ARM_DELAY_MS = 500;
+
 type Props = {
   /** 表示中の予約ID(カレンダーの予約カードから受け取る) */
   reservationId: string;
@@ -90,7 +98,9 @@ export function ReservationDetailDialog({
             onClick={onClose}
             // モックC の ✕ は枠なしで地 #f2f0ea(--secondary)。hover は地を少し濃くする
             // (button.tsx の secondary variant と同じ式)
-            className="flex size-9 items-center justify-center rounded-lg bg-secondary text-muted-foreground transition-colors hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] hover:text-foreground"
+            // 地の四角は 36px のまま、押せる範囲だけ疑似要素で四方に 4px 広げて 44×44 にする
+            // (Apple HIG の最小タップ領域 44pt。スマホで指が外れにくくする)
+            className="relative flex size-9 items-center after:absolute after:-inset-1 justify-center rounded-lg bg-secondary text-muted-foreground transition-colors hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] hover:text-foreground"
           >
             <X aria-hidden="true" className="size-5" />
           </button>
@@ -158,6 +168,20 @@ function DetailBody({
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  // 確認ステップが出てから一定時間たち、「キャンセルする」を押せる状態か。
+  // false に戻すのは確認ステップを開く onClick の中(effect内で同期的にsetStateしない)
+  const [cancelArmed, setCancelArmed] = useState(false);
+
+  // 確認ステップが出ている間だけタイマーを張り、時間がたったら押せるようにする。
+  // 閉じたとき・アンマウントのときは cleanup でタイマーを片付ける
+  useEffect(() => {
+    if (!confirmingCancel) return;
+    const timer = setTimeout(
+      () => setCancelArmed(true),
+      CANCEL_CONFIRM_ARM_DELAY_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [confirmingCancel]);
 
   function startEdit() {
     setMemoDraft(memo ?? "");
@@ -217,8 +241,10 @@ function DetailBody({
 
       {/* スタッフメモ(店内用・スタッフが記入 = customers.note。編集可) */}
       <div className="rounded-xl bg-muted p-4">
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-bold">
+        {/* スマホ幅で「編集」が押しつぶされて縦に折り返さないよう、折り返すのはラベル側にする。
+            gap-3 は「編集」の押せる範囲(左へ約8px はみ出す)がラベルの文字に重ならないための間隔 */}
+        <div className="flex items-center justify-between gap-3">
+          <p className="min-w-0 text-sm font-bold">
             スタッフメモ{" "}
             <span className="font-normal text-muted-foreground">
               (店内用・スタッフが記入)
@@ -228,7 +254,10 @@ function DetailBody({
             <button
               type="button"
               onClick={startEdit}
-              className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+              // 文字だけのボタンは小さく押しにくいので、見た目は変えずに押せる範囲だけ
+              // 疑似要素でボタンの中心から 44×44 に広げる(Apple HIG の最小タップ領域 44pt)。
+              // 広げた分はメモ枠の余白(p-4 = 16px)の内側に収まる
+              className="relative shrink-0 text-sm font-medium whitespace-nowrap text-primary underline-offset-4 after:absolute after:top-1/2 after:left-1/2 after:size-11 after:-translate-x-1/2 after:-translate-y-1/2 hover:underline"
             >
               編集
             </button>
@@ -250,10 +279,12 @@ function DetailBody({
             {memoError !== null && (
               <p className="text-sm text-destructive">{memoError}</p>
             )}
-            <div className="flex gap-2">
+            {/* スマホで押しやすいよう高さ 44px(Apple HIG の最小タップ領域 44pt)・
+                枠のあるボタン同士の間隔 12px にする(メニュー編集の保存・キャンセルと同じ大きさ) */}
+            <div className="flex gap-3">
               <Button
                 size="lg"
-                className="rounded-lg"
+                className="h-11 rounded-lg px-5 text-base"
                 disabled={savingMemo}
                 onClick={() => void saveMemo()}
               >
@@ -262,7 +293,7 @@ function DetailBody({
               <Button
                 size="lg"
                 variant="outline"
-                className="rounded-lg"
+                className="h-11 rounded-lg px-5 text-base"
                 disabled={savingMemo}
                 onClick={() => setEditing(false)}
               >
@@ -278,7 +309,7 @@ function DetailBody({
       </div>
 
       {/* 下部アクション。モックは height:46px・角丸10px(rounded-lg = --radius = 10px)。
-          確認ステップの「キャンセルする / 戻る」も同じ位置に入れ替わって出るので高さをそろえる */}
+          確認ステップの「戻る / キャンセルする」も同じ位置に入れ替わって出るので高さをそろえる */}
       {confirmingCancel ? (
         <div className="rounded-xl border border-border p-4">
           <p className="text-base font-bold">この予約をキャンセルしますか？</p>
@@ -290,16 +321,8 @@ function DetailBody({
               {cancelError}
             </p>
           )}
+          {/* 横並びは「やめる(左) → 決定(右)」(docs/ui-guidelines.md) */}
           <div className="mt-4 flex gap-3">
-            <Button
-              size="lg"
-              variant="destructive"
-              className="h-[46px] flex-1 rounded-lg"
-              disabled={cancelling}
-              onClick={() => void confirmCancel()}
-            >
-              {cancelling ? "キャンセルしています…" : "キャンセルする"}
-            </Button>
             <Button
               size="lg"
               variant="outline"
@@ -311,6 +334,15 @@ function DetailBody({
               }}
             >
               戻る
+            </Button>
+            <Button
+              size="lg"
+              variant="destructive"
+              className="h-[46px] flex-1 rounded-lg"
+              disabled={cancelling || !cancelArmed}
+              onClick={() => void confirmCancel()}
+            >
+              {cancelling ? "キャンセルしています…" : "キャンセルする"}
             </Button>
           </div>
         </div>
@@ -332,6 +364,8 @@ function DetailBody({
             className="h-[46px] flex-1 rounded-lg"
             onClick={() => {
               setCancelError(null);
+              // 開き直すたびに、出てから0.5秒は押せない状態から始める
+              setCancelArmed(false);
               setConfirmingCancel(true);
             }}
           >
