@@ -56,6 +56,8 @@ export async function createAdminAuthClient(): Promise<SupabaseClient> {
         }
       },
     },
+    // 本番は https だけなので Secure を付ける(npm run dev の http://localhost では付けない)
+    cookieOptions: { secure: process.env.NODE_ENV === "production" },
   });
 }
 

@@ -58,6 +58,8 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
         );
       },
     },
+    // 本番は https だけなので Secure を付ける(npm run dev の http://localhost では付けない)
+    cookieOptions: { secure: process.env.NODE_ENV === "production" },
   });
 
   // 認可判定は getSession ではなく検証済みの getUser(cookieは改ざんされうる)

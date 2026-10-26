@@ -3,7 +3,10 @@
 // (.open-next/worker.js)は fetch しか export しないので、scheduled を足して export し直す
 // (OpenNext「Custom Worker」https://opennext.js.org/cloudflare/howtos/custom-worker)。
 //
-// - fetch: OpenNext の handler をそのまま使う
+// - fetch: http のアクセスを https へ 301 で転送し、それ以外は OpenNext の handler に渡して
+//   応答に HSTS を付ける(workers.dev は http でも応答するため。判断は src/lib/https.ts)。
+//   管理画面のセッション Cookie を平文の通信に載せないためで、Cookie 側の Secure 属性
+//   (src/server/admin-auth.ts・src/middleware.ts)と対になる
 // - scheduled: 同じ handler の fetch を Worker の中で呼び、/api/cron/reminders を実行する
 //   (ネットワークに出ない。リマインドの処理は Next の中にあり、Supabase クライアントや
 //   server-only をそのまま使える)。送るかどうかは src/server/reminders.ts が決める
@@ -14,6 +17,7 @@
 // Cloudflare の型(@cloudflare/workers-types)は入れていないので、使う分だけ下に書く。
 
 import handler from "./.open-next/worker.js";
+import { HSTS_HEADER_VALUE, httpsRedirectUrl } from "./src/lib/https";
 
 /** Worker の環境(Variables and Secrets)。ここで使うのは CRON_SECRET だけ */
 type Env = { CRON_SECRET?: string } & Record<string, unknown>;
@@ -58,7 +62,21 @@ async function runReminders(
 }
 
 const worker = {
-  fetch: openNext.fetch,
+  async fetch(
+    request: Request,
+    env: Env,
+    ctx: ExecutionContext,
+  ): Promise<Response> {
+    const redirectUrl = httpsRedirectUrl(request.url);
+    if (redirectUrl !== null) {
+      return Response.redirect(redirectUrl, 301);
+    }
+    const response = await openNext.fetch(request, env, ctx);
+    // OpenNext の応答のヘッダは書き換えられないことがあるので、作り直してから付ける
+    const secured = new Response(response.body, response);
+    secured.headers.set("Strict-Transport-Security", HSTS_HEADER_VALUE);
+    return secured;
+  },
 
   // Cron Triggers(wrangler.jsonc の triggers.crons)。毎時0分に呼ばれる
   async scheduled(
