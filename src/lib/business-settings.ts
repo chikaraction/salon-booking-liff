@@ -233,6 +233,60 @@ export function flattenNthWeekdayGroups(
   return rows.sort((a, b) => a.weekday - b.weekday || a.nth - b.nth);
 }
 
+/** DBから読んだ現在の行(削除に使う id 付き) */
+export type StoredNthWeekdayClosureRow = NthWeekdayClosureRow & { id: string };
+
+/** 現在の行集合を希望の行集合へ近づけるための差分 */
+export type NthWeekdayClosureDiff = {
+  /** 追加する行(重複なし。曜日→第◯の昇順) */
+  inserts: NthWeekdayClosureRow[];
+  /** 削除する行の id(曜日→第◯の昇順) */
+  deleteIds: string[];
+};
+
+/** (weekday, nth) の比較キー */
+function nthWeekdayKey(row: NthWeekdayClosureRow): string {
+  return `${row.weekday}-${row.nth}`;
+}
+
+/** 曜日→第◯の昇順の比較関数 */
+function compareNthWeekday(
+  a: NthWeekdayClosureRow,
+  b: NthWeekdayClosureRow,
+): number {
+  return a.weekday - b.weekday || a.nth - b.nth;
+}
+
+/**
+ * 現在の行集合(DB)と希望の行集合(画面)の差分を出す。
+ * 両方にある (weekday, nth) には触らない。希望に重複があっても追加は1件にする
+ * (DB制約 nth_weekday_closures_unique)。並びは入力の順序に左右されないよう、
+ * 追加・削除とも曜日→第◯の昇順に揃える。
+ */
+export function diffNthWeekdayClosures(params: {
+  current: readonly StoredNthWeekdayClosureRow[];
+  desired: readonly NthWeekdayClosureRow[];
+}): NthWeekdayClosureDiff {
+  const desiredKeys = new Set(params.desired.map(nthWeekdayKey));
+  const currentKeys = new Set(params.current.map(nthWeekdayKey));
+
+  const inserts: NthWeekdayClosureRow[] = [];
+  const seen = new Set<string>();
+  for (const row of params.desired) {
+    const key = nthWeekdayKey(row);
+    if (currentKeys.has(key) || seen.has(key)) continue;
+    seen.add(key);
+    inserts.push({ weekday: row.weekday, nth: row.nth });
+  }
+
+  const deleteIds = params.current
+    .filter((row) => !desiredKeys.has(nthWeekdayKey(row)))
+    .sort((a, b) => compareNthWeekday(a, b) || a.id.localeCompare(b.id))
+    .map((row) => row.id);
+
+  return { inserts: inserts.sort(compareNthWeekday), deleteIds };
+}
+
 /**
  * モックの補足文「毎月 第3日曜日 を定休に設定中。カレンダーの該当日は
  * 自動で休業になります。」を設定内容から組み立てる(文言のハードコード禁止)。

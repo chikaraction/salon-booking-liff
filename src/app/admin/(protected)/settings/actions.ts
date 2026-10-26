@@ -32,6 +32,7 @@ import { calendarWeekday, isCalendarDate } from "@/lib/availability";
 import { isUuid } from "@/lib/booking";
 import {
   DATE_OVERRIDE_OVERLAP_MESSAGE,
+  diffNthWeekdayClosures,
   findOverlappingOverride,
   flattenNthWeekdayGroups,
   isDateRangeOverlapError,
@@ -148,8 +149,14 @@ export async function saveWeeklyBusinessHours(
 /**
  * 第◯曜日の定休を保存する。
  * UIの1ブロック(曜日 + 第1〜第5の複数選択)を (weekday, nth) の行集合へ
- * 展開し、全削除 → まとめてinsertで置き換える(数行しか無いテーブルであり、
- * 差分upsertより「画面の状態がそのまま入る」ほうが読みやすい)。
+ * 展開し、現在の行を読んで差分(diffNthWeekdayClosures)だけを反映する。
+ *
+ * PostgRESTの呼び出しは1回ずつ別トランザクションになる(RPCは作らない方針:
+ * docs/milestone-4b-plan.md)。そのため「足りない行を先に追加 → 不要な行を後で
+ * 削除」の順にしている。途中で失敗しても「定休が余分に残る」(予約が入らない
+ * だけの安全側)にとどまり、「定休が消えて休業日に予約が入る」状態は作らない。
+ * 以前の「全削除 → まとめてinsert」は、削除の後にinsertが失敗すると
+ * 第◯曜日の定休がすべて消えていた。
  */
 export async function saveNthWeekdayClosures(
   groups: NthWeekdayGroup[],
@@ -167,22 +174,42 @@ export async function saveNthWeekdayClosures(
 
   try {
     const supabase = await createAdminAuthClient();
-    // PostgRESTは無条件のDELETEを受け付けないので、常に真になる条件を付ける
-    const deleteResult = await supabase
+    const currentResult = await supabase
       .from("nth_weekday_closures")
-      .delete()
-      .gte("weekday", 0);
-    if (deleteResult.error !== null) {
-      console.error("saveNthWeekdayClosures failed", deleteResult.error);
+      .select("id, weekday, nth");
+    if (currentResult.error !== null) {
+      console.error("saveNthWeekdayClosures failed", currentResult.error);
       return { ok: false, message: "定休日の保存に失敗しました" };
     }
 
-    if (rows.length > 0) {
+    const { inserts, deleteIds } = diffNthWeekdayClosures({
+      current: currentResult.data,
+      desired: rows,
+    });
+
+    // 追加が先(理由はJSDoc)。別のタブから同時に保存されて同じ行が先に
+    // 入っていても一意制約(23505)で失敗しないよう、重複は無視する
+    // (ignoreDuplicates → Prefer: resolution=ignore-duplicates)。
+    if (inserts.length > 0) {
       const insertResult = await supabase
         .from("nth_weekday_closures")
-        .insert(rows.map((row) => ({ weekday: row.weekday, nth: row.nth })));
+        .upsert(inserts, {
+          onConflict: "weekday,nth",
+          ignoreDuplicates: true,
+        });
       if (insertResult.error !== null) {
         console.error("saveNthWeekdayClosures failed", insertResult.error);
+        return { ok: false, message: "定休日の保存に失敗しました" };
+      }
+    }
+
+    if (deleteIds.length > 0) {
+      const deleteResult = await supabase
+        .from("nth_weekday_closures")
+        .delete()
+        .in("id", deleteIds);
+      if (deleteResult.error !== null) {
+        console.error("saveNthWeekdayClosures failed", deleteResult.error);
         return { ok: false, message: "定休日の保存に失敗しました" };
       }
     }

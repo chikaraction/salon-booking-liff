@@ -7,6 +7,7 @@ import {
   changedWeeklyHourWeekdays,
   closureListWindow,
   describeNthWeekdayClosures,
+  diffNthWeekdayClosures,
   fillWeeklyBusinessHours,
   findOverlappingOverride,
   flattenNthWeekdayGroups,
@@ -235,6 +236,120 @@ describe("flattenNthWeekdayGroups", () => {
     expect(flattenNthWeekdayGroups(groupNthWeekdayClosures(rows))).toEqual(
       rows,
     );
+  });
+});
+
+describe("diffNthWeekdayClosures", () => {
+  it("現在も希望も空なら何もしない", () => {
+    expect(diffNthWeekdayClosures({ current: [], desired: [] })).toEqual({
+      inserts: [],
+      deleteIds: [],
+    });
+  });
+
+  it("現在と希望が同じ集合なら何もしない", () => {
+    expect(
+      diffNthWeekdayClosures({
+        current: [
+          { id: "a", weekday: 0, nth: 3 },
+          { id: "b", weekday: 3, nth: 2 },
+        ],
+        desired: [
+          { weekday: 0, nth: 3 },
+          { weekday: 3, nth: 2 },
+        ],
+      }),
+    ).toEqual({ inserts: [], deleteIds: [] });
+  });
+
+  it("希望にだけある行を追加する", () => {
+    expect(
+      diffNthWeekdayClosures({
+        current: [{ id: "a", weekday: 0, nth: 3 }],
+        desired: [
+          { weekday: 0, nth: 3 },
+          { weekday: 0, nth: 1 },
+        ],
+      }),
+    ).toEqual({ inserts: [{ weekday: 0, nth: 1 }], deleteIds: [] });
+  });
+
+  it("現在にだけある行を削除する(希望が空なら全件削除)", () => {
+    expect(
+      diffNthWeekdayClosures({
+        current: [
+          { id: "a", weekday: 0, nth: 3 },
+          { id: "b", weekday: 3, nth: 2 },
+        ],
+        desired: [],
+      }),
+    ).toEqual({ inserts: [], deleteIds: ["a", "b"] });
+  });
+
+  it("追加と削除が混在しても、共通の行には触らない", () => {
+    expect(
+      diffNthWeekdayClosures({
+        current: [
+          { id: "a", weekday: 0, nth: 3 },
+          { id: "b", weekday: 3, nth: 2 },
+        ],
+        desired: [
+          { weekday: 0, nth: 3 },
+          { weekday: 6, nth: 5 },
+        ],
+      }),
+    ).toEqual({ inserts: [{ weekday: 6, nth: 5 }], deleteIds: ["b"] });
+  });
+
+  it("曜日が同じでも第◯が違えば別の行として扱う", () => {
+    expect(
+      diffNthWeekdayClosures({
+        current: [{ id: "a", weekday: 0, nth: 3 }],
+        desired: [{ weekday: 0, nth: 4 }],
+      }),
+    ).toEqual({ inserts: [{ weekday: 0, nth: 4 }], deleteIds: ["a"] });
+  });
+
+  it("希望に重複があっても追加は1件にする(unique制約)", () => {
+    expect(
+      diffNthWeekdayClosures({
+        current: [],
+        desired: [
+          { weekday: 0, nth: 1 },
+          { weekday: 0, nth: 1 },
+        ],
+      }),
+    ).toEqual({ inserts: [{ weekday: 0, nth: 1 }], deleteIds: [] });
+  });
+
+  it("並び順に左右されず、追加・削除とも曜日→第◯の昇順で返す", () => {
+    const expected = {
+      inserts: [
+        { weekday: 1, nth: 2 },
+        { weekday: 1, nth: 4 },
+        { weekday: 5, nth: 1 },
+      ],
+      deleteIds: ["sun-3", "wed-1", "wed-2"],
+    };
+    const current = [
+      { id: "wed-2", weekday: 3, nth: 2 },
+      { id: "keep", weekday: 6, nth: 5 },
+      { id: "sun-3", weekday: 0, nth: 3 },
+      { id: "wed-1", weekday: 3, nth: 1 },
+    ];
+    const desired = [
+      { weekday: 5, nth: 1 },
+      { weekday: 6, nth: 5 },
+      { weekday: 1, nth: 4 },
+      { weekday: 1, nth: 2 },
+    ];
+    expect(diffNthWeekdayClosures({ current, desired })).toEqual(expected);
+    expect(
+      diffNthWeekdayClosures({
+        current: [...current].reverse(),
+        desired: [...desired].reverse(),
+      }),
+    ).toEqual(expected);
   });
 });
 
