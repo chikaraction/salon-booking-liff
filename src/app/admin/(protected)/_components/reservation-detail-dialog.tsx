@@ -98,7 +98,9 @@ export function ReservationDetailDialog({
             onClick={onClose}
             // モックC の ✕ は枠なしで地 #f2f0ea(--secondary)。hover は地を少し濃くする
             // (button.tsx の secondary variant と同じ式)
-            className="flex size-9 items-center justify-center rounded-lg bg-secondary text-muted-foreground transition-colors hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] hover:text-foreground"
+            // 地の四角は 36px のまま、押せる範囲だけ疑似要素で四方に 4px 広げて 44×44 にする
+            // (Apple HIG の最小タップ領域 44pt。スマホで指が外れにくくする)
+            className="relative flex size-9 items-center after:absolute after:-inset-1 justify-center rounded-lg bg-secondary text-muted-foreground transition-colors hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] hover:text-foreground"
           >
             <X aria-hidden="true" className="size-5" />
           </button>
@@ -250,7 +252,10 @@ function DetailBody({
             <button
               type="button"
               onClick={startEdit}
-              className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+              // 文字だけのボタンは小さく押しにくいので、見た目は変えずに押せる範囲だけ
+              // 疑似要素でボタンの中心から 44×44 に広げる(Apple HIG の最小タップ領域 44pt)。
+              // 広げた分はメモ枠の余白(p-4 = 16px)の内側に収まる
+              className="relative text-sm font-medium text-primary underline-offset-4 after:absolute after:top-1/2 after:left-1/2 after:size-11 after:-translate-x-1/2 after:-translate-y-1/2 hover:underline"
             >
               編集
             </button>
@@ -272,10 +277,12 @@ function DetailBody({
             {memoError !== null && (
               <p className="text-sm text-destructive">{memoError}</p>
             )}
-            <div className="flex gap-2">
+            {/* スマホで押しやすいよう高さ 44px(Apple HIG の最小タップ領域 44pt)・
+                枠のあるボタン同士の間隔 12px にする(メニュー編集の保存・キャンセルと同じ大きさ) */}
+            <div className="flex gap-3">
               <Button
                 size="lg"
-                className="rounded-lg"
+                className="h-11 rounded-lg px-5 text-base"
                 disabled={savingMemo}
                 onClick={() => void saveMemo()}
               >
@@ -284,7 +291,7 @@ function DetailBody({
               <Button
                 size="lg"
                 variant="outline"
-                className="rounded-lg"
+                className="h-11 rounded-lg px-5 text-base"
                 disabled={savingMemo}
                 onClick={() => setEditing(false)}
               >
