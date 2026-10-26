@@ -1194,26 +1194,40 @@ export type ReservationDetailLabels = {
   dateTimeStaffLabel: string;
   /** 「カット + カラー(150分) ¥11,550」(メニュー名 + 合計所要分 + 合計金額) */
   menuLabel: string;
+  /**
+   * 「ご要望・ご相談」欄(reservations.note)。空(null・空白だけ)なら
+   * text は「(なし)」で isEmpty = true(UI は控えめな色で出す)。
+   * 本文があるときは前後の空白も含めてそのまま出す
+   */
+  requestNote: { text: string; isEmpty: boolean };
 };
 
 /**
- * 予約詳細ダイアログの「日時・担当」「メニュー」ラベルを組み立てる(モックC準拠)。
+ * 予約詳細ダイアログの「日時・担当」「メニュー」「ご要望・ご相談」の表示を組み立てる
+ * (モックC準拠)。
  * - 日時・担当: 開始時刻(JST)ラベルにスタッフ名を続ける
  * - メニュー: スナップショットのメニュー名連結 + 合計所要分 + 合計金額
  *   (合計はカレンダーブロックと違い、高さに関係なく常に表示する)
+ * - ご要望・ご相談: 空でも欄を出すので、空なら「(なし)」にする
+ *   (docs/milestone-4-plan.md の決定5)
  * 表記は booking.ts の既存フォーマッタに合わせる。
  */
 export function buildReservationDetailLabels(params: {
   start: Date;
   staffName: string;
   menus: ReservationMenuSnapshot[];
+  requestNote: string | null;
 }): ReservationDetailLabels {
-  const { start, staffName, menus } = params;
+  const { start, staffName, menus, requestNote } = params;
   const summary = summarizeSelectedMenus(menus);
   const names = menuNamesLabel(menus.map((m) => m.menuName));
+  const requestNoteIsEmpty = requestNote === null || requestNote.trim() === "";
   return {
     dateTimeStaffLabel: `${formatJstDateTimeLabel(start)} ${staffName}`,
     menuLabel: `${names}(${summary.totalDurationMinutes}分) ${formatYen(summary.totalPrice)}`,
+    requestNote: requestNoteIsEmpty
+      ? { text: "(なし)", isEmpty: true }
+      : { text: requestNote, isEmpty: false },
   };
 }
 

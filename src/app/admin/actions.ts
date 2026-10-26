@@ -265,7 +265,10 @@ export type CreateProxyReservationInput = {
   staffId: string;
   date: string;
   time: string;
-  /** メモ(任意・店内用) */
+  /**
+   * ご要望・ご相談(任意)。客側の「ご要望・ご相談」と同じ reservations.note
+   * (店内用のメモはスタッフメモ = customers.note。docs/milestone-4-plan.md の決定5)
+   */
   note: string;
 };
 
@@ -407,7 +410,7 @@ export async function createProxyReservation(
 
 // ---------------------------------------------------------------------------
 // 店側変更(代行登録フォームを変更モードで再利用: モックC「変更」→モックD)
-// - 顧客は固定(変更不可)。メニュー・スタッフ・日時・メモを編集できる
+// - 顧客は固定(変更不可)。メニュー・スタッフ・日時・ご要望を編集できる
 // - 確定は admin_update_reservation(UPDATE方式)。同じ予約を近接時間へずらしても
 //   自己衝突しない。他予約と衝突したら23P01が伝搬しトランザクション全体ロールバック
 //   (元予約は無傷)。ダブルブッキング防止の本体はEXCLUDE制約(ADR-004)
@@ -419,7 +422,10 @@ export type UpdateAdminReservationInput = {
   date: string;
   time: string;
   menuIds: string[];
-  /** メモ(任意・店内用) */
+  /**
+   * ご要望・ご相談(任意)。客側の「ご要望・ご相談」と同じ reservations.note
+   * (店内用のメモはスタッフメモ = customers.note。docs/milestone-4-plan.md の決定5)
+   */
   note: string;
 };
 
