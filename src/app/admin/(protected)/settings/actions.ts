@@ -93,6 +93,13 @@ import { fetchMenuSettings } from "@/server/settings-data";
 export type SettingsActionResult =
   { ok: true } | { ok: false; message: string };
 
+/**
+ * salon_settings の更新できた行が0件だったときの文言
+ * (祝日の設定・店名・ポリシー・表示設定で共通)
+ */
+const SALON_SETTINGS_NOT_UPDATED_MESSAGE =
+  "店舗設定を保存できませんでした。画面を再読み込みしてください";
+
 /** 営業日・営業時間の設定画面のパス(保存後の再検証に使う) */
 const BUSINESS_SETTINGS_PATH = "/admin/settings/business";
 
@@ -210,6 +217,7 @@ export async function saveNthWeekdayClosures(
     }
 
     if (deleteIds.length > 0) {
+      // 別のタブで先に消えていて0行削除でも望む状態なので、行数は確かめない
       const deleteResult = await supabase
         .from("nth_weekday_closures")
         .delete()
@@ -241,13 +249,19 @@ export async function saveCloseOnHolidays(
 
   try {
     const supabase = await createAdminAuthClient();
-    const { error } = await supabase
+    // 更新できた行数を確かめる(単一行のテーブルなので、0行なら権限か行の
+    // 欠落しかない。PostgRESTは0行でもエラーにしない: ファイル冒頭の注記)
+    const { data, error } = await supabase
       .from("salon_settings")
       .update({ close_on_holidays: closeOnHolidays })
-      .eq("id", true);
+      .eq("id", true)
+      .select("id");
     if (error !== null) {
       console.error("saveCloseOnHolidays failed", error);
       return { ok: false, message: "祝日の設定の保存に失敗しました" };
+    }
+    if (data === null || data.length === 0) {
+      return { ok: false, message: SALON_SETTINGS_NOT_UPDATED_MESSAGE };
     }
     revalidateBusinessSettings();
     return { ok: true };
@@ -349,13 +363,23 @@ export async function deleteDateOverride(
 
   try {
     const supabase = await createAdminAuthClient();
-    const { error } = await supabase
+    // 削除できた行を返させて0件を検知する(存在しないID・RLSで見えない行でも
+    // PostgRESTのDELETEはエラーにならず、確かめないと「削除しました」になる)
+    const { data, error } = await supabase
       .from("date_overrides")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .select("id");
     if (error !== null) {
       console.error("deleteDateOverride failed", error);
       return { ok: false, message: "臨時休業・指定日の削除に失敗しました" };
+    }
+    if (data === null || data.length === 0) {
+      return {
+        ok: false,
+        message:
+          "対象の臨時休業・指定日が見つかりませんでした。画面を再読み込みしてください",
+      };
     }
     revalidateBusinessSettings();
     return { ok: true };
@@ -467,13 +491,34 @@ export async function saveStaff(params: {
       bio: validated.value.bio,
     };
 
-    const { error } =
-      id === null
-        ? await supabase.from("staff").insert(row)
-        : await supabase.from("staff").update(row).eq("id", id);
+    if (id === null) {
+      const { error } = await supabase.from("staff").insert(row);
+      if (error !== null) {
+        console.error("saveStaff failed", error);
+        return { ok: false, message: "スタッフの保存に失敗しました" };
+      }
+      revalidateStaffSettings();
+      return { ok: true };
+    }
+
+    // 更新は「何行更新できたか」を確かめる。RLSやWHERE条件で0行になっても
+    // PostgRESTはエラーを返さないため、確かめないと「保存しました」と
+    // 表示したのに何も変わっていない、という状態になる
+    const { data, error } = await supabase
+      .from("staff")
+      .update(row)
+      .eq("id", id)
+      .select("id");
     if (error !== null) {
       console.error("saveStaff failed", error);
       return { ok: false, message: "スタッフの保存に失敗しました" };
+    }
+    if (data === null || data.length === 0) {
+      return {
+        ok: false,
+        message:
+          "対象のスタッフが見つかりませんでした。画面を再読み込みしてください",
+      };
     }
 
     revalidateStaffSettings();
@@ -997,6 +1042,7 @@ export async function saveMenuCategories(
     }
 
     if (diff.deleteIds.length > 0) {
+      // 別のタブで先に消えていて0行削除でも望む状態なので、行数は確かめない
       const deleteResult = await supabase
         .from("menu_categories")
         .delete()
@@ -1026,10 +1072,6 @@ export async function saveMenuCategories(
 
 /** 店舗・予約設定画面のパス(保存後の再検証に使う) */
 const SALON_SETTINGS_PATH = "/admin/settings/salon";
-
-/** 更新できた行が0件だったときの文言(店名・ポリシー・表示設定で共通) */
-const SALON_SETTINGS_NOT_UPDATED_MESSAGE =
-  "店舗設定を保存できませんでした。画面を再読み込みしてください";
 
 /**
  * 店名の反映先。実際に grep して確認した出どころは次の2つ:
