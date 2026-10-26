@@ -278,7 +278,7 @@ function DetailBody({
       </div>
 
       {/* 下部アクション。モックは height:46px・角丸10px(rounded-lg = --radius = 10px)。
-          確認ステップの「キャンセルする / 戻る」も同じ位置に入れ替わって出るので高さをそろえる */}
+          確認ステップの「戻る / キャンセルする」も同じ位置に入れ替わって出るので高さをそろえる */}
       {confirmingCancel ? (
         <div className="rounded-xl border border-border p-4">
           <p className="text-base font-bold">この予約をキャンセルしますか？</p>
@@ -290,16 +290,8 @@ function DetailBody({
               {cancelError}
             </p>
           )}
+          {/* 横並びは「やめる(左) → 決定(右)」(docs/ui-guidelines.md) */}
           <div className="mt-4 flex gap-3">
-            <Button
-              size="lg"
-              variant="destructive"
-              className="h-[46px] flex-1 rounded-lg"
-              disabled={cancelling}
-              onClick={() => void confirmCancel()}
-            >
-              {cancelling ? "キャンセルしています…" : "キャンセルする"}
-            </Button>
             <Button
               size="lg"
               variant="outline"
@@ -311,6 +303,15 @@ function DetailBody({
               }}
             >
               戻る
+            </Button>
+            <Button
+              size="lg"
+              variant="destructive"
+              className="h-[46px] flex-1 rounded-lg"
+              disabled={cancelling}
+              onClick={() => void confirmCancel()}
+            >
+              {cancelling ? "キャンセルしています…" : "キャンセルする"}
             </Button>
           </div>
         </div>
