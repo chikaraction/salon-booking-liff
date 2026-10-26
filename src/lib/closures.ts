@@ -183,6 +183,47 @@ export function resolveDayClosure(
   return { isClosed: false, reason: null, label: null };
 }
 
+// ---------------------------------------------------------------------------
+// 毎週の営業時間(business_hours)
+// ---------------------------------------------------------------------------
+
+/**
+ * business_hours の全行から、その曜日の営業時間を引く。
+ * 行が無い曜日は休業({ isOpen:false, 時刻なし })として扱う
+ * (resolveDayClosure の「4. 毎週の定休」と同じ扱い)。
+ *
+ * 行は weekday などを持つので、BusinessDay の3項目だけに整えて返す
+ * (resolveBusinessDay は営業日の weeklyBusinessDay をそのまま返すため、
+ * 行をそのまま渡すと余分な項目が戻り値に漏れる)。
+ */
+export function weeklyBusinessDayOf(
+  weeklyBusinessHours: ReadonlyArray<{ weekday: number } & BusinessDay>,
+  weekday: number,
+): BusinessDay {
+  const row = weeklyBusinessHours.find((hours) => hours.weekday === weekday);
+  if (row === undefined) {
+    return { isOpen: false, openTime: null, closeTime: null };
+  }
+  return {
+    isOpen: row.isOpen,
+    openTime: row.openTime,
+    closeTime: row.closeTime,
+  };
+}
+
+/**
+ * 毎週の定休曜日(0=日曜〜6=土曜)を昇順で返す。行が無い曜日も含む。
+ * 「定休曜日を含む臨時営業は営業時間必須」の判定
+ * (business-settings.ts の validateDateOverride の closedWeekdays)に渡す。
+ */
+export function closedWeekdaysOf(
+  weeklyBusinessHours: ReadonlyArray<{ weekday: number } & BusinessDay>,
+): number[] {
+  return [0, 1, 2, 3, 4, 5, 6].filter(
+    (weekday) => !weeklyBusinessDayOf(weeklyBusinessHours, weekday).isOpen,
+  );
+}
+
 /**
  * 休業日判定を1引数の関数にする。
  * buildWeekView の isClosedDay(admin-calendar.ts)・isSelectableDate
@@ -196,7 +237,7 @@ export function makeIsClosedDay(
 
 /**
  * その日の営業時間を確定する(休業日ルール + 臨時営業の営業時間)。
- * 呼び出し側は business_hours から引いたその曜日の行(行が無い曜日は
+ * 呼び出し側はその曜日の営業時間(weeklyBusinessDayOf の戻り値。行が無い曜日は
  * isOpen:false)を weeklyBusinessDay に渡し、戻り値をそのまま
  * computeStaffDaySlots / buildDayTimeline の businessDay として使う。
  *
@@ -207,7 +248,7 @@ export function makeIsClosedDay(
  */
 export function resolveBusinessDay(params: {
   date: string;
-  /** その曜日の営業時間(business_hours。行が無い曜日は isOpen:false で渡す) */
+  /** その曜日の営業時間(weeklyBusinessDayOf の戻り値。行が無い曜日は isOpen:false) */
   weeklyBusinessDay: BusinessDay;
   rules: ClosureRules;
 }): BusinessDay {
@@ -252,27 +293,14 @@ export function makeBusinessDayOf(params: {
   weeklyBusinessHours: Array<{ weekday: number } & BusinessDay>;
 }): (date: string) => BusinessDay {
   const { rules, weeklyBusinessHours } = params;
-  // 行は weekday を持つので、BusinessDay の3項目だけに整えてから渡す
-  // (resolveBusinessDay は営業日の行をそのまま返すため、余分な項目が漏れる)
-  const byWeekday = new Map(
-    weeklyBusinessHours.map((row) => [
-      row.weekday,
-      {
-        isOpen: row.isOpen,
-        openTime: row.openTime,
-        closeTime: row.closeTime,
-      },
-    ]),
-  );
-  const closed: BusinessDay = {
-    isOpen: false,
-    openTime: null,
-    closeTime: null,
-  };
+  // 行が無い曜日の休業扱いと、余分な項目を落とすのは weeklyBusinessDayOf に任せる
   return (date) =>
     resolveBusinessDay({
       date,
-      weeklyBusinessDay: byWeekday.get(calendarWeekday(date)) ?? closed,
+      weeklyBusinessDay: weeklyBusinessDayOf(
+        weeklyBusinessHours,
+        calendarWeekday(date),
+      ),
       rules,
     });
 }

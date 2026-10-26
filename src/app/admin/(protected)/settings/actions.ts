@@ -32,6 +32,7 @@ import { calendarWeekday, isCalendarDate } from "@/lib/availability";
 import { isUuid } from "@/lib/booking";
 import {
   DATE_OVERRIDE_OVERLAP_MESSAGE,
+  diffNthWeekdayClosures,
   findOverlappingOverride,
   flattenNthWeekdayGroups,
   isDateRangeOverlapError,
@@ -41,7 +42,12 @@ import {
   type NthWeekdayGroup,
   type WeeklyHoursInput,
 } from "@/lib/business-settings";
-import { resolveBusinessDay, resolveStaffWorkingDay } from "@/lib/closures";
+import {
+  closedWeekdaysOf,
+  resolveBusinessDay,
+  resolveStaffWorkingDay,
+  weeklyBusinessDayOf,
+} from "@/lib/closures";
 import {
   validateDisplaySettingsInput,
   type DisplaySettingsInput,
@@ -74,17 +80,25 @@ import {
   type WorkingDayInput,
 } from "@/lib/staff-settings";
 import { formatTstzrange } from "@/lib/tstzrange";
-import {
-  fetchAdminBusinessHours,
-  fetchClosureRules,
-  fetchStaffWorkingHoursForWeekday,
-} from "@/server/admin-data";
+import { fetchStaffWorkingHoursForWeekday } from "@/server/admin-data";
 import { createAdminAuthClient, requireOwner } from "@/server/admin-auth";
-import { fetchDateOverrides, fetchMenuSettings } from "@/server/settings-data";
+import {
+  fetchBusinessCalendar,
+  fetchDateOverrides,
+  fetchWeeklyBusinessHours,
+} from "@/server/closure-data";
+import { fetchMenuSettings } from "@/server/settings-data";
 
 /** 設定系アクションの戻り値(既存のアクションと同じ判別可能なResult型) */
 export type SettingsActionResult =
   { ok: true } | { ok: false; message: string };
+
+/**
+ * salon_settings の更新できた行が0件だったときの文言
+ * (祝日の設定・店名・ポリシー・表示設定で共通)
+ */
+const SALON_SETTINGS_NOT_UPDATED_MESSAGE =
+  "店舗設定を保存できませんでした。画面を再読み込みしてください";
 
 /** 営業日・営業時間の設定画面のパス(保存後の再検証に使う) */
 const BUSINESS_SETTINGS_PATH = "/admin/settings/business";
@@ -148,8 +162,14 @@ export async function saveWeeklyBusinessHours(
 /**
  * 第◯曜日の定休を保存する。
  * UIの1ブロック(曜日 + 第1〜第5の複数選択)を (weekday, nth) の行集合へ
- * 展開し、全削除 → まとめてinsertで置き換える(数行しか無いテーブルであり、
- * 差分upsertより「画面の状態がそのまま入る」ほうが読みやすい)。
+ * 展開し、現在の行を読んで差分(diffNthWeekdayClosures)だけを反映する。
+ *
+ * PostgRESTの呼び出しは1回ずつ別トランザクションになる(RPCは作らない方針:
+ * docs/milestone-4b-plan.md)。そのため「足りない行を先に追加 → 不要な行を後で
+ * 削除」の順にしている。途中で失敗しても「定休が余分に残る」(予約が入らない
+ * だけの安全側)にとどまり、「定休が消えて休業日に予約が入る」状態は作らない。
+ * 以前の「全削除 → まとめてinsert」は、削除の後にinsertが失敗すると
+ * 第◯曜日の定休がすべて消えていた。
  */
 export async function saveNthWeekdayClosures(
   groups: NthWeekdayGroup[],
@@ -167,22 +187,43 @@ export async function saveNthWeekdayClosures(
 
   try {
     const supabase = await createAdminAuthClient();
-    // PostgRESTは無条件のDELETEを受け付けないので、常に真になる条件を付ける
-    const deleteResult = await supabase
+    const currentResult = await supabase
       .from("nth_weekday_closures")
-      .delete()
-      .gte("weekday", 0);
-    if (deleteResult.error !== null) {
-      console.error("saveNthWeekdayClosures failed", deleteResult.error);
+      .select("id, weekday, nth");
+    if (currentResult.error !== null) {
+      console.error("saveNthWeekdayClosures failed", currentResult.error);
       return { ok: false, message: "定休日の保存に失敗しました" };
     }
 
-    if (rows.length > 0) {
+    const { inserts, deleteIds } = diffNthWeekdayClosures({
+      current: currentResult.data,
+      desired: rows,
+    });
+
+    // 追加が先(理由はJSDoc)。別のタブから同時に保存されて同じ行が先に
+    // 入っていても一意制約(23505)で失敗しないよう、重複は無視する
+    // (ignoreDuplicates → Prefer: resolution=ignore-duplicates)。
+    if (inserts.length > 0) {
       const insertResult = await supabase
         .from("nth_weekday_closures")
-        .insert(rows.map((row) => ({ weekday: row.weekday, nth: row.nth })));
+        .upsert(inserts, {
+          onConflict: "weekday,nth",
+          ignoreDuplicates: true,
+        });
       if (insertResult.error !== null) {
         console.error("saveNthWeekdayClosures failed", insertResult.error);
+        return { ok: false, message: "定休日の保存に失敗しました" };
+      }
+    }
+
+    if (deleteIds.length > 0) {
+      // 別のタブで先に消えていて0行削除でも望む状態なので、行数は確かめない
+      const deleteResult = await supabase
+        .from("nth_weekday_closures")
+        .delete()
+        .in("id", deleteIds);
+      if (deleteResult.error !== null) {
+        console.error("saveNthWeekdayClosures failed", deleteResult.error);
         return { ok: false, message: "定休日の保存に失敗しました" };
       }
     }
@@ -208,13 +249,19 @@ export async function saveCloseOnHolidays(
 
   try {
     const supabase = await createAdminAuthClient();
-    const { error } = await supabase
+    // 更新できた行数を確かめる(単一行のテーブルなので、0行なら権限か行の
+    // 欠落しかない。PostgRESTは0行でもエラーにしない: ファイル冒頭の注記)
+    const { data, error } = await supabase
       .from("salon_settings")
       .update({ close_on_holidays: closeOnHolidays })
-      .eq("id", true);
+      .eq("id", true)
+      .select("id");
     if (error !== null) {
       console.error("saveCloseOnHolidays failed", error);
       return { ok: false, message: "祝日の設定の保存に失敗しました" };
+    }
+    if (data === null || data.length === 0) {
+      return { ok: false, message: SALON_SETTINGS_NOT_UPDATED_MESSAGE };
     }
     revalidateBusinessSettings();
     return { ok: true };
@@ -249,22 +296,16 @@ export async function addDateOverride(
     // 休業の登録ではこのルールが働かないので問い合わせ自体を省く
     let closedWeekdays: number[] = [];
     if (input.isOpen) {
-      const hoursResult = await supabase
-        .from("business_hours")
-        .select("weekday, is_open");
-      if (hoursResult.error !== null || hoursResult.data === null) {
-        console.error("addDateOverride failed", hoursResult.error);
+      // 取得失敗の文言は従来どおり「営業時間の取得に失敗しました」にする
+      // (外側の catch に任せると登録失敗の文言になるため)
+      try {
+        closedWeekdays = closedWeekdaysOf(
+          await fetchWeeklyBusinessHours(supabase),
+        );
+      } catch (error) {
+        console.error("addDateOverride failed", error);
         return { ok: false, message: "営業時間の取得に失敗しました" };
       }
-      const hours = hoursResult.data as Array<{
-        weekday: number;
-        is_open: boolean;
-      }>;
-      // business_hours に行が無い曜日も休業(closures.ts の判定と揃える)
-      closedWeekdays = [0, 1, 2, 3, 4, 5, 6].filter(
-        (weekday) =>
-          hours.find((row) => row.weekday === weekday)?.is_open !== true,
-      );
     }
 
     const validated = validateDateOverride({ input, closedWeekdays });
@@ -322,13 +363,23 @@ export async function deleteDateOverride(
 
   try {
     const supabase = await createAdminAuthClient();
-    const { error } = await supabase
+    // 削除できた行を返させて0件を検知する(存在しないID・RLSで見えない行でも
+    // PostgRESTのDELETEはエラーにならず、確かめないと「削除しました」になる)
+    const { data, error } = await supabase
       .from("date_overrides")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .select("id");
     if (error !== null) {
       console.error("deleteDateOverride failed", error);
       return { ok: false, message: "臨時休業・指定日の削除に失敗しました" };
+    }
+    if (data === null || data.length === 0) {
+      return {
+        ok: false,
+        message:
+          "対象の臨時休業・指定日が見つかりませんでした。画面を再読み込みしてください",
+      };
     }
     revalidateBusinessSettings();
     return { ok: true };
@@ -440,13 +491,34 @@ export async function saveStaff(params: {
       bio: validated.value.bio,
     };
 
-    const { error } =
-      id === null
-        ? await supabase.from("staff").insert(row)
-        : await supabase.from("staff").update(row).eq("id", id);
+    if (id === null) {
+      const { error } = await supabase.from("staff").insert(row);
+      if (error !== null) {
+        console.error("saveStaff failed", error);
+        return { ok: false, message: "スタッフの保存に失敗しました" };
+      }
+      revalidateStaffSettings();
+      return { ok: true };
+    }
+
+    // 更新は「何行更新できたか」を確かめる。RLSやWHERE条件で0行になっても
+    // PostgRESTはエラーを返さないため、確かめないと「保存しました」と
+    // 表示したのに何も変わっていない、という状態になる
+    const { data, error } = await supabase
+      .from("staff")
+      .update(row)
+      .eq("id", id)
+      .select("id");
     if (error !== null) {
       console.error("saveStaff failed", error);
       return { ok: false, message: "スタッフの保存に失敗しました" };
+    }
+    if (data === null || data.length === 0) {
+      return {
+        ok: false,
+        message:
+          "対象のスタッフが見つかりませんでした。画面を再読み込みしてください",
+      };
     }
 
     revalidateStaffSettings();
@@ -559,16 +631,13 @@ export async function addStaffBlock(params: {
     const supabase = await createAdminAuthClient();
     const weekday = calendarWeekday(input.date);
 
-    const businessHours = await fetchAdminBusinessHours(supabase);
-    const [rules, workingRows] = await Promise.all([
-      fetchClosureRules(supabase, businessHours),
-      fetchStaffWorkingHoursForWeekday(supabase, weekday),
-    ]);
+    const [{ weeklyBusinessHours, closureRules: rules }, workingRows] =
+      await Promise.all([
+        fetchBusinessCalendar(supabase),
+        fetchStaffWorkingHoursForWeekday(supabase, weekday),
+      ]);
 
-    // business_hours に行が無い曜日は休業(closures.ts の判定と揃える)
-    const weeklyBusinessDay = businessHours.find(
-      (day) => day.weekday === weekday,
-    ) ?? { isOpen: false, openTime: null, closeTime: null };
+    const weeklyBusinessDay = weeklyBusinessDayOf(weeklyBusinessHours, weekday);
     const businessDay = resolveBusinessDay({
       date: input.date,
       weeklyBusinessDay,
@@ -973,6 +1042,7 @@ export async function saveMenuCategories(
     }
 
     if (diff.deleteIds.length > 0) {
+      // 別のタブで先に消えていて0行削除でも望む状態なので、行数は確かめない
       const deleteResult = await supabase
         .from("menu_categories")
         .delete()
@@ -1002,10 +1072,6 @@ export async function saveMenuCategories(
 
 /** 店舗・予約設定画面のパス(保存後の再検証に使う) */
 const SALON_SETTINGS_PATH = "/admin/settings/salon";
-
-/** 更新できた行が0件だったときの文言(店名・ポリシー・表示設定で共通) */
-const SALON_SETTINGS_NOT_UPDATED_MESSAGE =
-  "店舗設定を保存できませんでした。画面を再読み込みしてください";
 
 /**
  * 店名の反映先。実際に grep して確認した出どころは次の2つ:

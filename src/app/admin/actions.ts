@@ -28,17 +28,16 @@ import {
   type BusinessDay,
 } from "@/lib/availability";
 import { isSlotTakenError, isUuid } from "@/lib/booking";
-import { resolveBusinessDay } from "@/lib/closures";
+import { resolveBusinessDay, weeklyBusinessDayOf } from "@/lib/closures";
 import { createAdminAuthClient } from "@/server/admin-auth";
 import {
-  fetchAdminBusinessHours,
-  fetchClosureRules,
   fetchReservationDetail,
   searchCustomers,
   type CustomerSearchResult,
   type ReservationDetail,
 } from "@/server/admin-data";
 import { getDayAvailability } from "@/server/booking-data";
+import { fetchBusinessCalendar } from "@/server/closure-data";
 
 export type LoginResult = { ok: true } | { ok: false; message: string };
 
@@ -296,12 +295,16 @@ async function resolveAdminBusinessDay(
   supabase: SupabaseClient,
   date: string,
 ): Promise<BusinessDay> {
-  const businessHours = await fetchAdminBusinessHours(supabase);
-  const closureRules = await fetchClosureRules(supabase, businessHours);
-  const weeklyBusinessDay = businessHours.find(
-    (hours) => hours.weekday === calendarWeekday(date),
-  ) ?? { isOpen: false, openTime: null, closeTime: null };
-  return resolveBusinessDay({ date, weeklyBusinessDay, rules: closureRules });
+  const { weeklyBusinessHours, closureRules } =
+    await fetchBusinessCalendar(supabase);
+  return resolveBusinessDay({
+    date,
+    weeklyBusinessDay: weeklyBusinessDayOf(
+      weeklyBusinessHours,
+      calendarWeekday(date),
+    ),
+    rules: closureRules,
+  });
 }
 
 /**
@@ -664,13 +667,20 @@ export async function updateStaffMemo(
   const trimmed = typeof memo === "string" ? memo.trim() : "";
   try {
     const supabase = await createAdminAuthClient();
-    const { error } = await supabase
+    // 更新できた行数を確かめる。存在しないID・RLSで見えない行でも
+    // PostgRESTのUPDATEはエラーにならず0行で成功するため、確かめないと
+    // メモが保存されていないのに保存できたように見える
+    const { data, error } = await supabase
       .from("customers")
       .update({ note: trimmed === "" ? null : trimmed })
-      .eq("id", customerId);
+      .eq("id", customerId)
+      .select("id");
     if (error !== null) {
       console.error("updateStaffMemo failed", error);
       return { ok: false, message: "メモの保存に失敗しました" };
+    }
+    if (data === null || data.length === 0) {
+      return { ok: false, message: "お客様が見つかりませんでした" };
     }
     return { ok: true };
   } catch (error) {
