@@ -32,6 +32,7 @@ import {
   WEEKDAY_LABELS,
 } from "./jst";
 import type { ReservationMenuSnapshot } from "./my-reservations";
+import { staffHeadingLabel } from "./staff-settings";
 
 const MINUTE_MS = 60 * 1000;
 
@@ -256,11 +257,6 @@ export type DayTimeline = {
   columns: DayColumn[];
 };
 
-/** スタッフ列の見出し「田中(オーナー)」を組み立てる */
-function staffHeading(staff: AdminStaff): string {
-  return `${staff.name}(${staff.role === "owner" ? "オーナー" : "スタッフ"})`;
-}
-
 /**
  * 休業日でも既存予約を隠さないための時間軸を items から決める。
  * - openMinutes = 最も早い開始を時(正時)で切り下げ
@@ -406,7 +402,7 @@ export function buildDayTimeline(params: {
       tickMarks: [],
       columns: staff.map((member) => ({
         staffId: member.id,
-        heading: staffHeading(member),
+        heading: staffHeadingLabel(member),
         blocks: [],
       })),
     };
@@ -429,7 +425,7 @@ export function buildDayTimeline(params: {
     );
     if (breakBlock !== null) blocks.push(breakBlock);
     blocks.sort((a, b) => a.topPercent - b.topPercent);
-    return { staffId: member.id, heading: staffHeading(member), blocks };
+    return { staffId: member.id, heading: staffHeadingLabel(member), blocks };
   });
 
   const marks = hourTickMarks(openMinutes, closeMinutes);

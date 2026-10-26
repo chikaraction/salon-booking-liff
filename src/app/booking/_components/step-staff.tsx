@@ -2,10 +2,9 @@
 
 import { Check } from "lucide-react";
 
+import { staffHeadingLabel } from "@/lib/staff-settings";
 import { cn } from "@/lib/utils";
 import type { BookingStaff } from "@/server/booking-data";
-
-export const STAFF_ROLE_LABELS = { owner: "オーナー", staff: "スタッフ" };
 
 /** 「どちらでも」を表す選択値(actions.ts の StaffSelection と対応) */
 export const ANY_STAFF = "any";
@@ -24,7 +23,7 @@ export function StepStaff({ staff, selection, onSelect }: Props) {
           key={member.id}
           selected={selection === member.id}
           onSelect={() => onSelect(member.id)}
-          title={`${member.name}(${STAFF_ROLE_LABELS[member.role]})`}
+          title={staffHeadingLabel(member)}
           description={member.bio ?? ""}
           avatar={
             member.photoUrl !== null ? (
