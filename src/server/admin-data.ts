@@ -13,28 +13,14 @@ import {
   addCalendarDays,
   jstCalendarDate,
   jstDateTime,
-  type BusinessDay,
   type StaffWorkingDay,
 } from "@/lib/availability";
 import { addMonths } from "@/lib/calendar";
-import type { ClosureRules } from "@/lib/closures";
 import { monthRanges, type DashboardStaff } from "@/lib/dashboard";
 import type { ReservationMenuSnapshot } from "@/lib/my-reservations";
 import { parseTstzrange } from "@/lib/tstzrange";
+import { must } from "@/server/postgrest";
 import { getServiceRoleClient } from "@/server/supabase";
-
-/** PostgRESTの結果からデータを取り出す。エラーは例外にする(サーバー側の障害) */
-function must<T>(
-  result: { data: T | null; error: { message: string } | null },
-  subject: string,
-): T {
-  if (result.error !== null || result.data === null) {
-    throw new Error(
-      `${subject}の取得に失敗しました: ${result.error?.message ?? "データがありません"}`,
-    );
-  }
-  return result.data;
-}
 
 /** 店名(salon_settings.name)を取得する(ADR-007: 店舗固有値はDBから) */
 export async function fetchSalonName(
@@ -92,27 +78,6 @@ type StaffRow = {
   role: "owner" | "staff";
 };
 
-type BusinessHoursRow = {
-  weekday: number;
-  is_open: boolean;
-  open_time: string | null; // time型は "HH:MM:SS"
-  close_time: string | null;
-};
-
-type NthWeekdayClosureRow = {
-  weekday: number;
-  nth: number;
-};
-
-type DateOverrideRow = {
-  start_date: string; // date型は "YYYY-MM-DD"
-  end_date: string;
-  is_open: boolean;
-  label: string | null;
-  open_time: string | null; // 臨時営業日の営業時間。time型は "HH:MM:SS"
-  close_time: string | null;
-};
-
 type StaffWorkingHoursRow = {
   staff_id: string;
   start_time: string;
@@ -147,66 +112,6 @@ export async function fetchAdminStaff(
     .order("display_order");
   const rows: StaffRow[] = must(result, "スタッフ");
   return rows.map((row) => ({ id: row.id, name: row.name, role: row.role }));
-}
-
-/** 営業時間(全曜日)を取得する */
-export async function fetchAdminBusinessHours(
-  supabase: SupabaseClient,
-): Promise<Array<{ weekday: number } & BusinessDay>> {
-  const result = await supabase
-    .from("business_hours")
-    .select("weekday, is_open, open_time, close_time")
-    .order("weekday");
-  const rows: BusinessHoursRow[] = must(result, "営業時間");
-  return rows.map((row) => ({
-    weekday: row.weekday,
-    isOpen: row.is_open,
-    openTime: row.open_time,
-    closeTime: row.close_time,
-  }));
-}
-
-/**
- * 休業日ルール(毎週の定休・第◯曜日・祝日・臨時休業)を取得する。
- * 毎週の定休は既に引いてある営業時間を使い回すので引数で受け取る
- * (business_hours を二度引かない)。
- * authenticated クライアント(RLS適用)で読む。service_role は使わない。
- */
-export async function fetchClosureRules(
-  supabase: SupabaseClient,
-  businessHours: Array<{ weekday: number; isOpen: boolean }>,
-): Promise<ClosureRules> {
-  // どちらの新テーブルも行数が少ないので全件取得する
-  const [settingsRes, nthRes, overridesRes] = await Promise.all([
-    supabase.from("salon_settings").select("close_on_holidays").single(),
-    supabase.from("nth_weekday_closures").select("weekday, nth"),
-    supabase
-      .from("date_overrides")
-      .select("start_date, end_date, is_open, label, open_time, close_time")
-      .order("start_date"),
-  ]);
-  const settings = must(settingsRes, "店舗設定") as {
-    close_on_holidays: boolean;
-  };
-  const nthClosures: NthWeekdayClosureRow[] = must(nthRes, "第◯曜日の定休");
-  const overrides: DateOverrideRow[] = must(overridesRes, "臨時休業・臨時営業");
-
-  return {
-    businessHours: businessHours.map((day) => ({
-      weekday: day.weekday,
-      isOpen: day.isOpen,
-    })),
-    nthWeekdayClosures: nthClosures,
-    closeOnHolidays: settings.close_on_holidays,
-    overrides: overrides.map((row) => ({
-      startDate: row.start_date,
-      endDate: row.end_date,
-      isOpen: row.is_open,
-      label: row.label,
-      openTime: row.open_time,
-      closeTime: row.close_time,
-    })),
-  };
 }
 
 /** 対象曜日のスタッフ勤務パターン(休憩ブロックの生成に使う)を取得する */

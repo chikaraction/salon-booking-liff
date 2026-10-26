@@ -27,14 +27,18 @@ import {
   resolveBusinessDay,
   resolveDayClosure,
   resolveStaffWorkingDay,
+  weeklyBusinessDayOf,
   type ClosureRules,
 } from "@/lib/closures";
 import type { ReservationCardInput } from "@/lib/my-reservations";
 import { parseTstzrange } from "@/lib/tstzrange";
+import { fetchBusinessCalendar } from "@/server/closure-data";
+import { must } from "@/server/postgrest";
 import { getServiceRoleClient } from "@/server/supabase";
 
 // ---------------------------------------------------------------------------
-// DBの行の型(supabase/migrations/ のスキーマに対応)
+// DBの行の型(supabase/migrations/ のスキーマに対応)。
+// 営業時間・休業日ルールの行の型は closure-data.ts にある
 // ---------------------------------------------------------------------------
 
 type SalonSettingsRow = {
@@ -42,28 +46,6 @@ type SalonSettingsRow = {
   slot_interval_minutes: number;
   booking_window_days: number;
   min_lead_minutes: number;
-  close_on_holidays: boolean;
-};
-
-type BusinessHoursRow = {
-  weekday: number;
-  is_open: boolean;
-  open_time: string | null; // time型は "HH:MM:SS"
-  close_time: string | null;
-};
-
-type NthWeekdayClosureRow = {
-  weekday: number;
-  nth: number;
-};
-
-type DateOverrideRow = {
-  start_date: string; // date型は "YYYY-MM-DD"
-  end_date: string;
-  is_open: boolean;
-  label: string | null;
-  open_time: string | null; // 臨時営業日の営業時間。time型は "HH:MM:SS"
-  close_time: string | null;
 };
 
 type MenuCategoryRow = {
@@ -101,19 +83,6 @@ type ReservationRangeRow = {
   during: string; // tstzrangeは文字列で返る
 };
 
-/** PostgRESTの結果からデータを取り出す。エラーは例外にする(サーバー側の障害) */
-function must<T>(
-  result: { data: T | null; error: { message: string } | null },
-  subject: string,
-): T {
-  if (result.error !== null || result.data === null) {
-    throw new Error(
-      `${subject}の取得に失敗しました: ${result.error?.message ?? "データがありません"}`,
-    );
-  }
-  return result.data;
-}
-
 // ---------------------------------------------------------------------------
 // 予約フローUIの初期表示データ
 // ---------------------------------------------------------------------------
@@ -147,67 +116,41 @@ export type BookingPageData = {
 export async function getBookingPageData(): Promise<BookingPageData> {
   const supabase = getServiceRoleClient();
 
-  const [
-    settingsRes,
-    hoursRes,
-    categoriesRes,
-    menusRes,
-    staffRes,
-    nthClosuresRes,
-    overridesRes,
-  ] = await Promise.all([
-    supabase
-      .from("salon_settings")
-      .select(
-        "name, slot_interval_minutes, booking_window_days, min_lead_minutes, close_on_holidays",
-      )
-      .single(),
-    supabase
-      .from("business_hours")
-      .select("weekday, is_open, open_time, close_time")
-      .order("weekday"),
-    supabase
-      .from("menu_categories")
-      .select("id, name, description")
-      .order("display_order"),
-    supabase
-      .from("menus")
-      .select("id, name, price, duration_minutes, category_id")
-      .eq("is_active", true)
-      .order("display_order"),
-    supabase
-      .from("staff")
-      .select("id, name, role, photo_url, bio")
-      .eq("is_active", true)
-      .order("display_order"),
-    // 休業日ルール。どちらも行数が少ないので全件取得する
-    supabase.from("nth_weekday_closures").select("weekday, nth"),
-    supabase
-      .from("date_overrides")
-      .select("start_date, end_date, is_open, label, open_time, close_time")
-      .order("start_date"),
-  ]);
+  const [settingsRes, calendar, categoriesRes, menusRes, staffRes] =
+    await Promise.all([
+      supabase
+        .from("salon_settings")
+        .select(
+          "name, slot_interval_minutes, booking_window_days, min_lead_minutes",
+        )
+        .single(),
+      // 営業時間と休業日ルール(毎週の定休・第◯曜日・祝日・臨時休業)
+      fetchBusinessCalendar(supabase),
+      supabase
+        .from("menu_categories")
+        .select("id, name, description")
+        .order("display_order"),
+      supabase
+        .from("menus")
+        .select("id, name, price, duration_minutes, category_id")
+        .eq("is_active", true)
+        .order("display_order"),
+      supabase
+        .from("staff")
+        .select("id, name, role, photo_url, bio")
+        .eq("is_active", true)
+        .order("display_order"),
+    ]);
 
   const settings: SalonSettingsRow = must(settingsRes, "店舗設定");
-  const hours: BusinessHoursRow[] = must(hoursRes, "営業時間");
   const categories: MenuCategoryRow[] = must(categoriesRes, "メニューカテゴリ");
   const menus: MenuRow[] = must(menusRes, "メニュー");
   const staff: StaffRow[] = must(staffRes, "スタッフ");
-  const nthClosures: NthWeekdayClosureRow[] = must(
-    nthClosuresRes,
-    "第◯曜日の定休",
-  );
-  const overrides: DateOverrideRow[] = must(overridesRes, "臨時休業・臨時営業");
 
   return {
     salonName: settings.name,
     policy: toPolicy(settings),
-    businessHours: hours.map((row) => ({
-      weekday: row.weekday,
-      isOpen: row.is_open,
-      openTime: row.open_time,
-      closeTime: row.close_time,
-    })),
+    businessHours: calendar.weeklyBusinessHours,
     categories: groupMenusByCategory(
       categories,
       menus.map((menu) => ({
@@ -225,30 +168,8 @@ export async function getBookingPageData(): Promise<BookingPageData> {
       photoUrl: row.photo_url,
       bio: row.bio,
     })),
-    closureRules: {
-      businessHours: hours.map((row) => ({
-        weekday: row.weekday,
-        isOpen: row.is_open,
-      })),
-      nthWeekdayClosures: nthClosures,
-      closeOnHolidays: settings.close_on_holidays,
-      overrides: toClosureOverrides(overrides),
-    },
+    closureRules: calendar.closureRules,
   };
-}
-
-/** date_overrides の行を closures.ts の入力形へ変換する */
-function toClosureOverrides(
-  rows: DateOverrideRow[],
-): ClosureRules["overrides"] {
-  return rows.map((row) => ({
-    startDate: row.start_date,
-    endDate: row.end_date,
-    isOpen: row.is_open,
-    label: row.label,
-    openTime: row.open_time,
-    closeTime: row.close_time,
-  }));
 }
 
 function toPolicy(settings: {
@@ -335,57 +256,35 @@ export async function getDayAvailability(
     busyQuery = busyQuery.neq("id", excludeReservationId);
   }
 
-  const [
-    settingsRes,
-    hoursRes,
-    menusRes,
-    staffRes,
-    workingRes,
-    busyRes,
-    nthClosuresRes,
-    overridesRes,
-  ] = await Promise.all([
-    supabase
-      .from("salon_settings")
-      .select(
-        "slot_interval_minutes, booking_window_days, min_lead_minutes, close_on_holidays",
-      )
-      .single(),
-    supabase
-      .from("business_hours")
-      .select("weekday, is_open, open_time, close_time")
-      .eq("weekday", weekday)
-      .maybeSingle(),
-    supabase
-      .from("menus")
-      .select("id, name, price, duration_minutes")
-      .in("id", distinctMenuIds)
-      .eq("is_active", true),
-    supabase
-      .from("staff")
-      .select("id, name")
-      .eq("is_active", true)
-      .order("display_order"),
-    supabase
-      .from("staff_working_hours")
-      .select("staff_id, start_time, end_time, break_start, break_end")
-      .eq("weekday", weekday),
-    busyQuery,
-    // 休業日ルール。上書きは対象日に掛かる行だけに絞る
-    supabase.from("nth_weekday_closures").select("weekday, nth"),
-    supabase
-      .from("date_overrides")
-      .select("start_date, end_date, is_open, label, open_time, close_time")
-      .lte("start_date", date)
-      .gte("end_date", date),
-  ]);
+  const [settingsRes, calendar, menusRes, staffRes, workingRes, busyRes] =
+    await Promise.all([
+      supabase
+        .from("salon_settings")
+        .select("slot_interval_minutes, booking_window_days, min_lead_minutes")
+        .single(),
+      // 営業時間と休業日ルール(毎週の定休・第◯曜日・祝日・臨時休業)。
+      // どれも行数が少ないので、対象日の分に絞らず全件取得する
+      fetchBusinessCalendar(supabase),
+      supabase
+        .from("menus")
+        .select("id, name, price, duration_minutes")
+        .in("id", distinctMenuIds)
+        .eq("is_active", true),
+      supabase
+        .from("staff")
+        .select("id, name")
+        .eq("is_active", true)
+        .order("display_order"),
+      supabase
+        .from("staff_working_hours")
+        .select("staff_id, start_time, end_time, break_start, break_end")
+        .eq("weekday", weekday),
+      busyQuery,
+    ]);
 
   const settings = must(settingsRes, "店舗設定") as Pick<
     SalonSettingsRow,
-    | "slot_interval_minutes"
-    | "booking_window_days"
-    | "min_lead_minutes"
-    | "close_on_holidays"
+    "slot_interval_minutes" | "booking_window_days" | "min_lead_minutes"
   >;
   const menus: Array<Omit<MenuRow, "category_id">> = must(menusRes, "メニュー");
   const staff: Array<Pick<StaffRow, "id" | "name">> = must(
@@ -397,44 +296,18 @@ export async function getDayAvailability(
     "スタッフ勤務時間",
   );
   const busyRows: ReservationRangeRow[] = must(busyRes, "既存予約");
-  const nthClosures: NthWeekdayClosureRow[] = must(
-    nthClosuresRes,
-    "第◯曜日の定休",
-  );
-  const overrideRows: DateOverrideRow[] = must(
-    overridesRes,
-    "臨時休業・臨時営業",
-  );
-  if (hoursRes.error !== null) {
-    throw new Error(`営業時間の取得に失敗しました: ${hoursRes.error.message}`);
-  }
 
   // 存在しない・無効化済みメニューが混ざっていたら拒否(RPC側と同じ判定)
   if (menus.length !== distinctMenuIds.length) {
     return { kind: "invalid_menus" };
   }
 
-  // 行がない曜日は休業として扱う
-  const hoursRow = hoursRes.data as BusinessHoursRow | null;
-  const weeklyBusinessDay: BusinessDay = hoursRow
-    ? {
-        isOpen: hoursRow.is_open,
-        openTime: hoursRow.open_time,
-        closeTime: hoursRow.close_time,
-      }
-    : { isOpen: false, openTime: null, closeTime: null };
-
-  // 休業日ルール(毎週の定休・第◯曜日・祝日・臨時休業)。closures.ts に一本化する。
-  // 対象日の曜日だけ引いているので businessHours はその1行だけ渡す
-  // (行が無い曜日は空配列 = 休業扱いになり、上の weeklyBusinessDay と一致する)。
-  const closureRules: ClosureRules = {
-    businessHours: hoursRow
-      ? [{ weekday: hoursRow.weekday, isOpen: hoursRow.is_open }]
-      : [],
-    nthWeekdayClosures: nthClosures,
-    closeOnHolidays: settings.close_on_holidays,
-    overrides: toClosureOverrides(overrideRows),
-  };
+  // 休業日ルール(毎週の定休・第◯曜日・祝日・臨時休業)。判定は closures.ts に一本化する
+  const closureRules = calendar.closureRules;
+  const weeklyBusinessDay = weeklyBusinessDayOf(
+    calendar.weeklyBusinessHours,
+    weekday,
+  );
   const isClosed = resolveDayClosure(date, closureRules).isClosed;
 
   // その日の営業時間を確定してから枠計算へ渡す。休業日(祝日・第◯曜日・臨時休業を

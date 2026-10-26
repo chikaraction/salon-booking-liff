@@ -31,14 +31,13 @@ import { isSlotTakenError, isUuid } from "@/lib/booking";
 import { resolveBusinessDay, weeklyBusinessDayOf } from "@/lib/closures";
 import { createAdminAuthClient } from "@/server/admin-auth";
 import {
-  fetchAdminBusinessHours,
-  fetchClosureRules,
   fetchReservationDetail,
   searchCustomers,
   type CustomerSearchResult,
   type ReservationDetail,
 } from "@/server/admin-data";
 import { getDayAvailability } from "@/server/booking-data";
+import { fetchBusinessCalendar } from "@/server/closure-data";
 
 export type LoginResult = { ok: true } | { ok: false; message: string };
 
@@ -296,12 +295,12 @@ async function resolveAdminBusinessDay(
   supabase: SupabaseClient,
   date: string,
 ): Promise<BusinessDay> {
-  const businessHours = await fetchAdminBusinessHours(supabase);
-  const closureRules = await fetchClosureRules(supabase, businessHours);
+  const { weeklyBusinessHours, closureRules } =
+    await fetchBusinessCalendar(supabase);
   return resolveBusinessDay({
     date,
     weeklyBusinessDay: weeklyBusinessDayOf(
-      businessHours,
+      weeklyBusinessHours,
       calendarWeekday(date),
     ),
     rules: closureRules,

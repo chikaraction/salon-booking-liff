@@ -27,13 +27,12 @@ import {
 import { createAdminAuthClient } from "@/server/admin-auth";
 import {
   fetchActiveMenus,
-  fetchAdminBusinessHours,
   fetchAdminCalendarItems,
   fetchAdminStaff,
-  fetchClosureRules,
   fetchSlotIntervalMinutes,
   fetchStaffWorkingHoursForWeekday,
 } from "@/server/admin-data";
+import { fetchBusinessCalendar } from "@/server/closure-data";
 
 import { CalendarView } from "./_components/calendar-view";
 
@@ -70,14 +69,18 @@ export default async function AdminCalendarPage({
   const supabase = await createAdminAuthClient();
   // 刻み・メニューは日表示の代行登録ダイアログ(空き枠クリック)に渡す。
   // 刻みは salon_settings 由来(ADR-007: 30分などをコードに書かない)
-  const [staff, businessHours, slotIntervalMinutes, menus] = await Promise.all([
+  // 休業日判定(毎週の定休・第◯曜日・祝日・臨時休業)は closures.ts に一本化する
+  const [
+    staff,
+    { weeklyBusinessHours, closureRules },
+    slotIntervalMinutes,
+    menus,
+  ] = await Promise.all([
     fetchAdminStaff(supabase),
-    fetchAdminBusinessHours(supabase),
+    fetchBusinessCalendar(supabase),
     fetchSlotIntervalMinutes(supabase),
     fetchActiveMenus(supabase),
   ]);
-  // 休業日判定(毎週の定休・第◯曜日・祝日・臨時休業)は closures.ts に一本化する
-  const closureRules = await fetchClosureRules(supabase, businessHours);
   const isClosedDay = makeIsClosedDay(closureRules);
 
   let timeline: DayTimeline = EMPTY_TIMELINE;
@@ -90,7 +93,7 @@ export default async function AdminCalendarPage({
     // 時刻付きの臨時営業の日はその時刻を日表示の時間軸にする
     const businessDay = resolveBusinessDay({
       date,
-      weeklyBusinessDay: weeklyBusinessDayOf(businessHours, weekday),
+      weeklyBusinessDay: weeklyBusinessDayOf(weeklyBusinessHours, weekday),
       rules: closureRules,
     });
     const [items, workingHours] = await Promise.all([
@@ -120,7 +123,7 @@ export default async function AdminCalendarPage({
       // (臨時営業・短縮営業が週表示にも効く)
       businessDayOf: makeBusinessDayOf({
         rules: closureRules,
-        weeklyBusinessHours: businessHours,
+        weeklyBusinessHours,
       }),
     });
   }

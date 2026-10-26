@@ -80,13 +80,14 @@ import {
   type WorkingDayInput,
 } from "@/lib/staff-settings";
 import { formatTstzrange } from "@/lib/tstzrange";
-import {
-  fetchAdminBusinessHours,
-  fetchClosureRules,
-  fetchStaffWorkingHoursForWeekday,
-} from "@/server/admin-data";
+import { fetchStaffWorkingHoursForWeekday } from "@/server/admin-data";
 import { createAdminAuthClient, requireOwner } from "@/server/admin-auth";
-import { fetchDateOverrides, fetchMenuSettings } from "@/server/settings-data";
+import {
+  fetchBusinessCalendar,
+  fetchDateOverrides,
+  fetchWeeklyBusinessHours,
+} from "@/server/closure-data";
+import { fetchMenuSettings } from "@/server/settings-data";
 
 /** 設定系アクションの戻り値(既存のアクションと同じ判別可能なResult型) */
 export type SettingsActionResult =
@@ -285,7 +286,7 @@ export async function addDateOverride(
       // (外側の catch に任せると登録失敗の文言になるため)
       try {
         closedWeekdays = closedWeekdaysOf(
-          await fetchAdminBusinessHours(supabase),
+          await fetchWeeklyBusinessHours(supabase),
         );
       } catch (error) {
         console.error("addDateOverride failed", error);
@@ -585,13 +586,13 @@ export async function addStaffBlock(params: {
     const supabase = await createAdminAuthClient();
     const weekday = calendarWeekday(input.date);
 
-    const businessHours = await fetchAdminBusinessHours(supabase);
-    const [rules, workingRows] = await Promise.all([
-      fetchClosureRules(supabase, businessHours),
-      fetchStaffWorkingHoursForWeekday(supabase, weekday),
-    ]);
+    const [{ weeklyBusinessHours, closureRules: rules }, workingRows] =
+      await Promise.all([
+        fetchBusinessCalendar(supabase),
+        fetchStaffWorkingHoursForWeekday(supabase, weekday),
+      ]);
 
-    const weeklyBusinessDay = weeklyBusinessDayOf(businessHours, weekday);
+    const weeklyBusinessDay = weeklyBusinessDayOf(weeklyBusinessHours, weekday);
     const businessDay = resolveBusinessDay({
       date: input.date,
       weeklyBusinessDay,
