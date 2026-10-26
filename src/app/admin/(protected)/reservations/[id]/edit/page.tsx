@@ -7,6 +7,7 @@
 
 import { notFound } from "next/navigation";
 
+import { ProxyRegistrationForm } from "@/app/admin/(protected)/_components/proxy-registration-form";
 import { restoreSelectableMenuIds } from "@/lib/admin-reservation-form";
 import { isUuid } from "@/lib/booking";
 import { jstCalendarDate, jstClockTime } from "@/lib/jst";
@@ -16,8 +17,6 @@ import {
   fetchAdminStaff,
   fetchReservationDetail,
 } from "@/server/admin-data";
-
-import { ProxyRegistrationForm } from "../../new/_components/proxy-registration-form";
 
 export default async function EditReservationPage({
   params,

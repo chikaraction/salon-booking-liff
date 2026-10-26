@@ -61,6 +61,17 @@ export function jstDateTime(date: string, time: string): Date {
   return new Date(midnight.getTime() + timeToMinutes(time) * MINUTE_MS);
 }
 
+/** 0時からの分数を「13:00」形式にする(時は先頭0なし・分は2桁) */
+export function minutesLabel(minutes: number): string {
+  return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}`;
+}
+
+/** UTCのDateを対象日(JST)の0時からの分数に変換する */
+export function jstMinutesOfDay(date: string, at: Date): number {
+  const midnight = jstDateTime(date, "00:00");
+  return Math.round((at.getTime() - midnight.getTime()) / MINUTE_MS);
+}
+
 /** UTCのDateをJSTの暦日("YYYY-MM-DD")に変換する */
 export function jstCalendarDate(at: Date): string {
   return new Date(at.getTime() + JST_OFFSET_MS).toISOString().slice(0, 10);
