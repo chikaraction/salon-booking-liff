@@ -241,8 +241,10 @@ function DetailBody({
 
       {/* スタッフメモ(店内用・スタッフが記入 = customers.note。編集可) */}
       <div className="rounded-xl bg-muted p-4">
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-bold">
+        {/* スマホ幅で「編集」が押しつぶされて縦に折り返さないよう、折り返すのはラベル側にする。
+            gap-3 は「編集」の押せる範囲(左へ約8px はみ出す)がラベルの文字に重ならないための間隔 */}
+        <div className="flex items-center justify-between gap-3">
+          <p className="min-w-0 text-sm font-bold">
             スタッフメモ{" "}
             <span className="font-normal text-muted-foreground">
               (店内用・スタッフが記入)
@@ -255,7 +257,7 @@ function DetailBody({
               // 文字だけのボタンは小さく押しにくいので、見た目は変えずに押せる範囲だけ
               // 疑似要素でボタンの中心から 44×44 に広げる(Apple HIG の最小タップ領域 44pt)。
               // 広げた分はメモ枠の余白(p-4 = 16px)の内側に収まる
-              className="relative text-sm font-medium text-primary underline-offset-4 after:absolute after:top-1/2 after:left-1/2 after:size-11 after:-translate-x-1/2 after:-translate-y-1/2 hover:underline"
+              className="relative shrink-0 text-sm font-medium whitespace-nowrap text-primary underline-offset-4 after:absolute after:top-1/2 after:left-1/2 after:size-11 after:-translate-x-1/2 after:-translate-y-1/2 hover:underline"
             >
               編集
             </button>
