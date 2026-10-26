@@ -15,7 +15,6 @@
 import { GripHorizontal, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { ProxyRegistrationForm } from "@/app/admin/(protected)/reservations/new/_components/proxy-registration-form";
 import {
   clampDialogPosition,
   formDialogInitialX,
@@ -23,6 +22,8 @@ import {
   type ColumnAnchor,
 } from "@/lib/admin-calendar";
 import type { ActiveMenu } from "@/server/admin-data";
+
+import { ProxyRegistrationForm } from "./proxy-registration-form";
 
 /**
  * フローティングパネルの寸法(px)。Tailwind のクラス(w-[26rem])と対応させる。
