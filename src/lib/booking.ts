@@ -137,6 +137,20 @@ export function isSlotTakenError(error: unknown): boolean {
 }
 
 /**
+ * 客側の新規予約の失敗が「1人あたりの、これからの予約の上限」によるものか判定する。
+ * 上限超過時、create_reservation は独自に定義した SQLSTATE R0001 を返す
+ * (マイグレーション 20261026110000_reservation_limit_per_customer.sql)。
+ */
+export function isReservationLimitError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code: unknown }).code === "R0001"
+  );
+}
+
+/**
  * UUID形式(ハイフン区切りの8-4-4-4-12の16進、大文字小文字は問わない)か判定する。
  * URL由来の予約IDをDBに問い合わせる前の形式チェックに使う
  * (不正な形式をuuid列と比較するとPostgRESTがエラーを返すため)。

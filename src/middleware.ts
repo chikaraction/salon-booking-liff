@@ -19,12 +19,24 @@
 //    セッション更新を必須としている。型定義コメントで確認)
 // 2. 未ログインで /admin 配下(ログイン画面を除く)→ /admin/login へリダイレクト
 // 3. ログイン済みで /admin/login → /admin へリダイレクト
+// 4. すべての応答にクリックジャッキング対策のヘッダーを付ける
+//    (matcher が /admin だけなので客側のLIFFには影響しない)
 // レイアウト側でも getAdminUser で再確認する(二重チェック)。
 
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { ADMIN_SECURITY_HEADERS } from "@/lib/admin-security-headers";
+
 const LOGIN_PATH = "/admin/login";
+
+/** 管理画面のセキュリティヘッダーを応答に付けて返す */
+function withSecurityHeaders(response: NextResponse): NextResponse {
+  Object.entries(ADMIN_SECURITY_HEADERS).forEach(([key, value]) =>
+    response.headers.set(key, value),
+  );
+  return response;
+}
 
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -58,6 +70,8 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
         );
       },
     },
+    // 本番は https だけなので Secure を付ける(npm run dev の http://localhost では付けない)
+    cookieOptions: { secure: process.env.NODE_ENV === "production" },
   });
 
   // 認可判定は getSession ではなく検証済みの getUser(cookieは改ざんされうる)
@@ -80,14 +94,15 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     return redirectResponse;
   };
 
+  // response は setAll で作り直されるので、ヘッダーは return の直前に付ける
   if (user === null && !isLoginPage) {
-    return redirectTo(LOGIN_PATH);
+    return withSecurityHeaders(redirectTo(LOGIN_PATH));
   }
   if (user !== null && isLoginPage) {
-    return redirectTo("/admin");
+    return withSecurityHeaders(redirectTo("/admin"));
   }
 
-  return response;
+  return withSecurityHeaders(response);
 }
 
 export const config = {

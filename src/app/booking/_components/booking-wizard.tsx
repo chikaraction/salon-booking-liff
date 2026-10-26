@@ -347,6 +347,12 @@ export function BookingWizard({
       case "deadline_passed":
         setFlowError("直前の変更はお店に直接ご連絡ください");
         break;
+      case "reservation_limit":
+        // 上限値は店ごとに変わるので文言に数字は入れない
+        setFlowError(
+          "これからのご予約が上限に達しているため、新しいご予約をお受けできません。マイ予約からご予約内容をご確認ください",
+        );
+        break;
       default:
         setFlowError(result.message);
     }

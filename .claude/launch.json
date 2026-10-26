@@ -8,6 +8,12 @@
       "port": 3000
     },
     {
+      "name": "worker",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["wrangler", "dev", "--port", "8787"],
+      "port": 8787
+    },
+    {
       "name": "mockups",
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "4100", "--bind", "127.0.0.1", "--directory", "docs/mockups"],

@@ -85,6 +85,10 @@ LINEを通さずブラウザで開くには `NEXT_PUBLIC_LIFF_STUB=1`(LINEログ
 - [ ] Server Action を直接叩いて他人の予約IDのキャンセル・変更を試みる → 拒否され、
       対象予約に変化がない(RPC内の本人確認)
 - [ ] LINE実機: リッチメニューの「マイ予約」ボタンから /my が直接開く(M6デプロイ後)
+- [ ] **1人あたりの予約上限**: 同じLINEユーザーで、これからの予約を
+      `salon_settings.max_upcoming_reservations`(初期値3)件入れた状態で新規予約を
+      確定すると「これからのご予約が上限に達しているため…」が出て、予約は増えない。
+      予約の変更・店側の代行登録は上限に関係なくできる。1件キャンセルすると再び予約できる
 
 ## LIFF・LINEログイン(ADR-003、M6デプロイ後)
 
@@ -238,6 +242,17 @@ LINE実機でしか確認できない。M6 ではテスト用の公式アカウ�
       `push_messages` が0件に見え、`admin_create_reservation` /
       `admin_update_reservation` は 42501 で拒否される(SQL/REST で確認。
       確認後そのユーザーは削除する)
+- [ ] **無効スタッフの拒否**: 管理画面を使うスタッフをスタッフ設定で無効にすると、
+      その人のログインでは予約カレンダーが空になり、設定グループも出ない
+      (上と同じ REST 確認でも 0件・42501)。有効に戻すとすぐ元どおり使える
+- [ ] **https の強制**(本番): `curl -I http://<本番ホスト>/admin/login` が
+      `https://` への 301 になる。https の応答に `Strict-Transport-Security` が付く
+      (wrangler dev では転送先が http:// に見えるが、wrangler のプロキシの書き換えで正常)
+- [ ] **Cookie の Secure**(本番): ログイン後、ブラウザの開発者ツールで `sb-` で始まる
+      Cookie に Secure が付いている
+- [ ] **埋め込み禁止**(本番): `curl -I https://<本番ホスト>/admin/login` に
+      `X-Frame-Options: DENY` と `Content-Security-Policy: frame-ancestors 'none'` が付く。
+      客側(`/`・`/booking`・`/my`)には付かない
 - [ ] service_role キーがクライアントバンドルに含まれない(NEXT_PUBLIC_ でない)
 - [ ] **本番の顧客データを入れる前**: 検証用に作ったAuthユーザー(権限差の確認で
       `staff.auth_user_id` を紐付けずに作ったものなど)を Authentication → Users から
