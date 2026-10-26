@@ -2143,6 +2143,7 @@ describe("buildReservationDetailLabels(予約詳細の日時・担当/メニュ�
       start: jstDateTime("2026-07-18", "11:00"),
       staffName: "田中",
       menus: [cut, color],
+      requestNote: null,
     });
     expect(labels.dateTimeStaffLabel).toBe("7月18日(土)11:00〜 田中");
   });
@@ -2152,6 +2153,7 @@ describe("buildReservationDetailLabels(予約詳細の日時・担当/メニュ�
       start: jstDateTime("2026-07-18", "11:00"),
       staffName: "田中",
       menus: [cut, color], // 60+90=150分 / 4950+6600=11550円
+      requestNote: null,
     });
     expect(labels.menuLabel).toBe("カット + カラー(150分) ¥11,550");
   });
@@ -2161,9 +2163,58 @@ describe("buildReservationDetailLabels(予約詳細の日時・担当/メニュ�
       start: jstDateTime("2026-07-18", "09:30"),
       staffName: "佐藤",
       menus: [cut], // 60分 / 4950円
+      requestNote: null,
     });
     expect(labels.menuLabel).toBe("カット(60分) ¥4,950");
     expect(labels.dateTimeStaffLabel).toBe("7月18日(土)9:30〜 佐藤");
+  });
+});
+
+describe("buildReservationDetailLabels(予約詳細の「ご要望・ご相談」欄)", () => {
+  const base = {
+    start: jstDateTime("2026-07-18", "11:00"),
+    staffName: "田中",
+    menus: [cut],
+  };
+
+  it("ご要望が null なら「(なし)」を出し、空として扱う", () => {
+    const labels = buildReservationDetailLabels({ ...base, requestNote: null });
+    expect(labels.requestNote).toEqual({ text: "(なし)", isEmpty: true });
+  });
+
+  it("ご要望が空文字なら「(なし)」を出し、空として扱う", () => {
+    const labels = buildReservationDetailLabels({ ...base, requestNote: "" });
+    expect(labels.requestNote).toEqual({ text: "(なし)", isEmpty: true });
+  });
+
+  it("ご要望が空白・改行だけなら「(なし)」を出し、空として扱う", () => {
+    const labels = buildReservationDetailLabels({
+      ...base,
+      requestNote: " \n\t　",
+    });
+    expect(labels.requestNote).toEqual({ text: "(なし)", isEmpty: true });
+  });
+
+  it("ご要望に本文があればそのまま出す", () => {
+    const labels = buildReservationDetailLabels({
+      ...base,
+      requestNote: "前髪は短めで",
+    });
+    expect(labels.requestNote).toEqual({
+      text: "前髪は短めで",
+      isEmpty: false,
+    });
+  });
+
+  it("本文の前後の空白・途中の改行は削らずにそのまま出す(従来の表示と同じ)", () => {
+    const labels = buildReservationDetailLabels({
+      ...base,
+      requestNote: "  前髪は短めで\n襟足はそのまま\n",
+    });
+    expect(labels.requestNote).toEqual({
+      text: "  前髪は短めで\n襟足はそのまま\n",
+      isEmpty: false,
+    });
   });
 });
 

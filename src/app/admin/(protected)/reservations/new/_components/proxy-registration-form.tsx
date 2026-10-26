@@ -742,7 +742,7 @@ export function ProxyRegistrationForm({
           )}
 
           {/* ご要望・ご相談(任意)。保存先の reservations.note は客側の
-              「ご要望・ご相談」と同じ列で、予約詳細では「お客様からのご要望」、
+              「ご要望・ご相談」と同じ列で、予約詳細では「ご要望・ご相談」、
               客がマイ予約から変更するときは客の欄に表示される。店内用のメモは
               スタッフメモ(customers.note)へ案内する
               (docs/milestone-4-plan.md の決定5。モックDの「メモ(任意・店内用)」とは違う) */}
@@ -765,7 +765,7 @@ export function ProxyRegistrationForm({
               id="proxy-note-hint"
               className="mt-1 text-sm text-muted-foreground"
             >
-              予約詳細の「お客様からのご要望」に表示され、お客様がマイ予約から予約を変更するときにもお客様に見えます。店内用のメモは、予約詳細の「スタッフメモ」に書いてください。
+              予約詳細の「ご要望・ご相談」に表示され、お客様がマイ予約から予約を変更するときにもお客様に見えます。店内用のメモは、予約詳細の「スタッフメモ」に書いてください。
             </p>
           </div>
 

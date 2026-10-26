@@ -145,6 +145,7 @@ function DetailBody({
     start: detail.start,
     staffName: detail.staffName,
     menus: detail.menus,
+    requestNote: detail.requestNote,
   });
 
   // スタッフメモの編集(その場でテキストエリア → 保存 → 表示に戻す)
@@ -200,20 +201,21 @@ function DetailBody({
       <Field label="日時 / 担当" value={labels.dateTimeStaffLabel} />
       <Field label="メニュー" value={labels.menuLabel} />
 
-      {/* お客様からのご要望(予約時に入力 = reservations.note。無ければ非表示) */}
-      {detail.requestNote !== null && detail.requestNote.trim() !== "" && (
-        <div className="rounded-xl bg-accent p-4">
-          <p className="text-sm font-bold text-primary-strong">
-            お客様からのご要望{" "}
-            <span className="font-normal text-muted-foreground">
-              (予約時に入力)
+      {/* ご要望・ご相談(= reservations.note。客の予約時のほか、スタッフが変更画面でも
+          書き直せる)。空でも欄を出し、空なら「(なし)」を控えめな色で出す
+          (docs/milestone-4-plan.md の決定5) */}
+      <div className="rounded-xl bg-accent p-4">
+        <p className="text-sm font-bold text-primary-strong">ご要望・ご相談</p>
+        <p className="mt-1 whitespace-pre-wrap text-base text-accent-foreground">
+          {labels.requestNote.isEmpty ? (
+            <span className="text-muted-foreground">
+              {labels.requestNote.text}
             </span>
-          </p>
-          <p className="mt-1 whitespace-pre-wrap text-base text-accent-foreground">
-            {detail.requestNote}
-          </p>
-        </div>
-      )}
+          ) : (
+            labels.requestNote.text
+          )}
+        </p>
+      </div>
 
       {/* スタッフメモ(店内用・スタッフが記入 = customers.note。編集可) */}
       <div className="rounded-xl bg-muted p-4">
