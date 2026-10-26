@@ -18,6 +18,7 @@ import {
 } from "@/lib/availability";
 import {
   formatJstDateTimeLabel,
+  isReservationLimitError,
   isSlotTakenError,
   isUuid,
   parseChangeReservationResult,
@@ -292,6 +293,8 @@ export type SubmitReservationResult =
   | { ok: false; reason: "change_source_gone" }
   // 変更締切超過(UIは「直前の変更はお店に直接ご連絡ください」を案内する)
   | { ok: false; reason: "deadline_passed" }
+  // これからの予約が1人あたりの上限に達している(UIはマイ予約での確認を案内する)
+  | { ok: false; reason: "reservation_limit" }
   | { ok: false; reason: "server_error"; message: string };
 
 /** 予約を確定する */
@@ -445,6 +448,10 @@ export async function submitReservation(
         // EXCLUDE制約違反(SQLSTATE 23P01)= 事前チェック後に他の予約が入った
         if (isSlotTakenError(error)) {
           return { ok: false, reason: "slot_taken" };
+        }
+        // 1人あたりの予約上限超過(SQLSTATE R0001)
+        if (isReservationLimitError(error)) {
+          return { ok: false, reason: "reservation_limit" };
         }
         console.error("create_reservation failed", error);
         return {
