@@ -61,13 +61,28 @@ import { cn } from "@/lib/utils";
 const pickerInputClass =
   "h-11 rounded-xl border border-input bg-card text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50";
 const inputClass = `${pickerInputClass} px-3`;
-// 勤務時間の PC 幅(md 以上)の列: 曜日 / 開始 / 終了 / 休憩開始 / 〜 / 休憩終了。
+// 勤務時間の表(ブロックの幅が 39rem 以上)の列: 曜日 / 開始 / 終了 / 休憩開始 / 〜 / 休憩終了。
 // 1fr(= minmax(auto,1fr))だと列幅が中身の最低幅の見積もりに左右され、
 // ブラウザで休憩欄の幅が違った。minmax(0,1fr) で4つの時刻欄を同じ幅に揃える。
 // 〜 の列は見出し行と本体の行で幅が変わらないよう 1rem に固定(「〜」の幅)。
-// 見出し行と各曜日の行で同じテンプレートを使う
+// 見出し行と各曜日の行で同じテンプレートを使う。
+// 表にするかは画面幅ではなくブロックの幅で決める(コンテナクエリ)。md 以上は
+// サイドバー(w-60)の分だけ狭く、画面幅 768px ではブロックが約398pxしかない。
+// 39rem(624px)は 曜日5rem + 〜1rem + 間隔12px×5 + 時刻欄の最小116px×4 = 620px
+// に合わせた
 const workingHoursGridClass =
-  "md:grid-cols-[5rem_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_1rem_minmax(0,1fr)]";
+  "@min-[39rem]:grid-cols-[5rem_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_1rem_minmax(0,1fr)]";
+// 勤務時間の時刻欄を包む span(PickerInput の wrapperClassName)。
+// 最小の 116px(7.25rem)は、中身が欠けない幅がいちばん広い Firefox + LINE Seed JP
+// の実測(「00:00」で 113.5px、Chromium は 106px)に余裕を足したもの。
+// カード型の行では 116px〜128px(max-w-32)の間で伸び縮みし、2欄が1行に
+// 入りきらない幅では2つ目の欄を次の行に折り返す(行は flex-wrap)。
+// 折り返しの判定は flex-1(basis 0)を最小で留めた 116px で行うので、
+// 116px ずつ入る幅までは1行のまま。表の幅では span が grid のセルになり、
+// stretch でセル幅いっぱい(上限を外す)。input は span の中で伸ばす
+// (iOS は % 幅の時刻入力を content-box にしてはみ出すので w-full は使わない)
+const workingHoursPickerWrapperClass =
+  "min-w-[7.25rem] max-w-32 flex-1 @min-[39rem]:max-w-none";
 const sectionLabelClass = "text-base font-bold text-muted-foreground";
 const saveButtonClass = "h-11 rounded-xl px-5 text-base";
 /**
@@ -686,12 +701,14 @@ function WorkingHoursSection({
           勤務する曜日を選ぶと、開始・終了・休憩を設定できます。
         </p>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="@container flex flex-col gap-3">
           {/* モックは「開始」「終了」「休憩」の3入力。DBは曜日ごとに1行なので
-              曜日ごとに入力欄を出し、見出しは1回だけ(PC幅)にしてモックに寄せる */}
+              曜日ごとに入力欄を出し、見出しは1回だけ(表の幅)にしてモックに寄せる。
+              このブロック(@container)の幅が 39rem 以上で、見出し行と各曜日の行を
+              表にする(@min-[39rem]:)。それより狭いと曜日ごとのカード型 */}
           <div
             className={cn(
-              "hidden gap-3 text-sm text-muted-foreground md:grid",
+              "hidden gap-3 text-sm text-muted-foreground @min-[39rem]:grid",
               workingHoursGridClass,
             )}
           >
@@ -699,7 +716,7 @@ function WorkingHoursSection({
             <span>開始</span>
             <span>終了</span>
             {/* 休憩開始・〜・休憩終了の3列の上に出す */}
-            <span className="md:col-span-3">休憩</span>
+            <span className="@min-[39rem]:col-span-3">休憩</span>
           </div>
 
           {workingDaysOnly.map((day) => (
@@ -713,22 +730,24 @@ function WorkingHoursSection({
             >
               <div
                 className={cn(
-                  "grid grid-cols-1 gap-2 rounded-xl border border-border p-3 md:items-center md:gap-3 md:rounded-none md:border-0 md:p-0",
+                  "grid grid-cols-1 gap-2 rounded-xl border border-border p-3 @min-[39rem]:items-center @min-[39rem]:gap-3 @min-[39rem]:rounded-none @min-[39rem]:border-0 @min-[39rem]:p-0",
                   workingHoursGridClass,
                 )}
               >
-                <span className="flex flex-wrap items-center gap-2 text-base font-bold text-foreground md:font-normal">
+                <span className="flex flex-wrap items-center gap-2 text-base font-bold text-foreground @min-[39rem]:font-normal">
                   {weekdayLongLabel(day.weekday)}
                   {changedWeekdays.includes(day.weekday) && <ChangedMark />}
                 </span>
 
-                {/* スマホは 開始〜終了 を休憩と同じく1行に並べる(画面幅 約321px 以上で
-                    収まる)。md 以上は md:contents で各欄が grid のセルになる(「〜」は md:hidden) */}
-                <div className="flex flex-col gap-1 md:contents">
-                  <span className="text-sm text-muted-foreground md:hidden">
+                {/* カード型は 開始〜終了 を休憩と同じく1行に並べ、入りきらない幅
+                    (カードの中身が 約264px 未満)では終了を次の行に折り返す。
+                    表の幅では @min-[39rem]:contents で各欄が grid のセルになる
+                    (「〜」は @min-[39rem]:hidden) */}
+                <div className="flex flex-col gap-1 @min-[39rem]:contents">
+                  <span className="text-sm text-muted-foreground @min-[39rem]:hidden">
                     勤務時間
                   </span>
-                  <div className="flex items-center gap-2 md:contents">
+                  <div className="flex flex-wrap items-center gap-2 @min-[39rem]:contents">
                     <label className="sr-only" htmlFor={`start-${day.weekday}`}>
                       {weekdayLongLabel(day.weekday)}の開始
                     </label>
@@ -739,10 +758,12 @@ function WorkingHoursSection({
                       onChange={(event) =>
                         update(day.weekday, { startTime: event.target.value })
                       }
-                      wrapperClassName="min-w-0"
-                      className={cn(pickerInputClass, "w-32 min-w-0 md:flex-1")}
+                      wrapperClassName={workingHoursPickerWrapperClass}
+                      className={cn(pickerInputClass, "min-w-0 flex-1")}
                     />
-                    <span className="text-muted-foreground md:hidden">〜</span>
+                    <span className="text-muted-foreground @min-[39rem]:hidden">
+                      〜
+                    </span>
                     <label className="sr-only" htmlFor={`end-${day.weekday}`}>
                       {weekdayLongLabel(day.weekday)}の終了
                     </label>
@@ -753,28 +774,29 @@ function WorkingHoursSection({
                       onChange={(event) =>
                         update(day.weekday, { endTime: event.target.value })
                       }
-                      wrapperClassName="min-w-0"
-                      className={cn(pickerInputClass, "w-32 min-w-0 md:flex-1")}
+                      wrapperClassName={workingHoursPickerWrapperClass}
+                      className={cn(pickerInputClass, "min-w-0 flex-1")}
                     />
                   </div>
                 </div>
 
-                {/* md 以上は2つの div を md:contents で箱ごと消し、休憩開始・〜・
-                    休憩終了をそれぞれ行の grid のセルに並べる(md:hidden の見出しと
-                    sr-only の label はセルを取らない)。スマホは見出しの下に2欄の flex 行 */}
-                <div className="flex flex-col gap-1 md:contents">
-                  <span className="text-sm text-muted-foreground md:hidden">
+                {/* 表の幅では2つの div を @min-[39rem]:contents で箱ごと消し、
+                    休憩開始・〜・休憩終了をそれぞれ行の grid のセルに並べる
+                    (@min-[39rem]:hidden の見出しと sr-only の label はセルを取らない)。
+                    カード型は見出しの下に2欄の flex 行(入りきらない幅では休憩終了を
+                    次の行に折り返す) */}
+                <div className="flex flex-col gap-1 @min-[39rem]:contents">
+                  <span className="text-sm text-muted-foreground @min-[39rem]:hidden">
                     休憩 <span className="text-xs">(なしの場合は両方空欄)</span>
                   </span>
-                  <div className="flex items-center gap-2 md:contents">
+                  <div className="flex flex-wrap items-center gap-2 @min-[39rem]:contents">
                     <label
                       className="sr-only"
                       htmlFor={`break-start-${day.weekday}`}
                     >
                       {weekdayLongLabel(day.weekday)}の休憩開始
                     </label>
-                    {/* スマホは w-32 を上限に(狭い画面では縮む)。md 以上は span が
-                        grid のセルになって stretch でセル幅いっぱい、input はその中で伸ばす */}
+                    {/* 幅の決め方は workingHoursPickerWrapperClass を参照 */}
                     <PickerInput
                       id={`break-start-${day.weekday}`}
                       type="time"
@@ -782,8 +804,8 @@ function WorkingHoursSection({
                       onChange={(event) =>
                         update(day.weekday, { breakStart: event.target.value })
                       }
-                      wrapperClassName="min-w-0"
-                      className={cn(pickerInputClass, "w-32 min-w-0 md:flex-1")}
+                      wrapperClassName={workingHoursPickerWrapperClass}
+                      className={cn(pickerInputClass, "min-w-0 flex-1")}
                     />
                     <span className="text-muted-foreground">〜</span>
                     <label
@@ -799,8 +821,8 @@ function WorkingHoursSection({
                       onChange={(event) =>
                         update(day.weekday, { breakEnd: event.target.value })
                       }
-                      wrapperClassName="min-w-0"
-                      className={cn(pickerInputClass, "w-32 min-w-0 md:flex-1")}
+                      wrapperClassName={workingHoursPickerWrapperClass}
+                      className={cn(pickerInputClass, "min-w-0 flex-1")}
                     />
                   </div>
                 </div>

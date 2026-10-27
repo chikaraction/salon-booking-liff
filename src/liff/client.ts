@@ -4,17 +4,30 @@
 // 判断ロジックを持たない。
 // - LINEアプリ外で開かれた等でIDトークンが取れないときは null を返す
 //   (どう扱うかは呼び出し元が決める)
-// - NEXT_PUBLIC_LIFF_STUB=1 のときはLIFF SDKを一切呼ばず固定のダミーIDトークンを返す
-//   (通常ブラウザでのスモークテスト用。サーバー側の受け口は src/server/line.ts)
+// - NEXT_PUBLIC_LIFF_STUB=1 のときはLIFF SDKを一切呼ばずダミーIDトークン "stub:<userId>" を返す
+//   (通常ブラウザでのスモークテスト・E2E用。サーバー側の受け口は src/server/line.ts)。
+//   userId は localStorage の "liff-stub-user-id" に値があればそれ、無ければ U-dev-user-1
+//   (E2E で別々の客として予約するため。組み立ては src/lib/liff-stub.ts)
 
 import {
   CONFIRMATION_TRIGGER_TEXTS,
   type ConfirmationKind,
 } from "@/lib/line-messages";
-import { STUB_TOKEN_PREFIX } from "@/lib/liff-stub";
+import { STUB_USER_ID_STORAGE_KEY, stubIdTokenFor } from "@/lib/liff-stub";
 
-/** 開発用スタブのダミーIDトークン(サーバー側で "stub:" 以降がuserIdになる) */
-const STUB_ID_TOKEN = `${STUB_TOKEN_PREFIX}U-dev-user-1`;
+/**
+ * 開発用スタブのダミーIDトークン(サーバー側で "stub:" 以降がuserIdになる)。
+ * localStorage が使えない(プライベートモード・ストレージ遮断など)ときは既定の客にする。
+ */
+function stubIdToken(): string {
+  let override: string | null = null;
+  try {
+    override = window.localStorage.getItem(STUB_USER_ID_STORAGE_KEY);
+  } catch {
+    // 読めなければ上書きなしとして扱う
+  }
+  return stubIdTokenFor(override);
+}
 
 /** liff.init は多重呼び出しできないため、初回のPromiseを共有する */
 let initPromise: Promise<void> | null = null;
@@ -37,7 +50,7 @@ async function initializedLiff(liffId: string) {
  */
 export async function getLineIdToken(): Promise<string | null> {
   if (process.env.NEXT_PUBLIC_LIFF_STUB === "1") {
-    return STUB_ID_TOKEN;
+    return stubIdToken();
   }
 
   const liffId = process.env.NEXT_PUBLIC_LIFF_ID;

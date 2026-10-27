@@ -45,3 +45,8 @@ next-env.d.ts
 /.open-next/
 /.wrangler/
 .dev.vars*
+
+# E2E(npm run test:e2e)の出力とログイン状態
+/test-results/
+/playwright-report/
+/e2e/.auth/

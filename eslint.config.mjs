@@ -22,6 +22,9 @@ const eslintConfig = defineConfig([
     "src/types/database.types.ts",
     // テストのカバレッジの出力(npm run test:coverage)
     "coverage/**",
+    // E2Eの出力(npm run test:e2e)
+    "playwright-report/**",
+    "test-results/**",
   ]),
 ]);
 

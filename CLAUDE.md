@@ -23,14 +23,15 @@ npm run dev      # 開発サーバー
 npm run build    # 本番ビルド + 型チェック
 npm test         # ユニットテスト(src/lib/ の純粋ロジック、Vitest)
 npm run test:coverage # 上と同じテスト + カバレッジ計測(結果は coverage/index.html)
+npm run test:e2e # E2E(Playwright。先に npx supabase start。手元のDBを作り直して流す。ADR-008)
 npm run lint     # Lint(ESLint)
 npm run format   # Prettierで全体整形
 npm run db:types # DBの型を再生成(リンク済みのリモートDBを読み取る)
 ```
 
 スキーマ変更: `supabase/migrations/` にマイグレーションを追加し
-`npx supabase db push` で適用(ローカルにDockerはない。制約の実機検証は
-verify-booking スキル、SQLの事前検証はPGliteが使える)。適用したら
+`npx supabase db push` で適用(事前の検証は手元のSupabase(WSL2+Docker Desktop。
+`npx supabase start`)で `npx supabase db reset --local` して行う。リモートには触れない)。適用したら
 `npm run db:types` で `src/types/database.types.ts` を再生成してコミットする
 (生成ファイルは手で直さない)。null を受け付ける引数を持つRPCを足したら
 `src/types/database.ts` の上書きにも足す。コードは `@/types/database` の
