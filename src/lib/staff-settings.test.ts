@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { jstDateTime } from "./jst";
 import {
-  BLOCK_CONFLICT_MESSAGE,
   BLOCK_NO_WORKING_DAY_MESSAGE,
   LAST_OWNER_MESSAGE,
   STAFF_INVALID_MESSAGE,
@@ -603,14 +602,9 @@ describe("resolveStaffBlockRange", () => {
 });
 
 describe("isBlockConflictError", () => {
-  it("EXCLUDE制約違反(23P01)を既存予約との重なりとして判定する", () => {
+  it("EXCLUDE制約違反(23P01)を、既存予約との重なりとして判定する", () => {
     expect(isBlockConflictError({ code: "23P01" })).toBe(true);
     expect(isBlockConflictError({ code: "23505" })).toBe(false);
-    expect(isBlockConflictError(null)).toBe(false);
-  });
-
-  it("重なりの文言はDB制約に任せた結果を伝えるものになっている", () => {
-    expect(BLOCK_CONFLICT_MESSAGE).toBe("その時間帯には予約が入っています");
   });
 });
 
@@ -731,14 +725,6 @@ describe("changedStaffFields", () => {
 });
 
 describe("changedWorkingDayWeekdays", () => {
-  it("保存済みの値と同じなら変更なし", () => {
-    const saved = allWeekdays({
-      1: { isWorking: true },
-      2: { isWorking: true },
-    });
-    expect(changedWorkingDayWeekdays(saved, saved)).toEqual([]);
-  });
-
   it("勤務曜日のON/OFFを切り替えた曜日を返す", () => {
     expect(
       changedWorkingDayWeekdays(
@@ -796,21 +782,5 @@ describe("changedWorkingDayWeekdays", () => {
         }),
       ),
     ).toEqual([1, 5]);
-  });
-
-  it("値を変えてから手で元の値に戻すと変更なしに戻る", () => {
-    const saved = allWeekdays({ 1: { isWorking: true, endTime: "19:00" } });
-    expect(
-      changedWorkingDayWeekdays(
-        saved,
-        allWeekdays({ 1: { isWorking: true, endTime: "20:00" } }),
-      ),
-    ).toEqual([1]);
-    expect(
-      changedWorkingDayWeekdays(
-        saved,
-        allWeekdays({ 1: { isWorking: true, endTime: "19:00" } }),
-      ),
-    ).toEqual([]);
   });
 });

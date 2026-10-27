@@ -107,8 +107,9 @@ function block(params: {
 /**
  * 週表示に渡す businessDayOf を business_hours の行から組む
  * (page.tsx と同じ組み方。休業日ルールを足したいときは extra を渡す)。
+ * 本体の closures.ts の weeklyBusinessDayOf(曜日の営業時間を返す)とは別物。
  */
-function weeklyBusinessDayOf(
+function businessDayOfFromWeekly(
   businessHours: Array<{ weekday: number } & BusinessDay>,
   extra: Partial<ClosureRules> = {},
 ): (date: string) => BusinessDay {
@@ -543,6 +544,41 @@ describe("buildDayTimeline: 日表示の配置計算", () => {
     expect(timeline.columns[1].staffId).toBe("sato");
     expect(timeline.columns[1].blocks).toHaveLength(0);
   });
+
+  describe("時間軸の分数(axis)", () => {
+    it("営業日は営業時間の開店・閉店を分数で返す(クリック位置→時刻の変換に使う)", () => {
+      const timeline = buildDayTimeline({ ...base, items: [] });
+      expect(timeline.axis).toEqual({ openMinutes: 540, closeMinutes: 1140 });
+    });
+
+    it("休業日でも予約があれば予約の範囲から組んだ軸を返す", () => {
+      const timeline = buildDayTimeline({
+        ...base,
+        businessDay: { isOpen: false, openTime: null, closeTime: null },
+        items: [
+          booking({
+            id: "b1",
+            staffId: "tanaka",
+            start: "09:30",
+            end: "10:30",
+            customerName: "佐々木",
+            menus: [cut],
+          }),
+        ],
+      });
+      // 9:30〜10:30 → 軸は 9:00〜11:00(正時に丸め)
+      expect(timeline.axis).toEqual({ openMinutes: 540, closeMinutes: 660 });
+    });
+
+    it("予約のない休業日は軸なし(null。タイムラインを描かないのでクリックもできない)", () => {
+      const timeline = buildDayTimeline({
+        ...base,
+        businessDay: { isOpen: false, openTime: null, closeTime: null },
+        items: [],
+      });
+      expect(timeline.axis).toBeNull();
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -567,7 +603,7 @@ describe("buildWeekView: 週表示への集約", () => {
     closeOnHolidays: false,
     overrides: [],
   });
-  const businessDayOf = weeklyBusinessDayOf(businessHours);
+  const businessDayOf = businessDayOfFromWeekly(businessHours);
   const weekStart = "2026-07-12"; // 日曜
 
   it("週の開始(日曜)から7日分を日別にグルーピングする", () => {
@@ -840,6 +876,160 @@ describe("buildWeekView: 週表示への集約", () => {
     expect(view.days[2].items[0].menuLabel).toBeNull();
     expect(view.days[2].items[0].menuNames).toBe("カット");
   });
+
+  describe("時間軸の分数(axis)", () => {
+    it("営業日のある週は最小開店〜最大閉店を分数で返す(クリック位置→時刻の変換に使う)", () => {
+      const view = buildWeekView({
+        weekStart,
+        businessDayOf,
+        items: [],
+        isClosedDay,
+      });
+      expect(view.axis).toEqual({ openMinutes: 540, closeMinutes: 1140 });
+    });
+
+    it("週内に営業日が1日もなければ軸なし(null。クリックもできない)", () => {
+      const view = buildWeekView({
+        weekStart,
+        businessDayOf: businessDayOfFromWeekly(
+          businessHours.map((day) => ({
+            ...day,
+            isOpen: false,
+            openTime: null,
+            closeTime: null,
+          })),
+        ),
+        items: [],
+        isClosedDay: () => true,
+      });
+      expect(view.axis).toBeNull();
+      expect(view.ticks).toEqual([]);
+    });
+
+    it("営業時間外の予約を含む週は、その予約を含むところまで軸が広がる", () => {
+      const view = buildWeekView({
+        weekStart,
+        businessDayOf,
+        items: [
+          // 平日営業は 10:00〜18:00 だが、8:00 開始・20:00 終了の予約が軸に入る
+          booking({
+            id: "early",
+            staffId: "tanaka",
+            date: "2026-07-13",
+            start: "08:00",
+            end: "09:00",
+            customerName: "早朝",
+            menus: [cut],
+          }),
+          booking({
+            id: "late",
+            staffId: "sato",
+            date: "2026-07-14",
+            start: "19:00",
+            end: "20:00",
+            customerName: "夜間",
+            menus: [cut],
+          }),
+        ],
+        isClosedDay,
+      });
+      expect(view.axis).toEqual({ openMinutes: 480, closeMinutes: 1200 });
+    });
+
+    it("予約で広げた軸は正時に丸める(開店側は切り下げ・閉店側は切り上げ)", () => {
+      const view = buildWeekView({
+        weekStart,
+        businessDayOf,
+        items: [
+          // 8:45 開始 → 8:00 まで切り下げ
+          booking({
+            id: "early",
+            staffId: "tanaka",
+            date: "2026-07-13",
+            start: "08:45",
+            end: "09:15",
+            customerName: "早朝",
+            menus: [cut],
+          }),
+          // 19:45 終了 → 20:00 まで切り上げ
+          booking({
+            id: "late",
+            staffId: "sato",
+            date: "2026-07-14",
+            start: "19:15",
+            end: "19:45",
+            customerName: "夜間",
+            menus: [cut],
+          }),
+        ],
+        isClosedDay,
+      });
+      expect(view.axis).toEqual({ openMinutes: 480, closeMinutes: 1200 });
+    });
+
+    it("半端な時刻の予約が営業時間の中に収まるなら軸は営業時間のまま(クリック位置が枠の格子とずれない)", () => {
+      const view = buildWeekView({
+        weekStart,
+        businessDayOf,
+        items: [
+          booking({
+            id: "odd",
+            staffId: "tanaka",
+            date: "2026-07-14",
+            start: "10:15",
+            end: "11:15",
+            customerName: "半端",
+            menus: [cut],
+          }),
+        ],
+        isClosedDay,
+      });
+      // 土曜 9:00〜19:00 のまま(9:15 始まりの軸にならない)
+      expect(view.axis).toEqual({ openMinutes: 540, closeMinutes: 1140 });
+      // 軸が正時なら、クリック位置から求まる時刻も枠の格子(9:00・9:30…)に乗る
+      expect(
+        timeFromTimelineRatio({
+          ratio: 0,
+          openMinutes: view.axis?.openMinutes ?? -1,
+          closeMinutes: view.axis?.closeMinutes ?? -1,
+          intervalMinutes: 30,
+        }),
+      ).toBe("09:00");
+    });
+
+    it("営業時間そのものが正時でなければ丸めない(目盛り生成と同じ基準)", () => {
+      const view = buildWeekView({
+        weekStart,
+        businessDayOf: businessDayOfFromWeekly(
+          businessHours.map((day) =>
+            day.isOpen
+              ? { ...day, openTime: "09:30:00", closeTime: "18:30:00" }
+              : day,
+          ),
+        ),
+        items: [],
+        isClosedDay,
+      });
+      expect(view.axis).toEqual({ openMinutes: 570, closeMinutes: 1110 });
+      // hourTickMarks と同じく、最初の目盛りは開店の次の正時
+      expect(view.ticks[0]).toBe("10:00");
+    });
+
+    it("目盛りの先頭・末尾は軸の開店・閉店と同じ時刻を指す(top%の基準が一致する)", () => {
+      const view = buildWeekView({
+        weekStart,
+        businessDayOf,
+        items: [],
+        isClosedDay,
+      });
+      // 軸が null なら意図的に一致しない値にして失敗させる
+      const axis = view.axis ?? { openMinutes: -1, closeMinutes: -1 };
+      expect(view.ticks[0]).toBe(`${axis.openMinutes / 60}:00`);
+      expect(view.ticks[view.ticks.length - 1]).toBe(
+        `${axis.closeMinutes / 60}:00`,
+      );
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -864,7 +1054,7 @@ describe("buildWeekView: 曜日ごとに閉店時刻が違う週", () => {
     closeOnHolidays: false,
     overrides: [],
   });
-  const businessDayOf = weeklyBusinessDayOf(businessHours);
+  const businessDayOf = businessDayOfFromWeekly(businessHours);
   const weekStart = "2026-07-12"; // 日曜(水曜は 2026-07-15)
 
   const base = { weekStart, items: [], isClosedDay, businessDayOf };
@@ -941,7 +1131,7 @@ describe("buildWeekView: 営業時間外の帯(offHoursBands)", () => {
     // 月曜だけ11:00開店、他は9:00開店(軸は 9:00〜19:00 = 600分)
     const view = buildWeekView({
       weekStart,
-      businessDayOf: weeklyBusinessDayOf(
+      businessDayOf: businessDayOfFromWeekly(
         hoursOf({
           1: { open: "11", close: "19" },
           2: { open: "09", close: "19" },
@@ -965,7 +1155,7 @@ describe("buildWeekView: 営業時間外の帯(offHoursBands)", () => {
     // 軸 9:00〜21:00(720分)。火曜だけ 11:00〜19:00
     const view = buildWeekView({
       weekStart,
-      businessDayOf: weeklyBusinessDayOf(
+      businessDayOf: businessDayOfFromWeekly(
         hoursOf({
           1: { open: "09", close: "21" },
           2: { open: "11", close: "19" },
@@ -995,7 +1185,7 @@ describe("buildWeekView: 営業時間外の帯(offHoursBands)", () => {
     }).filter((row) => row.weekday !== 4);
     const view = buildWeekView({
       weekStart,
-      businessDayOf: weeklyBusinessDayOf(businessHours),
+      businessDayOf: businessDayOfFromWeekly(businessHours),
       items: [],
       // 行が無い曜日の休業判定は呼び出し側(closures.ts)が持つ
       isClosedDay: (date) => date === "2026-07-12" || date === "2026-07-16",
@@ -1008,7 +1198,7 @@ describe("buildWeekView: 営業時間外の帯(offHoursBands)", () => {
     // 全曜日 9:00〜19:00。土曜 20:00 終了の予約で軸が 9:00〜20:00(660分)に広がる
     const view = buildWeekView({
       weekStart,
-      businessDayOf: weeklyBusinessDayOf(
+      businessDayOf: businessDayOfFromWeekly(
         hoursOf({
           1: { open: "09", close: "19" },
           2: { open: "09", close: "19" },
@@ -1045,7 +1235,7 @@ describe("buildWeekView: 営業時間外の帯(offHoursBands)", () => {
   it("軸が無い週(営業日も予約も無い)は帯も空になる", () => {
     const view = buildWeekView({
       weekStart,
-      businessDayOf: weeklyBusinessDayOf(hoursOf({})),
+      businessDayOf: businessDayOfFromWeekly(hoursOf({})),
       items: [],
       isClosedDay: () => true,
     });
@@ -1253,7 +1443,7 @@ describe("buildWeekView: 重なる予約のレーン分割", () => {
     closeTime: "19:00:00",
   }));
   const isClosedDay = () => false;
-  const businessDayOf = weeklyBusinessDayOf(businessHours);
+  const businessDayOf = businessDayOfFromWeekly(businessHours);
   const weekStart = "2026-07-12"; // 日曜
   const date = "2026-07-14"; // 火曜(days[2])
 
@@ -1735,222 +1925,6 @@ describe("buildReservationDetailLabels(予約詳細の「ご要望・ご相談�
 // ---------------------------------------------------------------------------
 // 7. 空き枠クリック(日表示)→ 代行登録ダイアログ
 // ---------------------------------------------------------------------------
-
-describe("buildDayTimeline: 時間軸の分数(axis)", () => {
-  const base = {
-    date: "2026-07-18",
-    businessDay,
-    staff,
-    workingHours,
-  };
-
-  it("営業日は営業時間の開店・閉店を分数で返す(クリック位置→時刻の変換に使う)", () => {
-    const timeline = buildDayTimeline({ ...base, items: [] });
-    expect(timeline.axis).toEqual({ openMinutes: 540, closeMinutes: 1140 });
-  });
-
-  it("休業日でも予約があれば予約の範囲から組んだ軸を返す", () => {
-    const timeline = buildDayTimeline({
-      ...base,
-      businessDay: { isOpen: false, openTime: null, closeTime: null },
-      items: [
-        booking({
-          id: "b1",
-          staffId: "tanaka",
-          start: "09:30",
-          end: "10:30",
-          customerName: "佐々木",
-          menus: [cut],
-        }),
-      ],
-    });
-    // 9:30〜10:30 → 軸は 9:00〜11:00(正時に丸め)
-    expect(timeline.axis).toEqual({ openMinutes: 540, closeMinutes: 660 });
-  });
-
-  it("予約のない休業日は軸なし(null。タイムラインを描かないのでクリックもできない)", () => {
-    const timeline = buildDayTimeline({
-      ...base,
-      businessDay: { isOpen: false, openTime: null, closeTime: null },
-      items: [],
-    });
-    expect(timeline.axis).toBeNull();
-  });
-});
-
-describe("buildWeekView: 時間軸の分数(axis)", () => {
-  // 日曜定休。平日 10:00〜18:00、土曜 9:00〜19:00 → 週の時間軸は 9:00〜19:00
-  const businessHours = [
-    { weekday: 0, isOpen: false, openTime: null, closeTime: null },
-    ...[1, 2, 3, 4, 5].map((weekday) => ({
-      weekday,
-      isOpen: true,
-      openTime: "10:00:00",
-      closeTime: "18:00:00",
-    })),
-    { weekday: 6, isOpen: true, openTime: "09:00:00", closeTime: "19:00:00" },
-  ];
-  const isClosedDay = makeIsClosedDay({
-    businessHours,
-    nthWeekdayClosures: [],
-    closeOnHolidays: false,
-    overrides: [],
-  });
-  const businessDayOf = weeklyBusinessDayOf(businessHours);
-  const weekStart = "2026-07-12"; // 日曜
-
-  it("営業日のある週は最小開店〜最大閉店を分数で返す(クリック位置→時刻の変換に使う)", () => {
-    const view = buildWeekView({
-      weekStart,
-      businessDayOf,
-      items: [],
-      isClosedDay,
-    });
-    expect(view.axis).toEqual({ openMinutes: 540, closeMinutes: 1140 });
-  });
-
-  it("週内に営業日が1日もなければ軸なし(null。クリックもできない)", () => {
-    const view = buildWeekView({
-      weekStart,
-      businessDayOf: weeklyBusinessDayOf(
-        businessHours.map((day) => ({
-          ...day,
-          isOpen: false,
-          openTime: null,
-          closeTime: null,
-        })),
-      ),
-      items: [],
-      isClosedDay: () => true,
-    });
-    expect(view.axis).toBeNull();
-    expect(view.ticks).toEqual([]);
-  });
-
-  it("営業時間外の予約を含む週は、その予約を含むところまで軸が広がる", () => {
-    const view = buildWeekView({
-      weekStart,
-      businessDayOf,
-      items: [
-        // 平日営業は 10:00〜18:00 だが、8:00 開始・20:00 終了の予約が軸に入る
-        booking({
-          id: "early",
-          staffId: "tanaka",
-          date: "2026-07-13",
-          start: "08:00",
-          end: "09:00",
-          customerName: "早朝",
-          menus: [cut],
-        }),
-        booking({
-          id: "late",
-          staffId: "sato",
-          date: "2026-07-14",
-          start: "19:00",
-          end: "20:00",
-          customerName: "夜間",
-          menus: [cut],
-        }),
-      ],
-      isClosedDay,
-    });
-    expect(view.axis).toEqual({ openMinutes: 480, closeMinutes: 1200 });
-  });
-
-  it("予約で広げた軸は正時に丸める(開店側は切り下げ・閉店側は切り上げ)", () => {
-    const view = buildWeekView({
-      weekStart,
-      businessDayOf,
-      items: [
-        // 8:45 開始 → 8:00 まで切り下げ
-        booking({
-          id: "early",
-          staffId: "tanaka",
-          date: "2026-07-13",
-          start: "08:45",
-          end: "09:15",
-          customerName: "早朝",
-          menus: [cut],
-        }),
-        // 19:45 終了 → 20:00 まで切り上げ
-        booking({
-          id: "late",
-          staffId: "sato",
-          date: "2026-07-14",
-          start: "19:15",
-          end: "19:45",
-          customerName: "夜間",
-          menus: [cut],
-        }),
-      ],
-      isClosedDay,
-    });
-    expect(view.axis).toEqual({ openMinutes: 480, closeMinutes: 1200 });
-  });
-
-  it("半端な時刻の予約が営業時間の中に収まるなら軸は営業時間のまま(クリック位置が枠の格子とずれない)", () => {
-    const view = buildWeekView({
-      weekStart,
-      businessDayOf,
-      items: [
-        booking({
-          id: "odd",
-          staffId: "tanaka",
-          date: "2026-07-14",
-          start: "10:15",
-          end: "11:15",
-          customerName: "半端",
-          menus: [cut],
-        }),
-      ],
-      isClosedDay,
-    });
-    // 土曜 9:00〜19:00 のまま(9:15 始まりの軸にならない)
-    expect(view.axis).toEqual({ openMinutes: 540, closeMinutes: 1140 });
-    // 軸が正時なら、クリック位置から求まる時刻も枠の格子(9:00・9:30…)に乗る
-    expect(
-      timeFromTimelineRatio({
-        ratio: 0,
-        openMinutes: view.axis?.openMinutes ?? -1,
-        closeMinutes: view.axis?.closeMinutes ?? -1,
-        intervalMinutes: 30,
-      }),
-    ).toBe("09:00");
-  });
-
-  it("営業時間そのものが正時でなければ丸めない(目盛り生成と同じ基準)", () => {
-    const view = buildWeekView({
-      weekStart,
-      businessDayOf: weeklyBusinessDayOf(
-        businessHours.map((day) =>
-          day.isOpen
-            ? { ...day, openTime: "09:30:00", closeTime: "18:30:00" }
-            : day,
-        ),
-      ),
-      items: [],
-      isClosedDay,
-    });
-    expect(view.axis).toEqual({ openMinutes: 570, closeMinutes: 1110 });
-    // hourTickMarks と同じく、最初の目盛りは開店の次の正時
-    expect(view.ticks[0]).toBe("10:00");
-  });
-
-  it("目盛りの先頭・末尾は軸の開店・閉店と同じ時刻を指す(top%の基準が一致する)", () => {
-    const view = buildWeekView({
-      weekStart,
-      businessDayOf,
-      items: [],
-      isClosedDay,
-    });
-    // 軸が null なら意図的に一致しない値にして失敗させる
-    const axis = view.axis ?? { openMinutes: -1, closeMinutes: -1 };
-    expect(view.ticks[0]).toBe(`${axis.openMinutes / 60}:00`);
-    expect(view.ticks[view.ticks.length - 1]).toBe(
-      `${axis.closeMinutes / 60}:00`,
-    );
-  });
-});
 
 describe("timeFromTimelineRatio: クリック位置から枠の開始時刻を求める", () => {
   // 営業 9:00〜19:00(540〜1140分)を30分刻みで割る想定

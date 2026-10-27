@@ -3,7 +3,7 @@
 // 最後の砦はDBのEXCLUDE制約(ADR-004)であり、ここは入力の形式検証に徹する。
 // DOM・Supabaseクライアントのimportはしない(CLAUDE.md)。
 
-import { isCalendarDate } from "./jst";
+import { isCalendarDate, isWallClockTime } from "./jst";
 
 export type ProxyRegistrationInput = {
   /** 既存顧客を選択した場合のID。新規客なら null */
@@ -48,11 +48,6 @@ export type ProxyRegistrationResult =
   | { ok: true; value: ProxyRegistrationValue }
   | { ok: false; errors: ProxyRegistrationErrors };
 
-/** "HH:MM"(00:00〜23:59)形式の壁時計時刻かどうかを判定する */
-export function isWallClockTime(value: string): boolean {
-  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
-}
-
 /**
  * 開始時刻が現在(now)より厳密に過去かどうかを判定する。
  * start===now は過去扱いしない(now ちょうどの開始は許可)。
@@ -63,25 +58,51 @@ export function isPastStart(start: Date, now: Date): boolean {
   return start.getTime() < now.getTime();
 }
 
-/**
- * 代行登録フォームの入力を検証する(モックD準拠)。
- * - 顧客: 既存顧客ID があるか、なければ新規客名(必須。電話は任意)
- * - メニュー: 1件以上(重複は除去)
- * - スタッフ・日付・時間: 必須。日付は実在する暦日、時間は "HH:MM"
- * 既存顧客ID がある場合は RPC が既存顧客を使うため、新規名・電話は捨てる。
- */
-export function validateProxyRegistration(
-  input: ProxyRegistrationInput,
-): ProxyRegistrationResult {
-  const errors: ProxyRegistrationErrors = {};
+// ---------------------------------------------------------------------------
+// 代行登録と店側変更に共通の項目(メニュー・スタッフ・日付・時間)の入力検証。
+// 2つのフォームはこれを呼んだうえで、それぞれに固有の検証(代行登録の顧客)を足す。
+// ---------------------------------------------------------------------------
 
-  // 顧客: 既存顧客ID があればそれを使う。なければ新規名が必須(電話は任意)
-  const hasExisting = input.customerId !== null && input.customerId !== "";
-  const trimmedName = input.customerName.trim();
-  const trimmedPhone = input.customerPhone.trim();
-  if (!hasExisting && trimmedName === "") {
-    errors.customer = "お客様名を入力するか、既存のお客様を選択してください";
-  }
+/** 代行登録と店側変更に共通の入力項目 */
+export type ReservationFieldsInput = {
+  /** 選択メニュー(1件以上) */
+  menuIds: string[];
+  staffId: string;
+  /** JSTの暦日 "YYYY-MM-DD" */
+  date: string;
+  /** 壁時計時刻 "HH:MM" */
+  time: string;
+};
+
+/** 共通の項目のエラーメッセージ(存在する項目だけ入る) */
+export type ReservationFieldsErrors = {
+  menu?: string;
+  staff?: string;
+  date?: string;
+  time?: string;
+};
+
+/** 共通の項目の検証済み・正規化済みの値 */
+export type ReservationFieldsValue = {
+  menuIds: string[];
+  staffId: string;
+  date: string;
+  time: string;
+};
+
+export type ReservationFieldsResult =
+  | { ok: true; value: ReservationFieldsValue }
+  | { ok: false; errors: ReservationFieldsErrors };
+
+/**
+ * 代行登録と店側変更に共通の項目を検証する。
+ * - メニュー: 1件以上(重複は除去し、最初に現れた順を保つ)
+ * - スタッフ・日付・時間: 必須。日付は実在する暦日、時間は "HH:MM"
+ */
+export function validateReservationFields(
+  input: ReservationFieldsInput,
+): ReservationFieldsResult {
+  const errors: ReservationFieldsErrors = {};
 
   // メニュー: 重複を除去して1件以上
   const menuIds = [...new Set(input.menuIds)];
@@ -108,9 +129,6 @@ export function validateProxyRegistration(
   return {
     ok: true,
     value: {
-      customerId: hasExisting ? input.customerId : null,
-      customerName: hasExisting ? null : trimmedName,
-      customerPhone: hasExisting || trimmedPhone === "" ? null : trimmedPhone,
       menuIds,
       staffId: input.staffId,
       date: input.date,
@@ -120,82 +138,77 @@ export function validateProxyRegistration(
 }
 
 // ---------------------------------------------------------------------------
-// 店側変更(代行登録フォームを変更モードで再利用)の入力検証。
-// 顧客は固定(変更不可)なので顧客の検証はしない。それ以外(メニュー・スタッフ・
-// 日付・時間)は代行登録と同じ規則で検証する。
+// 代行登録(モックD)の入力検証
 // ---------------------------------------------------------------------------
 
-/** 変更モードの入力(顧客は含めない = 変更不可) */
-export type ReservationEditInput = {
-  /** 選択メニュー(1件以上) */
-  menuIds: string[];
-  staffId: string;
-  /** JSTの暦日 "YYYY-MM-DD" */
-  date: string;
-  /** 壁時計時刻 "HH:MM" */
-  time: string;
-};
-
-/** 各項目のエラーメッセージ(存在する項目だけ入る)。顧客は対象外 */
-export type ReservationEditErrors = {
-  menu?: string;
-  staff?: string;
-  date?: string;
-  time?: string;
-};
-
-/** 検証済み・正規化済みの値(Server Action が admin_update_reservation へ渡す形) */
-export type ReservationEditValue = {
-  menuIds: string[];
-  staffId: string;
-  date: string;
-  time: string;
-};
-
-export type ReservationEditResult =
-  | { ok: true; value: ReservationEditValue }
-  | { ok: false; errors: ReservationEditErrors };
-
 /**
- * 店側変更フォームの入力を検証する。顧客は変更できないため検証しない。
- * メニュー(重複除去して1件以上)・スタッフ・日付(実在する暦日)・
- * 時間("HH:MM")を代行登録と同じ規則で確認する。
+ * 代行登録フォームの入力を検証する(モックD準拠)。
+ * - 顧客: 既存顧客ID があるか、なければ新規客名(必須。電話は任意)
+ * - メニュー: 1件以上(重複は除去)
+ * - スタッフ・日付・時間: 必須。日付は実在する暦日、時間は "HH:MM"
+ * 既存顧客ID がある場合は RPC が既存顧客を使うため、新規名・電話は捨てる。
  */
-export function validateReservationEdit(
-  input: ReservationEditInput,
-): ReservationEditResult {
-  const errors: ReservationEditErrors = {};
+export function validateProxyRegistration(
+  input: ProxyRegistrationInput,
+): ProxyRegistrationResult {
+  const errors: ProxyRegistrationErrors = {};
 
-  const menuIds = [...new Set(input.menuIds)];
-  if (menuIds.length === 0) {
-    errors.menu = "メニューを1つ以上選択してください";
+  // 顧客: 既存顧客ID があればそれを使う。なければ新規名が必須(電話は任意)
+  const hasExisting = input.customerId !== null && input.customerId !== "";
+  const trimmedName = input.customerName.trim();
+  const trimmedPhone = input.customerPhone.trim();
+  if (!hasExisting && trimmedName === "") {
+    errors.customer = "お客様名を入力するか、既存のお客様を選択してください";
   }
 
-  if (input.staffId === "") {
-    errors.staff = "スタッフを選択してください";
+  // メニュー・スタッフ・日付・時間は店側変更と共通の規則で検証する
+  // (エラーのキーの並びは従来どおり顧客を先にする)
+  const fields = validateReservationFields(input);
+  if (!fields.ok) {
+    Object.assign(errors, fields.errors);
   }
 
-  if (!isCalendarDate(input.date)) {
-    errors.date = "日付を選択してください";
-  }
-
-  if (!isWallClockTime(input.time)) {
-    errors.time = "時間を選択してください";
-  }
-
-  if (Object.keys(errors).length > 0) {
+  if (!fields.ok || Object.keys(errors).length > 0) {
     return { ok: false, errors };
   }
 
   return {
     ok: true,
     value: {
-      menuIds,
-      staffId: input.staffId,
-      date: input.date,
-      time: input.time,
+      customerId: hasExisting ? input.customerId : null,
+      customerName: hasExisting ? null : trimmedName,
+      customerPhone: hasExisting || trimmedPhone === "" ? null : trimmedPhone,
+      ...fields.value,
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// 店側変更(代行登録フォームを変更モードで再利用)の入力検証。
+// 顧客は固定(変更不可)なので顧客の検証はしない。検証する項目(メニュー・
+// スタッフ・日付・時間)は共通の項目そのものなので、型も検証も共通のものを使う。
+// ---------------------------------------------------------------------------
+
+/** 変更モードの入力(顧客は含めない = 変更不可) */
+export type ReservationEditInput = ReservationFieldsInput;
+
+/** 各項目のエラーメッセージ(存在する項目だけ入る)。顧客は対象外 */
+export type ReservationEditErrors = ReservationFieldsErrors;
+
+/** 検証済み・正規化済みの値(Server Action が admin_update_reservation へ渡す形) */
+export type ReservationEditValue = ReservationFieldsValue;
+
+export type ReservationEditResult = ReservationFieldsResult;
+
+/**
+ * 店側変更フォームの入力を検証する。顧客は変更できないため検証しない。
+ * メニュー・スタッフ・日付・時間を代行登録と同じ規則
+ * (validateReservationFields)で確認する。
+ */
+export function validateReservationEdit(
+  input: ReservationEditInput,
+): ReservationEditResult {
+  return validateReservationFields(input);
 }
 
 /**

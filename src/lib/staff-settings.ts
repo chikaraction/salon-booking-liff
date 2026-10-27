@@ -13,26 +13,16 @@
 
 import { isStaffRole, type StaffRole } from "./admin-permissions";
 import type { StaffWorkingDay } from "./availability";
-import { WEEKDAYS, canonicalTimeInput } from "./business-settings";
+import { WEEKDAYS } from "./business-settings";
 import { calendarDateLabel } from "./calendar";
 import { isSlotTakenError } from "./db-errors";
-import { isCalendarDate, jstDateTime } from "./jst";
-
-/** "HH:MM"(00:00〜23:59)形式の壁時計時刻か */
-function isWallClockTime(value: string): boolean {
-  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
-}
-
-/**
- * DBの time 型("HH:MM:SS")を input[type=time] が扱う "HH:MM" にする。
- * NULL・空文字は空文字(未入力)にする。
- * business-settings.ts の normalizeTimeInput と同じ変換だが、
- * 依存の向きを増やさないためこちらにも置く(どちらも1行の整形)。
- */
-function toTimeInput(value: string | null): string {
-  if (value === null || value === "") return "";
-  return value.slice(0, 5);
-}
+import {
+  canonicalIntegerInput,
+  canonicalTimeInput,
+  changedWeekdays,
+  normalizeTimeInput,
+} from "./form-input";
+import { isCalendarDate, isWallClockTime, jstDateTime } from "./jst";
 
 // ---------------------------------------------------------------------------
 // 1. スタッフ行(staff)
@@ -308,10 +298,10 @@ export function fillStaffWorkingHours(
     return {
       weekday,
       isWorking: true,
-      startTime: toTimeInput(row.startTime),
-      endTime: toTimeInput(row.endTime),
-      breakStart: toTimeInput(row.breakStart),
-      breakEnd: toTimeInput(row.breakEnd),
+      startTime: normalizeTimeInput(row.startTime),
+      endTime: normalizeTimeInput(row.endTime),
+      breakStart: normalizeTimeInput(row.breakStart),
+      breakEnd: normalizeTimeInput(row.breakEnd),
     };
   });
 }
@@ -560,20 +550,6 @@ export function staffBlockLabel(block: {
 // 汎用の深い比較を置かない理由は business-settings.ts の同じ節に書いた
 // (差の粒度が節ごとに違い、「同じ値」の定義が保存結果の一致であるため)。
 
-/**
- * 整数の入力欄を**比較用**に揃える(保存はしない)。
- * 前後の空白と桁揃え("1" と " 01 ")を潰す。整数として読めない値は
- * 前後の空白だけ落として返す(弾くのは validateStaffInput の仕事)。
- * salon-settings.ts にも同じ整形があるが、どちらも数行なので
- * 依存の向きを増やさずそれぞれに置く(toTimeInput と同じ判断)。
- */
-function canonicalIntegerInput(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed === "") return "";
-  const parsed = Number(trimmed);
-  return Number.isInteger(parsed) ? String(parsed) : trimmed;
-}
-
 /** スタッフ情報の項目名(変更の目印を出す単位) */
 export type StaffFieldKey =
   "name" | "role" | "displayOrder" | "isActive" | "bio";
@@ -632,12 +608,5 @@ export function changedWorkingDayWeekdays(
   saved: readonly WorkingDayInput[],
   draft: readonly WorkingDayInput[],
 ): number[] {
-  const toMap = (days: readonly WorkingDayInput[]) =>
-    new Map(days.map((day) => [day.weekday, canonicalWorkingDay(day)]));
-  const savedMap = toMap(saved);
-  const draftMap = toMap(draft);
-
-  return [...new Set([...savedMap.keys(), ...draftMap.keys()])]
-    .filter((weekday) => savedMap.get(weekday) !== draftMap.get(weekday))
-    .sort((a, b) => a - b);
+  return changedWeekdays(saved, draft, canonicalWorkingDay);
 }

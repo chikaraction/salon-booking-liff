@@ -8,8 +8,9 @@
 // 店舗固有の営業時間をコードに書かない(ADR-007)ために編集口が要るため。
 // 毎週の定休日チップと同じ business_hours の行を編集するので同じ節に置く。
 
-import { closureListWindow, normalizeTimeInput } from "@/lib/business-settings";
+import { closureListWindow } from "@/lib/business-settings";
 import { buildClosureListItems, type ClosureRules } from "@/lib/closures";
+import { normalizeTimeInput } from "@/lib/form-input";
 import { jstCalendarDate } from "@/lib/jst";
 import { createAdminAuthClient } from "@/server/admin-auth";
 import { fetchBusinessSettings } from "@/server/settings-data";

@@ -110,3 +110,8 @@ export function isCalendarDate(value: string): boolean {
     parsed.toISOString().slice(0, 10) === value
   );
 }
+
+/** "HH:MM"(00:00〜23:59)形式の壁時計時刻かどうかを判定する(クライアント入力の検証用) */
+export function isWallClockTime(value: string): boolean {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+}

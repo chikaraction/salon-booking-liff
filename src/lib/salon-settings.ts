@@ -17,6 +17,7 @@
 // 最後の砦はあくまでDB制約(ADR-004と同じ考え方)。
 // 店名・刻みなどの実際の値はここには書かない(ADR-007)。
 
+import { canonicalIntegerInput } from "./form-input";
 import { LATEST_SEND_HOUR } from "./reminders";
 
 // ---------------------------------------------------------------------------
@@ -408,16 +409,6 @@ const BOOKING_POLICY_FIELD_KEYS: readonly BookingPolicyFieldKey[] = [
   "cancelDeadlineMinutes",
   "reminderHour",
 ];
-
-/**
- * 整数の入力欄を**比較用**に揃える(保存はしない)。
- * 前後の空白と桁揃え("30" と " 030 ")を潰す。整数として読めない値は
- * 前後の空白だけ落として返す(弾くのは validateBookingPolicyInput の仕事)。
- */
-function canonicalIntegerInput(value: string): string {
-  const parsed = parseIntegerInput(value);
-  return parsed === null ? value.trim() : String(parsed);
-}
 
 /**
  * 予約の受付ルールで、保存済みの値と差がある項目を画面の並び順で返す。

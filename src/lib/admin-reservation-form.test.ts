@@ -2,13 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   isPastStart,
-  isWallClockTime,
   restoreSelectableMenuIds,
   sortMenusForProxyRegistration,
   validateProxyRegistration,
   validateReservationEdit,
+  validateReservationFields,
   type ProxyRegistrationInput,
   type ReservationEditInput,
+  type ReservationFieldsInput,
 } from "./admin-reservation-form";
 import { jstDateTime } from "./jst";
 
@@ -27,22 +28,6 @@ const validInput: ProxyRegistrationInput = {
   date: "2026-07-18",
   time: "11:00",
 };
-
-describe("isWallClockTime", () => {
-  it("HH:MM 形式(00:00〜23:59)を受け付ける", () => {
-    expect(isWallClockTime("00:00")).toBe(true);
-    expect(isWallClockTime("09:30")).toBe(true);
-    expect(isWallClockTime("23:59")).toBe(true);
-  });
-
-  it("範囲外・桁数違い・秒付きは拒否する", () => {
-    expect(isWallClockTime("24:00")).toBe(false);
-    expect(isWallClockTime("9:00")).toBe(false);
-    expect(isWallClockTime("11:60")).toBe(false);
-    expect(isWallClockTime("11:00:00")).toBe(false);
-    expect(isWallClockTime("")).toBe(false);
-  });
-});
 
 describe("isPastStart: 開始時刻が過去かどうか", () => {
   it("開始が現在より前なら true(1分前)", () => {
@@ -66,6 +51,101 @@ describe("isPastStart: 開始時刻が過去かどうか", () => {
         jstDateTime("2026-07-18", "11:00"),
       ),
     ).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 代行登録と店側変更に共通の項目(メニュー・スタッフ・日付・時間)の入力検証。
+// ルールのテストはここに1回だけ置き、2つのフォームの describe には
+// それぞれに固有のテストと、共通のルールが効いていることの確認だけを残す。
+// ---------------------------------------------------------------------------
+
+/** 共通の項目がすべて妥当な入力(各テストで一部だけ壊す) */
+const validFieldsInput: ReservationFieldsInput = {
+  menuIds: ["menu-cut", "menu-color"],
+  staffId: "staff-tanaka",
+  date: "2026-07-18",
+  time: "11:00",
+};
+
+describe("validateReservationFields", () => {
+  it("全項目が妥当なら ok と正規化済みの値を返す", () => {
+    const result = validateReservationFields(validFieldsInput);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value).toEqual({
+      menuIds: ["menu-cut", "menu-color"],
+      staffId: "staff-tanaka",
+      date: "2026-07-18",
+      time: "11:00",
+    });
+  });
+
+  it("メニュー0件はエラー", () => {
+    const result = validateReservationFields({
+      ...validFieldsInput,
+      menuIds: [],
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors.menu).toBeDefined();
+  });
+
+  it("メニューの重複は除去する(順序は保つ)", () => {
+    const result = validateReservationFields({
+      ...validFieldsInput,
+      menuIds: ["a", "b", "a"],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.menuIds).toEqual(["a", "b"]);
+  });
+
+  it("スタッフ未指定はエラー", () => {
+    const result = validateReservationFields({
+      ...validFieldsInput,
+      staffId: "",
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors.staff).toBeDefined();
+  });
+
+  it("日付が実在しない暦日ならエラー", () => {
+    const result = validateReservationFields({
+      ...validFieldsInput,
+      date: "2026-02-30",
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors.date).toBeDefined();
+  });
+
+  it("時間が HH:MM 形式でないならエラー", () => {
+    const result = validateReservationFields({
+      ...validFieldsInput,
+      time: "9:0",
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors.time).toBeDefined();
+  });
+
+  it("複数項目の不備をまとめて返す", () => {
+    const result = validateReservationFields({
+      menuIds: [],
+      staffId: "",
+      date: "bad",
+      time: "bad",
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors).toEqual({
+      menu: "メニューを1つ以上選択してください",
+      staff: "スタッフを選択してください",
+      date: "日付を選択してください",
+      time: "時間を選択してください",
+    });
   });
 });
 
@@ -133,13 +213,6 @@ describe("validateProxyRegistration", () => {
   });
 
   describe("メニュー", () => {
-    it("0件ならエラー", () => {
-      const result = validateProxyRegistration({ ...validInput, menuIds: [] });
-      expect(result.ok).toBe(false);
-      if (result.ok) return;
-      expect(result.errors.menu).toBeDefined();
-    });
-
     it("重複は除去する(順序は保つ)", () => {
       const result = validateProxyRegistration({
         ...validInput,
@@ -148,32 +221,6 @@ describe("validateProxyRegistration", () => {
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       expect(result.value.menuIds).toEqual(["a", "b"]);
-    });
-  });
-
-  describe("スタッフ・日付・時間", () => {
-    it("スタッフ未指定はエラー", () => {
-      const result = validateProxyRegistration({ ...validInput, staffId: "" });
-      expect(result.ok).toBe(false);
-      if (result.ok) return;
-      expect(result.errors.staff).toBeDefined();
-    });
-
-    it("日付が実在しない暦日ならエラー", () => {
-      const result = validateProxyRegistration({
-        ...validInput,
-        date: "2026-02-30",
-      });
-      expect(result.ok).toBe(false);
-      if (result.ok) return;
-      expect(result.errors.date).toBeDefined();
-    });
-
-    it("時間が HH:MM 形式でないならエラー", () => {
-      const result = validateProxyRegistration({ ...validInput, time: "9:0" });
-      expect(result.ok).toBe(false);
-      if (result.ok) return;
-      expect(result.errors.time).toBeDefined();
     });
   });
 
@@ -199,7 +246,8 @@ describe("validateProxyRegistration", () => {
 
 // ---------------------------------------------------------------------------
 // 店側変更(モックDのフォームを変更モードで再利用)の入力検証。
-// 顧客は固定(変更不可)なので顧客チェックはしない。それ以外は代行登録と同じ。
+// 顧客は固定(変更不可)なので顧客チェックはしない。それ以外は代行登録と同じで、
+// ルールのテストは validateReservationFields の describe に置く。
 // ---------------------------------------------------------------------------
 
 /** 全項目が妥当な変更入力(各テストで一部だけ壊す) */
@@ -221,47 +269,6 @@ describe("validateReservationEdit", () => {
       date: "2026-07-18",
       time: "11:00",
     });
-  });
-
-  it("メニュー0件はエラー", () => {
-    const result = validateReservationEdit({ ...validEditInput, menuIds: [] });
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.errors.menu).toBeDefined();
-  });
-
-  it("メニューの重複は除去する(順序は保つ)", () => {
-    const result = validateReservationEdit({
-      ...validEditInput,
-      menuIds: ["a", "b", "a"],
-    });
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.value.menuIds).toEqual(["a", "b"]);
-  });
-
-  it("スタッフ未指定はエラー", () => {
-    const result = validateReservationEdit({ ...validEditInput, staffId: "" });
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.errors.staff).toBeDefined();
-  });
-
-  it("日付が実在しない暦日ならエラー", () => {
-    const result = validateReservationEdit({
-      ...validEditInput,
-      date: "2026-02-30",
-    });
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.errors.date).toBeDefined();
-  });
-
-  it("時間が HH:MM 形式でないならエラー", () => {
-    const result = validateReservationEdit({ ...validEditInput, time: "9:0" });
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.errors.time).toBeDefined();
   });
 
   it("複数項目の不備をまとめて返す", () => {

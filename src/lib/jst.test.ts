@@ -1,16 +1,42 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  addCalendarDays,
   calendarWeekday,
   isCalendarDate,
+  isWallClockTime,
   jstCalendarDate,
   jstClockTime,
   jstDateTime,
   jstMinutesOfDay,
   jstParts,
   minutesLabel,
+  timeToMinutes,
   WEEKDAY_LABELS,
 } from "./jst";
+
+describe("timeToMinutes", () => {
+  it("HH:MM を0時からの分数にする", () => {
+    expect(timeToMinutes("09:30")).toBe(570);
+  });
+
+  it("PostgreSQLのtime型が返す HH:MM:SS 形式も受け付ける", () => {
+    expect(timeToMinutes("09:30:00")).toBe(570);
+  });
+
+  it("0:00 は 0 分", () => {
+    expect(timeToMinutes("00:00")).toBe(0);
+  });
+
+  it("23:59 は 1439 分(1日の最後の分)", () => {
+    expect(timeToMinutes("23:59")).toBe(1439);
+  });
+
+  it("秒は切り捨てる(59秒でも次の分に繰り上げない)", () => {
+    expect(timeToMinutes("09:30:59")).toBe(570);
+    expect(timeToMinutes("23:59:59")).toBe(1439);
+  });
+});
 
 describe("jstDateTime", () => {
   it("JSTの暦日と壁時計時刻をUTCのDateに変換する", () => {
@@ -56,6 +82,36 @@ describe("jstClockTime", () => {
   });
 });
 
+describe("addCalendarDays", () => {
+  it("同じ月の中で日を足す", () => {
+    expect(addCalendarDays("2026-07-18", 3)).toBe("2026-07-21");
+  });
+
+  it("月末から翌月へ繰り上がる(31日の月・30日の月)", () => {
+    expect(addCalendarDays("2026-07-31", 1)).toBe("2026-08-01");
+    expect(addCalendarDays("2026-04-30", 1)).toBe("2026-05-01");
+  });
+
+  it("年末から翌年へ繰り上がる", () => {
+    expect(addCalendarDays("2026-12-31", 1)).toBe("2027-01-01");
+  });
+
+  it("うるう年の2月は29日まで、平年は28日の翌日が3月1日", () => {
+    expect(addCalendarDays("2028-02-28", 1)).toBe("2028-02-29");
+    expect(addCalendarDays("2027-02-28", 1)).toBe("2027-03-01");
+  });
+
+  it("負の日数なら前へ戻る(月初から前月末へ、年初から前年末へ)", () => {
+    expect(addCalendarDays("2026-08-01", -1)).toBe("2026-07-31");
+    expect(addCalendarDays("2026-03-01", -1)).toBe("2026-02-28");
+    expect(addCalendarDays("2026-01-01", -1)).toBe("2025-12-31");
+  });
+
+  it("0日なら同じ暦日を返す", () => {
+    expect(addCalendarDays("2026-07-18", 0)).toBe("2026-07-18");
+  });
+});
+
 describe("calendarWeekday", () => {
   it("JSTの暦日の曜日を返す(0=日曜〜6=土曜。DBのweekday列と同じ)", () => {
     expect(calendarWeekday("2026-07-18")).toBe(6); // 土曜
@@ -73,6 +129,22 @@ describe("isCalendarDate", () => {
     expect(isCalendarDate("2026-7-18")).toBe(false);
     expect(isCalendarDate("2026-02-30")).toBe(false);
     expect(isCalendarDate("")).toBe(false);
+  });
+});
+
+describe("isWallClockTime", () => {
+  it("HH:MM 形式(00:00〜23:59)を受け付ける", () => {
+    expect(isWallClockTime("00:00")).toBe(true);
+    expect(isWallClockTime("09:30")).toBe(true);
+    expect(isWallClockTime("23:59")).toBe(true);
+  });
+
+  it("範囲外・桁数違い・秒付きは拒否する", () => {
+    expect(isWallClockTime("24:00")).toBe(false);
+    expect(isWallClockTime("9:00")).toBe(false);
+    expect(isWallClockTime("11:60")).toBe(false);
+    expect(isWallClockTime("11:00:00")).toBe(false);
+    expect(isWallClockTime("")).toBe(false);
   });
 });
 
