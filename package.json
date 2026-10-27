@@ -13,6 +13,7 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "db:types": "npx supabase gen types typescript --linked --schema public > src/types/database.types.ts"
   },
   "dependencies": {
@@ -41,6 +42,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^9",
     "eslint-config-next": "16.4.2",
     "eslint-config-prettier": "^10.1.8",

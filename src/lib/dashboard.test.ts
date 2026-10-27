@@ -106,6 +106,24 @@ describe("summarizeTodayByStaff(今日の予約のスタッフ別内訳)", () =>
     ).toEqual(["a", "b"]);
   });
 
+  it("displayOrder が同じスタッフは、入力の順番によらず id 順に並ぶ", () => {
+    const a = { id: "a", name: "スタッフA", isActive: true, displayOrder: 0 };
+    const b = { id: "b", name: "スタッフB", isActive: true, displayOrder: 0 };
+    const c = { id: "c", name: "スタッフC", isActive: true, displayOrder: 0 };
+    for (const input of [
+      [a, b, c],
+      [a, c, b],
+      [b, a, c],
+      [b, c, a],
+      [c, a, b],
+      [c, b, a],
+    ]) {
+      expect(
+        summarizeTodayByStaff([], input).map((row) => row.staffId),
+      ).toEqual(["a", "b", "c"]);
+    }
+  });
+
   it("スタッフ一覧に無いIDの予約は内訳に出さない(合計件数はカード側で別に数える)", () => {
     const summary = summarizeTodayByStaff(["unknown", "s1"], staff);
     expect(summary).toEqual([

@@ -1,5 +1,5 @@
 import { createHmac } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   RECENT_RESERVATION_WINDOW_MINUTES,
   pickConfirmationEvents,
@@ -69,6 +69,39 @@ describe("verifyLineSignature(Webhook の署名検証)", () => {
     await expect(
       verifyLineSignature(body, officialSignature(body, secret), ""),
     ).resolves.toBe(false);
+  });
+
+  describe("検証の途中で例外が起きた場合(安全側に倒す)", () => {
+    // 正しい署名を渡し、例外さえ起きなければ true になる状況で確かめる
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("crypto.subtle.verify が例外を投げても、例外を外に出さず false", async () => {
+      const verify = vi
+        .spyOn(globalThis.crypto.subtle, "verify")
+        .mockRejectedValue(new Error("verify failed"));
+      await expect(
+        verifyLineSignature(body, officialSignature(body, secret), secret),
+      ).resolves.toBe(false);
+      expect(verify).toHaveBeenCalledTimes(1);
+    });
+
+    it("base64 の形を確かめたあとの atob が例外を投げても、例外を外に出さず false", async () => {
+      const atobSpy = vi.spyOn(globalThis, "atob").mockImplementation(() => {
+        throw new Error("atob failed");
+      });
+      await expect(
+        verifyLineSignature(body, officialSignature(body, secret), secret),
+      ).resolves.toBe(false);
+      expect(atobSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("モックを戻したあとは、正しい署名がふたたび true になる(他のテストに影響しない)", async () => {
+      await expect(
+        verifyLineSignature(body, officialSignature(body, secret), secret),
+      ).resolves.toBe(true);
+    });
   });
 });
 

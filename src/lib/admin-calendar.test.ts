@@ -1768,6 +1768,35 @@ describe("buildWeekView: 重なる予約のレーン分割", () => {
     expect(items.get("long")!.leftPercent).toBe(50);
   });
 
+  it("開始も終了も同じなら入力順に左から並べ、別々のレーンに置く(決定的な順序)", () => {
+    const forward = tuesdayItems([
+      { id: "x", start: "10:00", end: "11:00" },
+      { id: "y", start: "10:00", end: "11:00" },
+    ]);
+    expect(forward.get("x")).toMatchObject({
+      leftPercent: 0,
+      widthPercent: 50,
+    });
+    expect(forward.get("y")).toMatchObject({
+      leftPercent: 50,
+      widthPercent: 50,
+    });
+
+    // 入力の順番を入れ替えると左右も入れ替わる
+    const reversed = tuesdayItems([
+      { id: "y", start: "10:00", end: "11:00" },
+      { id: "x", start: "10:00", end: "11:00" },
+    ]);
+    expect(reversed.get("y")).toMatchObject({
+      leftPercent: 0,
+      widthPercent: 50,
+    });
+    expect(reversed.get("x")).toMatchObject({
+      leftPercent: 50,
+      widthPercent: 50,
+    });
+  });
+
   it("日をまたいで影響しない(別の日の予約とは重なり判定しない)", () => {
     const view = buildWeekView({
       weekStart,

@@ -78,10 +78,43 @@ describe("validateCustomerInfo: 初回情報入力のバリデーション", () 
     });
   });
 
-  it("全角数字の電話番号は半角に正規化する", () => {
+  it("マイナス記号(−)で区切った電話番号は、区切りを除いて正規化する", () => {
     const result = validateCustomerInfo({
       name: "山田",
       phone: "090−1234−5678",
+    });
+    expect(result).toEqual({
+      ok: true,
+      value: { name: "山田", phone: "09012345678" },
+    });
+  });
+
+  it("全角数字だけの電話番号(０９０１２３４５６７８)を半角に正規化する", () => {
+    const result = validateCustomerInfo({
+      name: "山田",
+      phone: "０９０１２３４５６７８",
+    });
+    expect(result).toEqual({
+      ok: true,
+      value: { name: "山田", phone: "09012345678" },
+    });
+  });
+
+  it("全角と半角の数字が混ざった電話番号も半角にそろえる", () => {
+    const result = validateCustomerInfo({
+      name: "山田",
+      phone: "090１２３４5678",
+    });
+    expect(result).toEqual({
+      ok: true,
+      value: { name: "山田", phone: "09012345678" },
+    });
+  });
+
+  it("全角数字と全角のハイフン(－)の電話番号は、ハイフンを除いて半角にする", () => {
+    const result = validateCustomerInfo({
+      name: "山田",
+      phone: "０９０－１２３４－５６７８",
     });
     expect(result).toEqual({
       ok: true,

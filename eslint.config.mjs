@@ -20,6 +20,8 @@ const eslintConfig = defineConfig([
     ".wrangler/**",
     // Supabase CLI の生成物(npm run db:types)
     "src/types/database.types.ts",
+    // テストのカバレッジの出力(npm run test:coverage)
+    "coverage/**",
   ]),
 ]);
 

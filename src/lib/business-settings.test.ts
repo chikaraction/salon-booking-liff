@@ -498,6 +498,42 @@ describe("validateDateOverride", () => {
     expect(result.errors.time).toBe("開店・閉店の両方を入力してください");
   });
 
+  it("臨時営業で閉店だけを入力したときも開店・閉店の両方を求める", () => {
+    const result = validateDateOverride({
+      input: overrideInput({
+        startDate: "2026-07-20",
+        endDate: "2026-07-20",
+        isOpen: true,
+        closeTime: "19:00",
+      }),
+      closedWeekdays: [],
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors.time).toBe("開店・閉店の両方を入力してください");
+  });
+
+  it("臨時営業の開店・閉店が両方入っていても、時刻の形式でなければ同じエラーにする", () => {
+    // 開店だけ・閉店だけが不正な場合のどちらも、片方だけの入力と同じ文言になる
+    for (const times of [
+      { openTime: "25:00", closeTime: "19:00" },
+      { openTime: "10:00", closeTime: "9:00" },
+    ]) {
+      const result = validateDateOverride({
+        input: overrideInput({
+          startDate: "2026-07-20",
+          endDate: "2026-07-20",
+          isOpen: true,
+          ...times,
+        }),
+        closedWeekdays: [],
+      });
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.errors.time).toBe("開店・閉店の両方を入力してください");
+    }
+  });
+
   it("臨時営業の開店 >= 閉店はエラーにする(date_overrides_times_valid)", () => {
     const result = validateDateOverride({
       input: overrideInput({
@@ -651,6 +687,20 @@ describe("closureListWindow", () => {
       closureListWindow({
         today: "2026-07-18",
         overrides: [{ startDate: "2026-01-01", endDate: "2026-01-03" }],
+      }),
+    ).toEqual({ from: "2026-07-18", days: 180 });
+  });
+
+  it("既定の期間(今日から180日)の中に収まる登録では期間を伸ばさない", () => {
+    // 2026-07-18 から180日ぶんの最終日は 2027-01-13。その日に終わる登録も収まる。
+    // 期間の中の登録で縮めることもない(終了が早い登録を後ろに置いて確かめる)
+    expect(
+      closureListWindow({
+        today: "2026-07-18",
+        overrides: [
+          { startDate: "2027-01-13", endDate: "2027-01-13" },
+          { startDate: "2026-08-13", endDate: "2026-08-16" },
+        ],
       }),
     ).toEqual({ from: "2026-07-18", days: 180 });
   });

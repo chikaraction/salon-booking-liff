@@ -23,6 +23,22 @@ describe("parseTstzrange: PostgRESTが返すtstzrange文字列の変換", () => 
     expect(range.end.toISOString()).toBe("2026-07-18T03:30:00.000Z");
   });
 
+  it("+0900 のようなコロン無し4桁のオフセットもUTCのDateに変換する", () => {
+    const range = parseTstzrange(
+      '["2026-07-18 11:00:00+0900","2026-07-18 12:30:00+0900")',
+    );
+    expect(range.start.toISOString()).toBe("2026-07-18T02:00:00.000Z");
+    expect(range.end.toISOString()).toBe("2026-07-18T03:30:00.000Z");
+  });
+
+  it("-0500 のようなマイナスの4桁のオフセットもUTCのDateに変換する", () => {
+    const range = parseTstzrange(
+      '["2026-07-17 21:00:00-0500","2026-07-17 22:30:00-0500")',
+    );
+    expect(range.start.toISOString()).toBe("2026-07-18T02:00:00.000Z");
+    expect(range.end.toISOString()).toBe("2026-07-18T03:30:00.000Z");
+  });
+
   it("引用符なし・+00:00形式・小数秒付きも受け付ける", () => {
     const range = parseTstzrange(
       "[2026-07-18T02:00:00.123+00:00,2026-07-18T03:00:00.456+00:00)",

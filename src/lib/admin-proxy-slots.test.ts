@@ -323,6 +323,39 @@ describe("describeSlotAvailability: 代行登録の空き判定メッセージ",
         }).reason,
       ).toBe("during_break");
     });
+
+    describe("休憩の無い勤務(breakStart・breakEnd が null)", () => {
+      const noBreak = { ...working, breakStart: null, breakEnd: null };
+
+      it("休憩の判定を飛ばし、勤務時間内なら空き(休憩ありの勤務なら休憩にあたる13:00でも)", () => {
+        expect(
+          describeSlotAvailability({
+            ...base,
+            start: at("13:00"),
+            working: noBreak,
+          }),
+        ).toEqual({
+          status: "available",
+          canRegister: true,
+          message: "この枠は空いています。60分確保できます。",
+        });
+      });
+
+      it("勤務時間外なら outside_working_hours", () => {
+        expect(
+          describeSlotAvailability({
+            ...base,
+            start: at("09:00"),
+            working: noBreak,
+          }),
+        ).toEqual({
+          status: "unavailable",
+          reason: "outside_working_hours",
+          canRegister: true,
+          message: "勤務時間外です(10:00〜18:00)",
+        });
+      });
+    });
   });
 
   describe("8. outside_working_hours: 勤務時間外", () => {
