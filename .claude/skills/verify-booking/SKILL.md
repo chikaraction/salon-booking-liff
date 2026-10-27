@@ -118,7 +118,7 @@ LINE実機でしか確認できない。M6 ではテスト用の公式アカウ�
       入れる前のビルドや、変数を足しただけ(再ビルドなし)の版では
       `env.NEXT_PUBLIC_LIFF_ID` を読む形のまま残り、LINE で開いても本人確認できない。
       LIFF ID を入れたら必ずビルドを**再試行**する(2026-10-21 の初回デプロイで実際に起きた)
-- 注: `stub:U-dev-user-1` の文字列自体はクライアントJSに残る(`src/liff/client.ts` の定数)。
+- 注: `U-dev-user-1`・`liff-stub-user-id` の文字列自体はクライアントJSに残る(`src/lib/liff-stub.ts` の定数)。
   本番では `NEXT_PUBLIC_LIFF_STUB` が未設定でスタブ分岐に入らず、サーバーも本番では
   スタブを必ず拒否するので問題ない
 
