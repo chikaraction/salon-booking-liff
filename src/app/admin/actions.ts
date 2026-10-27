@@ -13,7 +13,6 @@ import {
 import { describeLoginError, validateLoginInput } from "@/lib/admin-login";
 import {
   isPastStart,
-  isWallClockTime,
   validateProxyRegistration,
   validateReservationEdit,
   type ProxyRegistrationErrors,
@@ -23,7 +22,12 @@ import type { BusinessDay } from "@/lib/availability";
 import { isUuid } from "@/lib/booking";
 import { resolveBusinessDay, weeklyBusinessDayOf } from "@/lib/closures";
 import { isRpcRaisedError, isSlotTakenError } from "@/lib/db-errors";
-import { calendarWeekday, isCalendarDate, jstDateTime } from "@/lib/jst";
+import {
+  calendarWeekday,
+  isCalendarDate,
+  isWallClockTime,
+  jstDateTime,
+} from "@/lib/jst";
 import { createAdminAuthClient } from "@/server/admin-auth";
 import {
   fetchReservationDetail,

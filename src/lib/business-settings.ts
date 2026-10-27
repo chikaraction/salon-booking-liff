@@ -13,10 +13,12 @@
 // ここは「設定を編集して保存するまで」に必要な判断だけを置く。
 
 import { isSlotTakenError } from "./db-errors";
+import { canonicalTimeInput } from "./form-input";
 import {
   addCalendarDays,
   calendarWeekday,
   isCalendarDate,
+  isWallClockTime,
   WEEKDAY_LABELS,
 } from "./jst";
 
@@ -32,38 +34,6 @@ export function weekdayShortLabel(weekday: number): string {
 export function weekdayLongLabel(weekday: number): string {
   const label = WEEKDAY_LABELS[weekday];
   return label === undefined ? "" : `${label}曜日`;
-}
-
-/** "HH:MM"(00:00〜23:59)形式の壁時計時刻か */
-function isWallClockTime(value: string): boolean {
-  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
-}
-
-/**
- * DBの time 型("HH:MM:SS")を input[type=time] が扱う "HH:MM" にする。
- * NULL・空文字は空文字(未入力)にする。
- */
-export function normalizeTimeInput(value: string | null): string {
-  if (value === null || value === "") return "";
-  return value.slice(0, 5);
-}
-
-/**
- * 時刻入力を**比較用**に揃える(保存はしない)。
- * 見た目が違っても保存結果が同じになる差を潰すのが目的:
- * - 前後の空白(手入力・貼り付け)
- * - 時が1桁("9:00" と "09:00"。input[type=time] は2桁で返すが、
- *   DBから来た値やブラウザ差で1桁が混ざっても同じ時刻として扱う)
- * - 秒("HH:MM:SS"。DBの time 型。normalizeTimeInput 前の値が混ざっても揃う)
- *
- * 時刻として読めない値は前後の空白だけ落として返す(比較はできる。
- * 不正な入力を弾くのは validateWeeklyBusinessHours の仕事)。
- */
-export function canonicalTimeInput(value: string): string {
-  const trimmed = value.trim();
-  const matched = /^(\d{1,2}):([0-5]\d)(?::[0-5]\d)?$/.exec(trimmed);
-  if (matched === null) return trimmed;
-  return `${matched[1].padStart(2, "0")}:${matched[2]}`;
 }
 
 // ---------------------------------------------------------------------------

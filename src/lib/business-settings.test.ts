@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   DATE_OVERRIDE_OVERLAP_MESSAGE,
-  canonicalTimeInput,
   changedNthWeekdayWeekdays,
   changedWeeklyHourWeekdays,
   closureListWindow,
@@ -13,7 +12,6 @@ import {
   flattenNthWeekdayGroups,
   groupNthWeekdayClosures,
   isDateRangeOverlapError,
-  normalizeTimeInput,
   validateDateOverride,
   validateWeeklyBusinessHours,
   weekdayLongLabel,
@@ -24,7 +22,7 @@ import {
 } from "./business-settings";
 
 // ---------------------------------------------------------------------------
-// 1. 曜日ラベル・時刻の正規化
+// 1. 曜日ラベル
 // ---------------------------------------------------------------------------
 
 describe("weekdayShortLabel / weekdayLongLabel", () => {
@@ -40,21 +38,6 @@ describe("weekdayShortLabel / weekdayLongLabel", () => {
     ]);
     expect(weekdayLongLabel(0)).toBe("日曜日");
     expect(weekdayLongLabel(3)).toBe("水曜日");
-  });
-});
-
-describe("normalizeTimeInput", () => {
-  it("DBのtime型(HH:MM:SS)を input[type=time] が扱う HH:MM にする", () => {
-    expect(normalizeTimeInput("10:00:00")).toBe("10:00");
-  });
-
-  it("すでに HH:MM ならそのまま返す", () => {
-    expect(normalizeTimeInput("19:30")).toBe("19:30");
-  });
-
-  it("null・空文字は空文字にする(未入力の初期値)", () => {
-    expect(normalizeTimeInput(null)).toBe("");
-    expect(normalizeTimeInput("")).toBe("");
   });
 });
 
@@ -689,31 +672,6 @@ describe("closureListWindow", () => {
 // ---------------------------------------------------------------------------
 // 7. 未保存の変更の判定(節ごとの保存ボタン・「元に戻す」・変更箇所の目印)
 // ---------------------------------------------------------------------------
-
-describe("canonicalTimeInput", () => {
-  it("前後の空白を落とす", () => {
-    expect(canonicalTimeInput("  10:00  ")).toBe("10:00");
-  });
-
-  it("時が1桁の入力を2桁に揃える(「9:00」と「09:00」は同じ時刻)", () => {
-    expect(canonicalTimeInput("9:00")).toBe("09:00");
-  });
-
-  it("DBの秒付き(HH:MM:SS)は秒を落とす", () => {
-    expect(canonicalTimeInput("10:00:00")).toBe("10:00");
-    expect(canonicalTimeInput("9:30:00")).toBe("09:30");
-  });
-
-  it("空文字・空白のみは空文字(未入力)にする", () => {
-    expect(canonicalTimeInput("")).toBe("");
-    expect(canonicalTimeInput("   ")).toBe("");
-  });
-
-  it("時刻として読めない値は前後の空白だけ落として返す(比較はできる)", () => {
-    expect(canonicalTimeInput(" 25:99 ")).toBe("25:99");
-    expect(canonicalTimeInput(" あ ")).toBe("あ");
-  });
-});
 
 describe("changedWeeklyHourWeekdays", () => {
   it("保存済みの値と同じなら変更なし", () => {

@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   isPastStart,
-  isWallClockTime,
   restoreSelectableMenuIds,
   sortMenusForProxyRegistration,
   validateProxyRegistration,
@@ -27,22 +26,6 @@ const validInput: ProxyRegistrationInput = {
   date: "2026-07-18",
   time: "11:00",
 };
-
-describe("isWallClockTime", () => {
-  it("HH:MM 形式(00:00〜23:59)を受け付ける", () => {
-    expect(isWallClockTime("00:00")).toBe(true);
-    expect(isWallClockTime("09:30")).toBe(true);
-    expect(isWallClockTime("23:59")).toBe(true);
-  });
-
-  it("範囲外・桁数違い・秒付きは拒否する", () => {
-    expect(isWallClockTime("24:00")).toBe(false);
-    expect(isWallClockTime("9:00")).toBe(false);
-    expect(isWallClockTime("11:60")).toBe(false);
-    expect(isWallClockTime("11:00:00")).toBe(false);
-    expect(isWallClockTime("")).toBe(false);
-  });
-});
 
 describe("isPastStart: 開始時刻が過去かどうか", () => {
   it("開始が現在より前なら true(1分前)", () => {

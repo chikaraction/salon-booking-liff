@@ -3,7 +3,7 @@
 // 最後の砦はDBのEXCLUDE制約(ADR-004)であり、ここは入力の形式検証に徹する。
 // DOM・Supabaseクライアントのimportはしない(CLAUDE.md)。
 
-import { isCalendarDate } from "./jst";
+import { isCalendarDate, isWallClockTime } from "./jst";
 
 export type ProxyRegistrationInput = {
   /** 既存顧客を選択した場合のID。新規客なら null */
@@ -47,11 +47,6 @@ export type ProxyRegistrationValue = {
 export type ProxyRegistrationResult =
   | { ok: true; value: ProxyRegistrationValue }
   | { ok: false; errors: ProxyRegistrationErrors };
-
-/** "HH:MM"(00:00〜23:59)形式の壁時計時刻かどうかを判定する */
-export function isWallClockTime(value: string): boolean {
-  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
-}
 
 /**
  * 開始時刻が現在(now)より厳密に過去かどうかを判定する。

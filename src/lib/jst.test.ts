@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   calendarWeekday,
   isCalendarDate,
+  isWallClockTime,
   jstCalendarDate,
   jstClockTime,
   jstDateTime,
@@ -73,6 +74,22 @@ describe("isCalendarDate", () => {
     expect(isCalendarDate("2026-7-18")).toBe(false);
     expect(isCalendarDate("2026-02-30")).toBe(false);
     expect(isCalendarDate("")).toBe(false);
+  });
+});
+
+describe("isWallClockTime", () => {
+  it("HH:MM 形式(00:00〜23:59)を受け付ける", () => {
+    expect(isWallClockTime("00:00")).toBe(true);
+    expect(isWallClockTime("09:30")).toBe(true);
+    expect(isWallClockTime("23:59")).toBe(true);
+  });
+
+  it("範囲外・桁数違い・秒付きは拒否する", () => {
+    expect(isWallClockTime("24:00")).toBe(false);
+    expect(isWallClockTime("9:00")).toBe(false);
+    expect(isWallClockTime("11:60")).toBe(false);
+    expect(isWallClockTime("11:00:00")).toBe(false);
+    expect(isWallClockTime("")).toBe(false);
   });
 });
 
