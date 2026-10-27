@@ -12,6 +12,7 @@ import {
 } from "@/lib/admin-proxy-slots";
 import { describeLoginError, validateLoginInput } from "@/lib/admin-login";
 import {
+  findInactiveStaffViolation,
   isPastStart,
   validateProxyRegistration,
   validateReservationEdit,
@@ -31,6 +32,7 @@ import {
 import { createAdminAuthClient } from "@/server/admin-auth";
 import {
   fetchReservationDetail,
+  fetchStaffActiveState,
   searchCustomers,
   type CustomerSearchResult,
   type ReservationDetail,
@@ -310,6 +312,8 @@ async function resolveAdminBusinessDay(
 /**
  * 代行登録を確定する。
  * 入力検証(純粋)→ authenticated クライアントで admin_create_reservation RPC。
+ * RPC前のガードの順番: 入力検証 → 過去の日時 → 担当スタッフが有効か
+ * (無効・存在しなければ invalid_input の errors.staff)→ 休業日。
  * p_start はメニュー所要時間の合計からRPCが終了時刻を導出する(開始のみ渡す)。
  * エラー分岐は @supabase/supabase-js の error.code(SQLSTATE)で判別する:
  * - 23P01(exclusion_violation)= 事前チェック後に他の予約が入った → slot_taken
@@ -343,6 +347,21 @@ export async function createProxyReservation(
 
   try {
     const supabase = await createAdminAuthClient();
+
+    // 担当スタッフのガード(UXでなく本当のガード)。画面のスタッフ選択は有効な
+    // スタッフだけだが、画面を通らない送信や、画面を開いている間に無効にされた
+    // スタッフに備えてRPC前に止める(RPCは is_active を見ない)。
+    // 文言はスタッフ欄に出す(invalid_input の errors.staff)
+    const staffViolation = findInactiveStaffViolation(
+      await fetchStaffActiveState(supabase, value.staffId),
+    );
+    if (staffViolation !== null) {
+      return {
+        ok: false,
+        reason: "invalid_input",
+        errors: { staff: staffViolation },
+      };
+    }
 
     // 休業日ガード(UXでなく本当のガード)。対象日に営業時間が無ければRPC前に止める。
     // 判定は authenticated クライアントの休業日ルール + 純粋関数(closures.ts)。
@@ -453,6 +472,8 @@ export type UpdateAdminReservationResult =
  * 入力検証(純粋・顧客は対象外)→ authenticated クライアントで
  * admin_update_reservation RPC。返り値 'ok' | 'not_found' と
  * SQLSTATE(23P01=slot_taken / P0001=invalid)で分岐する。
+ * RPC前のガードの順番: 入力検証 → 過去の日時 → 担当スタッフが有効か
+ * (無効・存在しなければ invalid_input の errors.staff)→ 休業日。
  */
 export async function updateAdminReservation(
   input: UpdateAdminReservationInput,
@@ -487,6 +508,21 @@ export async function updateAdminReservation(
 
   try {
     const supabase = await createAdminAuthClient();
+
+    // 担当スタッフのガード(UXでなく本当のガード)。画面のスタッフ選択は有効な
+    // スタッフだけだが、画面を通らない送信や、画面を開いている間に無効にされた
+    // スタッフに備えてRPC前に止める(RPCは is_active を見ない)。
+    // 文言はスタッフ欄に出す(invalid_input の errors.staff)
+    const staffViolation = findInactiveStaffViolation(
+      await fetchStaffActiveState(supabase, value.staffId),
+    );
+    if (staffViolation !== null) {
+      return {
+        ok: false,
+        reason: "invalid_input",
+        errors: { staff: staffViolation },
+      };
+    }
 
     // 休業日ガード(UXでなく本当のガード)。対象日に営業時間が無ければRPC前に止める。
     // 判定は authenticated クライアントの休業日ルール + 純粋関数(closures.ts)。

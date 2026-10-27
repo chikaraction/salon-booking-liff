@@ -26,7 +26,10 @@ import {
   type TimelineAxis,
   type WeekView,
 } from "@/lib/admin-calendar";
-import { restoreSelectableMenuIds } from "@/lib/admin-reservation-form";
+import {
+  restoreSelectableMenuIds,
+  restoreSelectableStaffId,
+} from "@/lib/admin-reservation-form";
 import { isCalendarDate, jstCalendarDate, jstClockTime } from "@/lib/jst";
 import { cn } from "@/lib/utils";
 import type { ActiveMenu, ReservationDetail } from "@/server/admin-data";
@@ -120,7 +123,8 @@ export function CalendarView({
   /**
    * 予約詳細の「変更」→ 変更ダイアログ。詳細ダイアログは閉じる(排他)。
    * 詳細は取得済みなので再取得しない。開始時刻(UTC)→ JSTの日付・時刻の分解、
-   * 初期選択メニューの復元(無効化されたメニューの除外)は、変更ページ
+   * 初期選択メニューの復元(無効化されたメニューの除外)と初期選択スタッフの
+   * 復元(無効のスタッフなら未選択)は、変更ページ
    * (/admin/reservations/[id]/edit)と同じ純粋関数に任せる。
    * 初期位置は代行登録と同じロジック(押した列以外の領域の中央)にするため、
    * 詳細を開いたときに測っておいた列の座標(selectedAnchor)を載せる。
@@ -133,7 +137,10 @@ export function CalendarView({
       mode: "edit",
       reservationId: detail.id,
       customerName: detail.customerName,
-      staffId: detail.staffId,
+      staffId: restoreSelectableStaffId(
+        detail.staffId,
+        selectableStaff.map((member) => member.id),
+      ),
       date: jstCalendarDate(detail.start),
       time: jstClockTime(detail.start),
       menuIds: restoreSelectableMenuIds(
