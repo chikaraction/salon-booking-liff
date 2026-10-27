@@ -4,6 +4,7 @@ import {
   SETTINGS_PERMISSION_DENIED_MESSAGE,
   canManageSettings,
   isStaffRole,
+  toStaffRole,
   visibleAdminNavItems,
   type AdminNavItem,
 } from "./admin-permissions";
@@ -36,6 +37,26 @@ describe("isStaffRole(DBのrole文字列の型ガード)", () => {
     expect(isStaffRole(null)).toBe(false);
     expect(isStaffRole(undefined)).toBe(false);
     expect(isStaffRole(1)).toBe(false);
+  });
+});
+
+describe("toStaffRole(DBのrole文字列を StaffRole に詰め替える)", () => {
+  it('"owner" のときは "owner" を返す', () => {
+    expect(toStaffRole("owner")).toBe("owner");
+  });
+
+  it('"staff" のときは "staff" を返す', () => {
+    expect(toStaffRole("staff")).toBe("staff");
+  });
+
+  it('想定外の文字列のときは権限の小さい "staff" に倒す', () => {
+    // check 制約があるので通常は起きない。表示用の詰め替えで落とさないための保険
+    expect(toStaffRole("admin")).toBe("staff");
+    expect(toStaffRole("Owner")).toBe("staff");
+  });
+
+  it('空文字のときは "staff" に倒す', () => {
+    expect(toStaffRole("")).toBe("staff");
   });
 });
 

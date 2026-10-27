@@ -6,6 +6,7 @@ import "server-only";
 // - tstzrange型は文字列で返るため parseTstzrange(src/lib/tstzrange.ts)で変換する
 // - 空き枠計算そのものは src/lib/availability.ts の純粋関数が行う
 
+import { toStaffRole } from "@/lib/admin-permissions";
 import {
   computeStaffDaySlots,
   type BookingPolicy,
@@ -63,7 +64,9 @@ type MenuRow = {
 type StaffRow = {
   id: string;
   name: string;
-  role: "owner" | "staff";
+  // staff.role の check 制約は生成された型に出ないため string。
+  // StaffRole への詰め替えは toStaffRole で行う
+  role: string;
   photo_url: string | null;
   bio: string | null;
 };
@@ -78,7 +81,7 @@ type StaffWorkingHoursRow = {
 
 type ReservationRangeRow = {
   staff_id: string;
-  during: string; // tstzrangeは文字列で返る
+  during: unknown; // tstzrange(生成された型では unknown。実際は文字列で返り、parseTstzrange が確かめる)
 };
 
 // ---------------------------------------------------------------------------
@@ -162,7 +165,7 @@ export async function getBookingPageData(): Promise<BookingPageData> {
     staff: staff.map((row) => ({
       id: row.id,
       name: row.name,
-      role: row.role,
+      role: toStaffRole(row.role),
       photoUrl: row.photo_url,
       bio: row.bio,
     })),
@@ -477,7 +480,7 @@ export async function findOwnConfirmedBooking(
 type UpcomingReservationRow = {
   id: string;
   staff_id: string;
-  during: string; // tstzrangeは文字列で返る
+  during: unknown; // tstzrange(生成された型では unknown。実際は文字列で返り、parseTstzrange が確かめる)
   // 一対多の埋め込み(reservation_menus.reservation_id が本テーブルへのFK)は配列で返る
   reservation_menus: Array<{
     menu_name: string;

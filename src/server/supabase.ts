@@ -5,13 +5,15 @@ import "server-only";
 // サーバー側で LINE IDトークンを検証したうえでこのクライアント経由で実行する。
 // service_role キーはRLSをバイパスするので、絶対にクライアントへ露出させないこと。
 
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
+
+import type { Database, DbClient } from "@/types/database";
 
 /** モジュールスコープで使い回す(リクエストごとに作り直さない) */
-let cached: SupabaseClient | null = null;
+let cached: DbClient | null = null;
 
 /** service_role のSupabaseクライアントを返す */
-export function getServiceRoleClient(): SupabaseClient {
+export function getServiceRoleClient(): DbClient {
   if (cached) return cached;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -22,7 +24,7 @@ export function getServiceRoleClient(): SupabaseClient {
     );
   }
 
-  cached = createClient(url, serviceRoleKey, {
+  cached = createClient<Database>(url, serviceRoleKey, {
     auth: {
       // サーバー専用のキー認証クライアントなので、セッションの保存・自動更新はしない
       persistSession: false,

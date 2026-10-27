@@ -6,9 +6,7 @@ import "server-only";
 // 設定系テーブルのSELECTは全スタッフに許可されているので普通に引ける
 // (変更だけがオーナー限定: ADR-005)。
 
-import type { SupabaseClient } from "@supabase/supabase-js";
-
-import { isStaffRole, type StaffRole } from "@/lib/admin-permissions";
+import { toStaffRole, type StaffRole } from "@/lib/admin-permissions";
 import {
   fillWeeklyBusinessHours,
   type NthWeekdayClosureRow,
@@ -30,6 +28,7 @@ import {
   type DateOverrideRecord,
 } from "@/server/closure-data";
 import { must } from "@/server/postgrest";
+import type { DbClient } from "@/types/database";
 
 /** 営業日・営業時間の設定画面(モックE-2)が必要とする設定一式 */
 export type BusinessSettings = {
@@ -47,7 +46,7 @@ export type BusinessSettings = {
  * id が要るので、id を落とす fetchBusinessCalendar ではなく fetchDateOverrides で引く
  */
 export async function fetchBusinessSettings(
-  supabase: SupabaseClient,
+  supabase: DbClient,
 ): Promise<BusinessSettings> {
   const [hours, nthWeekdayClosures, closeOnHolidays, dateOverrides] =
     await Promise.all([
@@ -118,7 +117,7 @@ type StaffWorkingHoursTableRow = {
  * 並びは display_order → name。同じ表示順のときに並びが揺れないよう name を足す。
  */
 export async function fetchStaffSettings(
-  supabase: SupabaseClient,
+  supabase: DbClient,
 ): Promise<StaffSettings> {
   const [staffRes, hoursRes] = await Promise.all([
     supabase
@@ -143,7 +142,7 @@ export async function fetchStaffSettings(
       id: row.id,
       name: row.name,
       // check 制約があるので通常は起きない。想定外の値はスタッフ扱いにする
-      role: isStaffRole(row.role) ? row.role : "staff",
+      role: toStaffRole(row.role),
       displayOrder: row.display_order,
       isActive: row.is_active,
       bio: row.bio,
@@ -171,7 +170,7 @@ export type StaffBlockRecord = {
 type BlockRow = {
   id: string;
   staff_id: string;
-  during: string; // tstzrangeは文字列で返る
+  during: unknown; // tstzrange(生成された型では unknown。実際は文字列で返り、parseTstzrange が確かめる)
 };
 
 /**
@@ -184,7 +183,7 @@ type BlockRow = {
  * オーナー限定なのはアプリ層(設定レイアウト・Server Action)の側。
  */
 export async function fetchUpcomingStaffBlocks(
-  supabase: SupabaseClient,
+  supabase: DbClient,
   fromDate: string,
   days: number,
 ): Promise<StaffBlockRecord[]> {
@@ -244,7 +243,7 @@ type SalonSettingsRow = {
  * 引き、どの画面がどの設定を編集するのかを取得の形にも表す。
  */
 export async function fetchSalonSettings(
-  supabase: SupabaseClient,
+  supabase: DbClient,
 ): Promise<SalonSettings> {
   const result = await supabase
     .from("salon_settings")
@@ -279,7 +278,7 @@ export async function fetchSalonSettings(
  * check 制約の外の値は起きないはずだが、念のため純粋関数で既定値に倒す。
  */
 export async function fetchDisplaySettings(
-  supabase: SupabaseClient,
+  supabase: DbClient,
 ): Promise<DisplaySettings> {
   const result = await supabase
     .from("salon_settings")
@@ -331,7 +330,7 @@ type MenuTableRow = {
  * ここは display_order 順に引いて形を変えるだけにする。
  */
 export async function fetchMenuSettings(
-  supabase: SupabaseClient,
+  supabase: DbClient,
 ): Promise<MenuSettings> {
   const [categoriesRes, menusRes] = await Promise.all([
     supabase

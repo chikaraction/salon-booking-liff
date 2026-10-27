@@ -9,11 +9,10 @@ import "server-only";
 // 客側(booking-data.ts)は service_role、管理画面(admin-data.ts・
 // settings-data.ts・各Server Action)は authenticated(RLS適用)で呼ぶため。
 
-import type { SupabaseClient } from "@supabase/supabase-js";
-
 import type { BusinessDay } from "@/lib/availability";
 import type { ClosureRules } from "@/lib/closures";
 import { must } from "@/server/postgrest";
+import type { DbClient } from "@/types/database";
 
 // ---------------------------------------------------------------------------
 // DBの行の型(supabase/migrations/ のスキーマに対応)
@@ -66,7 +65,7 @@ export type BusinessCalendar = {
 
 /** 営業時間(business_hours の全行)を weekday 順で取得する */
 export async function fetchWeeklyBusinessHours(
-  supabase: SupabaseClient,
+  supabase: DbClient,
 ): Promise<Array<{ weekday: number } & BusinessDay>> {
   const result = await supabase
     .from("business_hours")
@@ -83,7 +82,7 @@ export async function fetchWeeklyBusinessHours(
 
 /** 第◯曜日の定休を全件取得する */
 export async function fetchNthWeekdayClosures(
-  supabase: SupabaseClient,
+  supabase: DbClient,
 ): Promise<ClosureRules["nthWeekdayClosures"]> {
   const result = await supabase
     .from("nth_weekday_closures")
@@ -94,7 +93,7 @@ export async function fetchNthWeekdayClosures(
 
 /** 「祝日を休業にする」(salon_settings.close_on_holidays)を取得する */
 export async function fetchCloseOnHolidays(
-  supabase: SupabaseClient,
+  supabase: DbClient,
 ): Promise<boolean> {
   const result = await supabase
     .from("salon_settings")
@@ -106,7 +105,7 @@ export async function fetchCloseOnHolidays(
 
 /** 臨時休業・臨時営業を全件(開始日順)取得する。重なりの事前チェックにも使う */
 export async function fetchDateOverrides(
-  supabase: SupabaseClient,
+  supabase: DbClient,
 ): Promise<DateOverrideRecord[]> {
   const result = await supabase
     .from("date_overrides")
@@ -129,7 +128,7 @@ export async function fetchDateOverrides(
  * まとめて取得する。4つの取得は並列に行う。どれも行数が少ないので全件取得する。
  */
 export async function fetchBusinessCalendar(
-  supabase: SupabaseClient,
+  supabase: DbClient,
 ): Promise<BusinessCalendar> {
   const [weeklyBusinessHours, nthWeekdayClosures, closeOnHolidays, overrides] =
     await Promise.all([

@@ -9,7 +9,7 @@ import "server-only";
 //   ユーザーだけを信頼する。cookie由来のセッションは改ざんされうるため)
 
 import { createServerClient } from "@supabase/ssr";
-import type { SupabaseClient, User } from "@supabase/supabase-js";
+import type { User } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 import {
@@ -18,6 +18,7 @@ import {
   isStaffRole,
   type StaffRole,
 } from "@/lib/admin-permissions";
+import type { Database, DbClient } from "@/types/database";
 
 /** Supabase の URL / anon キーを環境変数から取得する(未設定なら例外) */
 export function getSupabaseEnv(): { url: string; anonKey: string } {
@@ -36,11 +37,11 @@ export function getSupabaseEnv(): { url: string; anonKey: string } {
  * リクエストごとに必ず新しく作る(@supabase/ssr の型定義コメントの指示。
  * リクエスト間でクライアントを共有してはいけない)。
  */
-export async function createAdminAuthClient(): Promise<SupabaseClient> {
+export async function createAdminAuthClient(): Promise<DbClient> {
   const { url, anonKey } = getSupabaseEnv();
   const cookieStore = await cookies();
 
-  return createServerClient(url, anonKey, {
+  return createServerClient<Database>(url, anonKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll();

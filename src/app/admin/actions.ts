@@ -5,8 +5,6 @@
 // - 戻り値は判別可能なResult型でUIが分岐に迷わない形にする
 // - セッションcookieの読み書きは createAdminAuthClient(@supabase/ssr)が行う
 
-import type { SupabaseClient } from "@supabase/supabase-js";
-
 import {
   describeSlotAvailability,
   type ProxyDaySlot,
@@ -35,6 +33,7 @@ import {
 } from "@/server/admin-data";
 import { getDayAvailability } from "@/server/booking-data";
 import { fetchBusinessCalendar } from "@/server/closure-data";
+import type { DbClient } from "@/types/database";
 
 export type LoginResult = { ok: true } | { ok: false; message: string };
 
@@ -289,7 +288,7 @@ export type CreateProxyReservationResult =
  * 休業日は isOpen=false になり、時刻付きの臨時営業はその時刻で営業になる。
  */
 async function resolveAdminBusinessDay(
-  supabase: SupabaseClient,
+  supabase: DbClient,
   date: string,
 ): Promise<BusinessDay> {
   const { weeklyBusinessHours, closureRules } =

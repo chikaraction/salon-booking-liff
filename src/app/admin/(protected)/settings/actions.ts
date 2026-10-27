@@ -27,7 +27,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { isStaffRole } from "@/lib/admin-permissions";
+import { toStaffRole } from "@/lib/admin-permissions";
 import { isUuid } from "@/lib/booking";
 import {
   DATE_OVERRIDE_OVERLAP_MESSAGE,
@@ -467,7 +467,7 @@ export async function saveStaff(params: {
       }>
     ).map((row) => ({
       id: row.id,
-      role: isStaffRole(row.role) ? row.role : ("staff" as const),
+      role: toStaffRole(row.role),
       isActive: row.is_active,
     }));
 
