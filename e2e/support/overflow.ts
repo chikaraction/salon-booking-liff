@@ -157,12 +157,11 @@ export async function findOverflowIssues(page: Page): Promise<OverflowIssue[]> {
         continue;
       }
 
-      // 日付・時刻の入力欄は、Chromium だと中身が欠けても scrollWidth に表れない。
-      // 幅を自動にした複製(ブラウザが中身に合わせた幅になる)より狭ければ欠けているとみなす
-      if (
-        el instanceof HTMLInputElement &&
-        /^(date|time|datetime-local|month|week)$/.test(el.type)
-      ) {
+      // 時刻の入力欄は、Chromium だと中身が欠けても scrollWidth に表れない。
+      // 幅を自動にした複製(ブラウザが中身に合わせた幅になる)より狭ければ欠けているとみなす。
+      // 日付欄は Chromium が自動幅に余白を多めに取り、欠けていなくても引っかかるので対象外。
+      // テスト用の WebKit(Windows版)は時刻入力に対応せず type が text になるので、これも対象外
+      if (el instanceof HTMLInputElement && el.type === "time") {
         const probe = el.cloneNode() as HTMLInputElement;
         probe.removeAttribute("id");
         probe.style.cssText =
