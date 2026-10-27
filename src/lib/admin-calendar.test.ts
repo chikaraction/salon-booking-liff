@@ -12,6 +12,9 @@ import {
   buildReservationDetailLabels,
   buildReservationListItems,
   buildWeekView,
+  calendarStaff,
+  calendarStaffHeading,
+  calendarStaffLegendLabel,
   clampDialogPosition,
   dayNavLabel,
   dialogInitialX,
@@ -34,8 +37,8 @@ import { jstDateTime } from "./jst";
 // ---------------------------------------------------------------------------
 
 const staff = [
-  { id: "tanaka", name: "田中", role: "owner" as const },
-  { id: "sato", name: "佐藤", role: "staff" as const },
+  { id: "tanaka", name: "田中", role: "owner" as const, isActive: true },
+  { id: "sato", name: "佐藤", role: "staff" as const, isActive: true },
 ];
 
 /** 営業 9:00〜19:00(時間軸600分。%が整数になるよう選ぶ) */
@@ -578,6 +581,211 @@ describe("buildDayTimeline: 日表示の配置計算", () => {
       });
       expect(timeline.axis).toBeNull();
     });
+  });
+
+  describe("無効のスタッフの列", () => {
+    const withInactive = [
+      ...staff,
+      { id: "suzuki", name: "鈴木", role: "staff" as const, isActive: false },
+    ];
+    // 無効にする前の勤務パターン(休憩あり)が残っている状態
+    const workingWithInactive = [
+      ...workingHours,
+      {
+        staffId: "suzuki",
+        startTime: "09:00:00",
+        endTime: "19:00:00",
+        breakStart: "12:00:00",
+        breakEnd: "13:00:00",
+      },
+    ];
+
+    it("列に有効・無効を持たせ、無効の列の見出しは「(無効)」にする", () => {
+      const timeline = buildDayTimeline({
+        ...base,
+        staff: withInactive,
+        workingHours: workingWithInactive,
+        items: [],
+      });
+      expect(
+        timeline.columns.map((column) => ({
+          staffId: column.staffId,
+          heading: column.heading,
+          isActive: column.isActive,
+        })),
+      ).toEqual([
+        { staffId: "tanaka", heading: "田中(オーナー)", isActive: true },
+        { staffId: "sato", heading: "佐藤(スタッフ)", isActive: true },
+        { staffId: "suzuki", heading: "鈴木(無効)", isActive: false },
+      ]);
+    });
+
+    it("勤務パターンが残っていても、無効の列には休憩の帯を出さない", () => {
+      const timeline = buildDayTimeline({
+        ...base,
+        staff: withInactive,
+        workingHours: workingWithInactive,
+        items: [],
+      });
+      expect(timeline.columns[2].blocks).toEqual([]);
+    });
+
+    it("無効の列にも予約のカードは今までどおり置く", () => {
+      const timeline = buildDayTimeline({
+        ...base,
+        staff: withInactive,
+        workingHours: workingWithInactive,
+        items: [
+          booking({
+            id: "b9",
+            staffId: "suzuki",
+            start: "11:00",
+            end: "12:00",
+            customerName: "山田",
+            menus: [cut],
+          }),
+        ],
+      });
+      const blocks = timeline.columns[2].blocks;
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0].id).toBe("b9");
+      expect(blocks[0].type).toBe("booking");
+      expect(blocks[0].titleLabel).toBe("11:00 山田様");
+      expect(blocks[0].topPercent).toBe(20);
+      expect(blocks[0].heightPercent).toBe(10);
+    });
+
+    it("予約のない休業日の列にも有効・無効が付く", () => {
+      const timeline = buildDayTimeline({
+        ...base,
+        businessDay: { isOpen: false, openTime: null, closeTime: null },
+        staff: withInactive,
+        items: [],
+      });
+      expect(timeline.columns.map((column) => column.isActive)).toEqual([
+        true,
+        true,
+        false,
+      ]);
+      expect(timeline.columns[2].heading).toBe("鈴木(無効)");
+    });
+  });
+});
+
+describe("calendarStaff: カレンダーに出すスタッフ", () => {
+  const tanaka = {
+    id: "tanaka",
+    name: "田中",
+    role: "owner" as const,
+    isActive: true,
+  };
+  const sato = {
+    id: "sato",
+    name: "佐藤",
+    role: "staff" as const,
+    isActive: true,
+  };
+  const suzuki = {
+    id: "suzuki",
+    name: "鈴木",
+    role: "staff" as const,
+    isActive: false,
+  };
+  const kato = {
+    id: "kato",
+    name: "加藤",
+    role: "staff" as const,
+    isActive: false,
+  };
+  const booked = (staffId: string, id = `b-${staffId}`) =>
+    booking({
+      id,
+      staffId,
+      start: "11:00",
+      end: "12:00",
+      customerName: "山田",
+      menus: [cut],
+    });
+
+  it("無効のスタッフに予約があれば、有効なスタッフの後ろに並べる", () => {
+    expect(
+      calendarStaff({
+        // 表示順では無効の鈴木が先頭にいる
+        staff: [suzuki, tanaka, sato],
+        items: [booked("suzuki")],
+      }).map((member) => member.id),
+    ).toEqual(["tanaka", "sato", "suzuki"]);
+  });
+
+  it("無効のスタッフに予約が無ければ出さない", () => {
+    expect(
+      calendarStaff({
+        staff: [tanaka, sato, suzuki],
+        items: [booked("tanaka")],
+      }).map((member) => member.id),
+    ).toEqual(["tanaka", "sato"]);
+  });
+
+  it("無効のスタッフに臨時休ブロックしか無ければ出さない", () => {
+    expect(
+      calendarStaff({
+        staff: [tanaka, sato, suzuki],
+        items: [
+          block({
+            id: "blk1",
+            staffId: "suzuki",
+            start: "09:00",
+            end: "19:00",
+          }),
+        ],
+      }).map((member) => member.id),
+    ).toEqual(["tanaka", "sato"]);
+  });
+
+  it("有効なスタッフは予約の有無にかかわらず、表示順のまま全員出す", () => {
+    expect(
+      calendarStaff({
+        staff: [sato, suzuki, tanaka],
+        items: [booked("suzuki"), booked("tanaka")],
+      }),
+    ).toEqual([sato, tanaka, suzuki]);
+  });
+
+  it("予約のある無効のスタッフが複数いれば、表示順に並べる", () => {
+    expect(
+      calendarStaff({
+        staff: [kato, tanaka, suzuki, sato],
+        // 予約の並びは表示順と逆にしておく
+        items: [booked("suzuki"), booked("kato"), booked("kato", "b-kato-2")],
+      }).map((member) => member.id),
+    ).toEqual(["tanaka", "sato", "kato", "suzuki"]);
+  });
+});
+
+describe("calendarStaffHeading / calendarStaffLegendLabel: カレンダーでのスタッフの呼び方", () => {
+  it("列の見出しは、有効なスタッフは「田中(オーナー)」、無効のスタッフは「田中(無効)」", () => {
+    expect(
+      calendarStaffHeading({ name: "田中", role: "owner", isActive: true }),
+    ).toBe("田中(オーナー)");
+    expect(
+      calendarStaffHeading({ name: "佐藤", role: "staff", isActive: true }),
+    ).toBe("佐藤(スタッフ)");
+    expect(
+      calendarStaffHeading({ name: "田中", role: "owner", isActive: false }),
+    ).toBe("田中(無効)");
+  });
+
+  it("凡例は、有効なスタッフは名前だけ、無効のスタッフは「田中(無効)」", () => {
+    expect(
+      calendarStaffLegendLabel({ name: "田中", role: "owner", isActive: true }),
+    ).toBe("田中");
+    expect(
+      calendarStaffLegendLabel({
+        name: "鈴木",
+        role: "staff",
+        isActive: false,
+      }),
+    ).toBe("鈴木(無効)");
   });
 });
 

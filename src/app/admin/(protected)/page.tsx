@@ -7,7 +7,9 @@ import {
   buildDayTimeline,
   buildReservationListItems,
   buildWeekView,
+  calendarStaff,
   weekStartOf,
+  type AdminStaff,
   type DayTimeline,
   type ReservationListItem,
   type WeekView,
@@ -29,6 +31,7 @@ import {
   fetchActiveMenus,
   fetchAdminCalendarItems,
   fetchAdminStaff,
+  fetchCalendarStaff,
   fetchSlotIntervalMinutes,
   fetchStaffWorkingHoursForWeekday,
 } from "@/server/admin-data";
@@ -70,12 +73,19 @@ export default async function AdminCalendarPage({
   // 刻み・メニューは日表示の代行登録ダイアログ(空き枠クリック)に渡す。
   // 刻みは salon_settings 由来(ADR-007: 30分などをコードに書かない)
   // 休業日判定(毎週の定休・第◯曜日・祝日・臨時休業)は closures.ts に一本化する
+  // スタッフは2通り取る:
+  // - allStaff: 無効のスタッフも含む全員。表示中の範囲に予約がある無効のスタッフも
+  //   列・一覧・凡例・色に出す(どこまで出すかは calendarStaff が決める)
+  // - selectableStaff: 有効なスタッフだけ。代行登録・変更のスタッフ選択に使う
+  //   (/admin/reservations/new・[id]/edit と同じ)
   const [
-    staff,
+    allStaff,
+    selectableStaff,
     { weeklyBusinessHours, closureRules },
     slotIntervalMinutes,
     menus,
   ] = await Promise.all([
+    fetchCalendarStaff(supabase),
     fetchAdminStaff(supabase),
     fetchBusinessCalendar(supabase),
     fetchSlotIntervalMinutes(supabase),
@@ -86,6 +96,8 @@ export default async function AdminCalendarPage({
   let timeline: DayTimeline = EMPTY_TIMELINE;
   let listItems: ReservationListItem[] = [];
   let weekView: WeekView = EMPTY_WEEK;
+  // 表示中の範囲のカレンダーに出すスタッフ(下の日/週の分岐で決める)
+  let staff: AdminStaff[] = [];
 
   if (view === "day") {
     const weekday = calendarWeekday(date);
@@ -100,6 +112,7 @@ export default async function AdminCalendarPage({
       fetchAdminCalendarItems(supabase, date, addCalendarDays(date, 1)),
       fetchStaffWorkingHoursForWeekday(supabase, weekday),
     ]);
+    staff = calendarStaff({ staff: allStaff, items });
     timeline = buildDayTimeline({
       date,
       businessDay,
@@ -115,6 +128,7 @@ export default async function AdminCalendarPage({
       weekStart,
       addCalendarDays(weekStart, 7),
     );
+    staff = calendarStaff({ staff: allStaff, items });
     weekView = buildWeekView({
       weekStart,
       items,
@@ -131,6 +145,7 @@ export default async function AdminCalendarPage({
   return (
     <CalendarView
       staff={staff}
+      selectableStaff={selectableStaff}
       date={date}
       todayDate={todayDate}
       view={view}

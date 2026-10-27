@@ -50,6 +50,8 @@ export type AdminStaff = {
   id: string;
   name: string;
   role: "owner" | "staff";
+  /** staff.is_active。無効のスタッフも予約がある日は列・凡例に出す(calendarStaff) */
+  isActive: boolean;
 };
 
 /** 確定済みの予約1件(kind=booking。メニュースナップショット込み) */
@@ -71,6 +73,68 @@ export type AdminBlock = {
 };
 
 export type AdminCalendarItem = AdminBooking | AdminBlock;
+
+// ---------------------------------------------------------------------------
+// カレンダーに出すスタッフ(列・凡例・色・担当名)
+// ---------------------------------------------------------------------------
+
+/**
+ * カレンダー(日表示の列・週表示の凡例と色・スマホの一覧の担当名)に出す
+ * スタッフを決める。
+ * - 有効なスタッフは、予約の有無にかかわらず全員を表示順に並べる
+ * - 無効のスタッフは、表示中の範囲に予約(kind='booking')があるときだけ、
+ *   有効なスタッフの後ろに表示順で並べる。無効にする前に入っていた予約を
+ *   カレンダーから消さないため(担当の付け替え・キャンセルの入口になる)
+ * - 臨時休ブロックしか無い無効のスタッフは出さない(確認・操作する予約が無い)
+ *
+ * 無効のスタッフを後ろに置くのは、有効なスタッフの列の並びと色
+ * (staffColor は並び順で決まる)を今と変えないため。
+ *
+ * @param params.staff 無効のスタッフも含めた全スタッフ(表示順)
+ * @param params.items 表示中の範囲(日なら当日、週なら7日分)の予約+ブロック
+ */
+export function calendarStaff(params: {
+  staff: readonly AdminStaff[];
+  items: readonly AdminCalendarItem[];
+}): AdminStaff[] {
+  const bookedStaffIds = new Set(
+    params.items
+      .filter((item) => item.kind === "booking")
+      .map((item) => item.staffId),
+  );
+  return [
+    ...params.staff.filter((member) => member.isActive),
+    ...params.staff.filter(
+      (member) => !member.isActive && bookedStaffIds.has(member.id),
+    ),
+  ];
+}
+
+/** 無効のスタッフに添える目印(列の見出し・凡例) */
+const INACTIVE_STAFF_SUFFIX = "(無効)";
+
+/**
+ * 日表示の列の見出し。有効なスタッフは「田中(オーナー)」(モックB)、
+ * 無効のスタッフはロールの代わりに「田中(無効)」にする
+ * (新しい予約を入れられない列であることを見出しで分かるようにする)。
+ */
+export function calendarStaffHeading(
+  member: Pick<AdminStaff, "name" | "role" | "isActive">,
+): string {
+  return member.isActive
+    ? staffHeadingLabel(member)
+    : `${member.name}${INACTIVE_STAFF_SUFFIX}`;
+}
+
+/**
+ * 週表示の凡例のスタッフ名。有効なスタッフは名前だけ(モックB-2)、
+ * 無効のスタッフは列の見出しと同じ「田中(無効)」にする。
+ */
+export function calendarStaffLegendLabel(
+  member: Pick<AdminStaff, "name" | "role" | "isActive">,
+): string {
+  return member.isActive ? member.name : calendarStaffHeading(member);
+}
 
 // ---------------------------------------------------------------------------
 // 時刻の内部ヘルパ(壁時計の分数で扱う。分数⇔時刻の変換は jst.ts)
@@ -206,8 +270,13 @@ export type PlacedBlock = {
 
 export type DayColumn = {
   staffId: string;
-  /** 「田中(オーナー)」形式の列見出し */
+  /** 「田中(オーナー)」形式の列見出し(無効のスタッフは「田中(無効)」) */
   heading: string;
+  /**
+   * 有効なスタッフの列か。無効のスタッフの列(予約が残っている日だけ出る)は
+   * 新しい予約を入れられないので、UIは空き枠のクリックで代行登録を開かない
+   */
+  isActive: boolean;
   blocks: PlacedBlock[];
 };
 
@@ -337,6 +406,10 @@ function placeBreakBlock(
  * - 時間軸は営業時間に合わせ、目盛りは1時間刻み
  * - 予約・ブロックはスタッフ列ごとに top%・height% で配置する
  * - 休憩は勤務パターンから擬似ブロックとして生成する
+ * - 無効のスタッフの列は勤務パターンを使わず、列全体を勤務時間外として扱う
+ *   (休憩の帯も出さない)。勤務パターンの取得は is_active で絞っていないので、
+ *   無効にする前の勤務パターンが残っていることがある。予約のカードは
+ *   有効なスタッフの列と同じように置く
  * - 営業時間の外にはみ出す区間は切り詰め、全く重ならないものは配置しない
  * - 休業日(定休)でも予約が1件でもあれば、予約の時間範囲から軸を組んで
  *   予約・ブロックを表示する(店側が過去・別経路の予約を確認・取り消せるように)。
@@ -354,7 +427,7 @@ function placeBreakBlock(
 export function buildDayTimeline(params: {
   date: string; // JSTの暦日 "YYYY-MM-DD"
   businessDay: BusinessDay; // その曜日の営業時間
-  staff: AdminStaff[]; // 表示順(display_order順)
+  staff: AdminStaff[]; // 列に出すスタッフ(calendarStaff の結果。この順に列を並べる)
   items: AdminCalendarItem[]; // その日の確定済み予約+ブロック(全スタッフ)
   workingHours: Array<{ staffId: string } & StaffWorkingDay>; // その曜日の勤務パターン
 }): DayTimeline {
@@ -383,7 +456,8 @@ export function buildDayTimeline(params: {
       tickMarks: [],
       columns: staff.map((member) => ({
         staffId: member.id,
-        heading: staffHeadingLabel(member),
+        heading: calendarStaffHeading(member),
+        isActive: member.isActive,
         blocks: [],
       })),
     };
@@ -399,14 +473,22 @@ export function buildDayTimeline(params: {
       const placed = placeBookingItem(item, date, openMinutes, closeMinutes);
       if (placed !== null) blocks.push(placed);
     }
-    const breakBlock = placeBreakBlock(
-      workingByStaff.get(member.id),
-      openMinutes,
-      closeMinutes,
-    );
+    // 無効のスタッフは列全体が勤務時間外なので、残っている勤務パターンを使わない
+    const breakBlock = member.isActive
+      ? placeBreakBlock(
+          workingByStaff.get(member.id),
+          openMinutes,
+          closeMinutes,
+        )
+      : null;
     if (breakBlock !== null) blocks.push(breakBlock);
     blocks.sort((a, b) => a.topPercent - b.topPercent);
-    return { staffId: member.id, heading: staffHeadingLabel(member), blocks };
+    return {
+      staffId: member.id,
+      heading: calendarStaffHeading(member),
+      isActive: member.isActive,
+      blocks,
+    };
   });
 
   const marks = hourTickMarks(openMinutes, closeMinutes);

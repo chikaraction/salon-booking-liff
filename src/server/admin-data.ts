@@ -79,6 +79,31 @@ export async function fetchAdminStaff(
     id: row.id,
     name: row.name,
     role: toStaffRole(row.role),
+    // is_active = true で絞っているので、全員が有効
+    isActive: true,
+  }));
+}
+
+/**
+ * カレンダー用の全スタッフ(無効のスタッフも含む。display_order順)を取得する。
+ * 無効のスタッフに残っている予約をカレンダーから消さないために使う
+ * (どのスタッフを出すかは純粋関数 calendarStaff が決める)。
+ * 代行登録・変更のスタッフ選択には使わない(そちらは fetchAdminStaff の
+ * 有効なスタッフだけ)。
+ */
+export async function fetchCalendarStaff(
+  supabase: DbClient,
+): Promise<AdminStaff[]> {
+  const result = await supabase
+    .from("staff")
+    .select("id, name, role, is_active")
+    .order("display_order");
+  const rows = must(result, "スタッフ");
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    role: toStaffRole(row.role),
+    isActive: row.is_active,
   }));
 }
 
