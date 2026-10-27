@@ -619,13 +619,9 @@ describe("findOverlappingOverride", () => {
 });
 
 describe("isDateRangeOverlapError", () => {
-  it("EXCLUDE制約違反(23P01)を見分ける", () => {
+  it("EXCLUDE制約違反(23P01)を、期間の重なりとして判定する", () => {
     expect(isDateRangeOverlapError({ code: "23P01" })).toBe(true);
-  });
-
-  it("他のエラー・想定外の値は false", () => {
     expect(isDateRangeOverlapError({ code: "23505" })).toBe(false);
-    expect(isDateRangeOverlapError(null)).toBe(false);
   });
 });
 

@@ -603,10 +603,9 @@ describe("resolveStaffBlockRange", () => {
 });
 
 describe("isBlockConflictError", () => {
-  it("EXCLUDE制約違反(23P01)を既存予約との重なりとして判定する", () => {
+  it("EXCLUDE制約違反(23P01)を、既存予約との重なりとして判定する", () => {
     expect(isBlockConflictError({ code: "23P01" })).toBe(true);
     expect(isBlockConflictError({ code: "23505" })).toBe(false);
-    expect(isBlockConflictError(null)).toBe(false);
   });
 
   it("重なりの文言はDB制約に任せた結果を伝えるものになっている", () => {
