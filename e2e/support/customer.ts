@@ -3,7 +3,13 @@
 // - 客はテストごとに別にする(客1人あたりの予約上限にも当たらない)
 // - 時刻はブラウザごとに分ける(SLOT_TIMES)。日付はテストごとに分ける(pickOpenDate の index)
 
-import type { Browser, BrowserContext, Page, TestInfo } from "@playwright/test";
+import {
+  expect,
+  type Browser,
+  type BrowserContext,
+  type Page,
+  type TestInfo,
+} from "@playwright/test";
 import { STUB_USER_ID_STORAGE_KEY } from "../../src/lib/liff-stub";
 
 /** ブラウザごとの時刻。どれも所要60分で重ならず、オーナーの勤務時間内(休憩 12:00〜13:00 を避ける) */
@@ -126,4 +132,87 @@ export async function book(
 /** マイ予約のカード(日時の文言で探す) */
 export function reservationCard(page: Page, dateTime: string) {
   return page.getByRole("article").filter({ hasText: dateTime });
+}
+
+/** JSTの今日(YYYY-MM-DD) */
+export function todayJst(): string {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(
+    new Date(),
+  );
+}
+
+/** YYYY-MM-DD に日数を足す */
+export function addDays(date: string, days: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** YYYY-MM-DD の曜日(0=日曜) */
+export function weekdayOf(date: string): number {
+  return new Date(`${date}T00:00:00Z`).getUTCDay();
+}
+
+const MONTH_LABEL = /^(\d{4})年(\d{1,2})月$/;
+
+/** 日時選択のカレンダーに出ている年月(YYYY-MM) */
+async function shownMonth(page: Page): Promise<string> {
+  const label = await page.getByText(MONTH_LABEL).innerText();
+  const [, year, month] = MONTH_LABEL.exec(label.trim())!;
+  return `${year}-${month.padStart(2, "0")}`;
+}
+
+/** カレンダーを次の月へ送る。送れなければ false */
+async function nextMonth(page: Page): Promise<boolean> {
+  const button = page.getByRole("button", { name: "次の月へ" });
+  if (await button.isDisabled()) return false;
+  const before = await shownMonth(page);
+  await button.click();
+  await expect.poll(() => shownMonth(page)).not.toBe(before);
+  return true;
+}
+
+/**
+ * 日時選択のカレンダーで選べる日(YYYY-MM-DD)を、今月から送れるところまで集める。
+ * 集め終わったらカレンダーは最後の月を出したままになる
+ */
+export async function selectableDates(page: Page): Promise<string[]> {
+  const dates: string[] = [];
+  do {
+    const month = await shownMonth(page);
+    const days = page.getByRole("button", { name: /^\d{1,2}$/ });
+    await days.first().waitFor();
+    for (const day of await days.all()) {
+      if (await day.isEnabled()) {
+        dates.push(
+          `${month}-${(await day.innerText()).trim().padStart(2, "0")}`,
+        );
+      }
+    }
+  } while (await nextMonth(page));
+  return dates;
+}
+
+/** 日時選択のカレンダーで、その日(YYYY-MM-DD)を選ぶ(今月から順に送って探す) */
+export async function pickDate(page: Page, date: string) {
+  const prev = page.getByRole("button", { name: "前の月へ" });
+  while (!(await prev.isDisabled())) {
+    const before = await shownMonth(page);
+    await prev.click();
+    await expect.poll(() => shownMonth(page)).not.toBe(before);
+  }
+  while ((await shownMonth(page)) !== date.slice(0, 7)) {
+    if (!(await nextMonth(page))) throw new Error(`${date} の月まで送れません`);
+  }
+  await page
+    .getByRole("button", { name: String(Number(date.slice(8))), exact: true })
+    .click();
+  await page
+    .getByText("空き状況を確認しています…")
+    .waitFor({ state: "hidden" });
+}
+
+/** 選んだ日に出ている選べる時刻(「9:00」など) */
+export function selectableTimes(page: Page) {
+  return page.getByRole("button", { name: /^\d{1,2}:\d{2}$/ });
 }

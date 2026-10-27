@@ -10,6 +10,10 @@ const BASE_URL = `http://localhost:${PORT}`;
 
 const local = readLocalSupabase();
 
+// 店の設定を変えるテスト(e2e/settings/)。並行する他のテストの前提(営業時間・受付期間・
+// メニュー)を崩すので、ブラウザごとのプロジェクトからは外し、全部が終わってから流す
+const SETTINGS_TESTS = /e2e[\\/]settings[\\/]/;
+
 export default defineConfig({
   testDir: "e2e",
   outputDir: "test-results",
@@ -36,16 +40,19 @@ export default defineConfig({
     { name: "setup", testMatch: /auth\.setup\.ts/ },
     {
       name: "chromium",
+      testIgnore: SETTINGS_TESTS,
       use: { ...devices["Desktop Chrome"] },
       dependencies: ["setup"],
     },
     {
       name: "webkit",
+      testIgnore: SETTINGS_TESTS,
       use: { ...devices["Desktop Safari"] },
       dependencies: ["setup"],
     },
     {
       name: "firefox",
+      testIgnore: SETTINGS_TESTS,
       use: {
         ...devices["Desktop Firefox"],
         // locale だけでは時刻入力が「09:00 AM」の12時間表記になる(intl.locale.requested でも変わらない)。
@@ -55,6 +62,13 @@ export default defineConfig({
         },
       },
       dependencies: ["setup"],
+    },
+    {
+      // 他のプロジェクトが1件でも失敗すると流れない(Playwright の dependencies の仕様)
+      name: "settings",
+      testMatch: SETTINGS_TESTS,
+      use: { ...devices["Desktop Chrome"] },
+      dependencies: ["chromium", "webkit", "firefox"],
     },
   ],
   webServer: {
