@@ -16,6 +16,11 @@ export default defineConfig({
   globalSetup: "./e2e/global-setup.ts",
   // テストはデータを作り直してから始まる。並列で書き込むテストはファイル内で順に流す
   fullyParallel: false,
+  // 開発サーバー1台を全ブラウザで共有するので、並列を絞る(12並列では最初のコンパイルが詰まり、
+  // 30秒のタイムアウトが続いた)。待ち時間も開発サーバーの遅さに合わせて長めにする
+  workers: 4,
+  timeout: 60_000,
+  expect: { timeout: 10_000 },
   forbidOnly: true,
   reporter: [
     ["list"],

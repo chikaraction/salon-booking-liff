@@ -17,3 +17,13 @@ export const ADMIN_ACCOUNTS = {
 } as const;
 
 export type AdminRole = keyof typeof ADMIN_ACCOUNTS;
+
+/**
+ * スタッフに紐付けないアカウント(招待漏れ・紐付け漏れの再現)。
+ * ログアウトは全セッションを無効にするので、ログアウトのテストもこのアカウントで行う
+ * (オーナー・スタッフでログアウトすると、並行するテストのログイン状態まで消える)
+ */
+export const UNLINKED_ACCOUNT = {
+  email: "unlinked@e2e.test",
+  password: "e2e-unlinked-password",
+} as const;

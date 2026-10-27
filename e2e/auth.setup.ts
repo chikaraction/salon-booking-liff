@@ -3,13 +3,11 @@
 
 import { expect, test as setup } from "@playwright/test";
 import { ADMIN_ACCOUNTS } from "./support/accounts";
+import { loginAsAdmin } from "./support/admin";
 
 for (const [role, account] of Object.entries(ADMIN_ACCOUNTS)) {
   setup(`${role} でログインする`, async ({ page }) => {
-    await page.goto("/admin/login");
-    await page.getByLabel("メールアドレス").fill(account.email);
-    await page.getByLabel("パスワード").fill(account.password);
-    await page.getByRole("button", { name: "ログイン" }).click();
+    await loginAsAdmin(page, account.email, account.password);
     await expect(page).toHaveURL(/\/admin$/);
     await page.context().storageState({ path: account.storageState });
   });
