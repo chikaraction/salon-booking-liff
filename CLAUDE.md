@@ -22,6 +22,7 @@ Next.js(App Router) / Supabase(PostgreSQL + Auth) / Cloudflare / Tailwind + shad
 npm run dev      # 開発サーバー
 npm run build    # 本番ビルド + 型チェック
 npm test         # ユニットテスト(src/lib/ の純粋ロジック、Vitest)
+npm run test:coverage # 上と同じテスト + カバレッジ計測(結果は coverage/index.html)
 npm run lint     # Lint(ESLint)
 npm run format   # Prettierで全体整形
 npm run db:types # DBの型を再生成(リンク済みのリモートDBを読み取る)
