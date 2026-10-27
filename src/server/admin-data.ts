@@ -26,7 +26,7 @@ export async function fetchSalonName(supabase: DbClient): Promise<string> {
       `店舗設定の取得に失敗しました: ${result.error?.message ?? "データがありません"}`,
     );
   }
-  return (result.data as { name: string }).name;
+  return result.data.name;
 }
 
 /**
@@ -46,8 +46,7 @@ export async function fetchSlotIntervalMinutes(
       `店舗設定の取得に失敗しました: ${result.error?.message ?? "データがありません"}`,
     );
   }
-  return (result.data as { slot_interval_minutes: number })
-    .slot_interval_minutes;
+  return result.data.slot_interval_minutes;
 }
 
 /**
@@ -66,37 +65,6 @@ export async function fetchSalonNameForLogin(): Promise<string> {
 // アダプタ層(booking-data.ts と同じ役割分担)。
 // ---------------------------------------------------------------------------
 
-type StaffRow = {
-  id: string;
-  name: string;
-  // staff.role の check 制約は生成された型に出ないため string。
-  // StaffRole への詰め替えは toStaffRole で行う
-  role: string;
-};
-
-type StaffWorkingHoursRow = {
-  staff_id: string;
-  start_time: string;
-  end_time: string;
-  break_start: string | null;
-  break_end: string | null;
-};
-
-type AdminReservationRow = {
-  id: string;
-  kind: "booking" | "block";
-  staff_id: string;
-  during: string; // tstzrangeは文字列で返る
-  // 多対一の埋め込み(reservations.customer_id → customers)は単一オブジェクトで返る
-  customers: { name: string } | null;
-  // 一対多の埋め込みは配列で返る(予約時点のスナップショット)
-  reservation_menus: Array<{
-    menu_name: string;
-    price: number;
-    duration_minutes: number;
-  }>;
-};
-
 /** 有効スタッフ一覧(display_order順)を取得する */
 export async function fetchAdminStaff(
   supabase: DbClient,
@@ -106,7 +74,7 @@ export async function fetchAdminStaff(
     .select("id, name, role")
     .eq("is_active", true)
     .order("display_order");
-  const rows: StaffRow[] = must(result, "スタッフ");
+  const rows = must(result, "スタッフ");
   return rows.map((row) => ({
     id: row.id,
     name: row.name,
@@ -123,7 +91,7 @@ export async function fetchStaffWorkingHoursForWeekday(
     .from("staff_working_hours")
     .select("staff_id, start_time, end_time, break_start, break_end")
     .eq("weekday", weekday);
-  const rows: StaffWorkingHoursRow[] = must(result, "スタッフ勤務時間");
+  const rows = must(result, "スタッフ勤務時間");
   return rows.map((row) => ({
     staffId: row.staff_id,
     startTime: row.start_time,
@@ -159,7 +127,9 @@ export async function fetchAdminCalendarItems(
     )
     .eq("status", "confirmed")
     .overlaps("during", jstDayRange(startDate, endDateExclusive));
-  const rows = must(result, "予約") as unknown as AdminReservationRow[];
+  // 埋め込みの形は生成された型から推論される(多対一の customers は単一
+  // オブジェクトか null、一対多の reservation_menus は配列)
+  const rows = must(result, "予約");
 
   return rows.map((row) => {
     const during = parseTstzrange(row.during);
@@ -210,25 +180,6 @@ export type ReservationDetail = {
   staffMemo: string | null;
 };
 
-type ReservationDetailRow = {
-  id: string;
-  kind: "booking" | "block";
-  during: string;
-  note: string | null;
-  customer_id: string | null;
-  staff_id: string;
-  // 多対一の埋め込みは単一オブジェクト(顧客・スタッフ)
-  customers: { name: string; phone: string | null; note: string | null } | null;
-  staff: { name: string } | null;
-  // 一対多の埋め込み(予約時点のスナップショット)
-  reservation_menus: Array<{
-    menu_id: string | null;
-    menu_name: string;
-    price: number;
-    duration_minutes: number;
-  }>;
-};
-
 /**
  * 予約詳細(顧客・担当・メニュースナップショット・要望・スタッフメモ)を1件取得する。
  * kind='booking' の確定予約のみが対象。ブロック・存在しない・キャンセル済みは null。
@@ -251,7 +202,9 @@ export async function fetchReservationDetail(
   if (result.data === null) {
     return null;
   }
-  const row = result.data as unknown as ReservationDetailRow;
+  // 埋め込みの形は生成された型から推論される(多対一の customers・staff は
+  // 単一オブジェクト、一対多の reservation_menus は配列)
+  const row = result.data;
   // ブロック(予約不可)には顧客・メニューがないため詳細は出さない
   if (row.kind !== "booking" || row.customer_id === null) {
     return null;
@@ -363,13 +316,6 @@ export type DashboardSummary = {
   monthlyPushCount: number;
 };
 
-type DashboardStaffRow = {
-  id: string;
-  name: string;
-  is_active: boolean;
-  display_order: number;
-};
-
 /**
  * ダッシュボードの3カード分の数値をまとめて取得する。
  * 今日の予約は countConfirmedBookings と同じ条件(kind=booking・status=confirmed・
@@ -395,8 +341,8 @@ export async function getDashboardSummary(
       countConfirmedBookings(supabase, lastMonth.start, lastMonth.endExclusive),
       countPushMessagesThisMonth(supabase, now),
     ]);
-  const todayRows: Array<{ staff_id: string }> = must(todayRes, "今日の予約");
-  const staffRows: DashboardStaffRow[] = must(staffRes, "スタッフ");
+  const todayRows = must(todayRes, "今日の予約");
+  const staffRows = must(staffRes, "スタッフ");
 
   return {
     todayStaffIds: todayRows.map((row) => row.staff_id),
@@ -424,20 +370,6 @@ export type ActiveMenu = {
   durationMinutes: number;
 };
 
-type ActiveMenuRow = {
-  id: string;
-  name: string;
-  price: number;
-  duration_minutes: number;
-  category_id: string;
-  display_order: number;
-};
-
-type ActiveMenuCategoryRow = {
-  id: string;
-  display_order: number;
-};
-
 /**
  * 有効メニュー一覧を取得する(代行登録の複数選択用)。
  * 並び順(カテゴリ順 → カテゴリ内の表示順 → id)は純粋関数
@@ -454,11 +386,8 @@ export async function fetchActiveMenus(
       .select("id, name, price, duration_minutes, category_id, display_order")
       .eq("is_active", true),
   ]);
-  const categories: ActiveMenuCategoryRow[] = must(
-    categoriesRes,
-    "メニューカテゴリ",
-  );
-  const rows: ActiveMenuRow[] = must(menusRes, "メニュー");
+  const categories = must(categoriesRes, "メニューカテゴリ");
+  const rows = must(menusRes, "メニュー");
   const sorted = sortMenusForProxyRegistration(
     categories.map((category) => ({
       id: category.id,
@@ -513,7 +442,7 @@ export async function searchCustomers(
     .or(`name.ilike.${pattern},phone.ilike.${pattern}`)
     .order("name")
     .limit(CUSTOMER_SEARCH_LIMIT);
-  const rows: CustomerSearchResult[] = must(result, "顧客検索");
+  const rows = must(result, "顧客検索");
   return rows.map((row) => ({
     id: row.id,
     name: row.name,

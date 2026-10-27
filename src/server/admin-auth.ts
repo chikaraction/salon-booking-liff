@@ -129,7 +129,7 @@ export async function getCurrentStaff(): Promise<CurrentStaff | null> {
     return null;
   }
 
-  const staff = data as { id: string; name: string; role: string };
+  const staff = data;
   if (!isStaffRole(staff.role)) {
     // check 制約があるので通常は起きない。想定外の値は権限なし扱いにする
     console.error("staff.role が想定外の値です", staff.role);

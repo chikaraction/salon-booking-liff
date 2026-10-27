@@ -68,3 +68,9 @@ export type Database = Omit<GeneratedDatabase, "public"> & {
 
 /** Database 型付きの Supabase クライアント */
 export type DbClient = SupabaseClient<Database>;
+
+/**
+ * テーブルの行の型(例: Tables<"menus">)。上書きしているのは RPC の引数だけで
+ * テーブルの型は生成されたものと同じなので、生成ファイルの補助型をそのまま出す
+ */
+export type { Tables } from "./database.types";

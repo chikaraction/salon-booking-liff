@@ -93,25 +93,6 @@ export type StaffSettings = {
   workingHours: Array<{ staffId: string } & StaffWorkingHoursRow>;
 };
 
-type StaffTableRow = {
-  id: string;
-  name: string;
-  role: string;
-  display_order: number;
-  is_active: boolean;
-  bio: string | null;
-  auth_user_id: string | null;
-};
-
-type StaffWorkingHoursTableRow = {
-  staff_id: string;
-  weekday: number;
-  start_time: string; // time型は "HH:MM:SS"
-  end_time: string;
-  break_start: string | null;
-  break_end: string | null;
-};
-
 /**
  * スタッフ(無効も含む全件)と週次勤務パターンをまとめて取得する。
  * 並びは display_order → name。同じ表示順のときに並びが揺れないよう name を足す。
@@ -131,11 +112,8 @@ export async function fetchStaffSettings(
       .order("weekday"),
   ]);
 
-  const staffRows: StaffTableRow[] = must(staffRes, "スタッフ");
-  const hoursRows: StaffWorkingHoursTableRow[] = must(
-    hoursRes,
-    "スタッフ勤務時間",
-  );
+  const staffRows = must(staffRes, "スタッフ");
+  const hoursRows = must(hoursRes, "スタッフ勤務時間");
 
   return {
     staff: staffRows.map((row) => ({
@@ -167,12 +145,6 @@ export type StaffBlockRecord = {
   end: Date;
 };
 
-type BlockRow = {
-  id: string;
-  staff_id: string;
-  during: unknown; // tstzrange(生成された型では unknown。実際は文字列で返り、parseTstzrange が確かめる)
-};
-
 /**
  * 今後の臨時休ブロックを取得する(全スタッフ分)。
  * 期間は [fromDate, fromDate + days) のJST暦日。過ぎたブロックは
@@ -196,7 +168,7 @@ export async function fetchUpcomingStaffBlocks(
     .eq("kind", "block")
     .eq("status", "confirmed")
     .overlaps("during", formatTstzrange(start, end));
-  const rows: BlockRow[] = must(result, "臨時休");
+  const rows = must(result, "臨時休");
 
   return rows
     .map((row) => {
@@ -226,15 +198,6 @@ export type SalonSettings = {
   reminderHour: number;
 };
 
-type SalonSettingsRow = {
-  name: string;
-  slot_interval_minutes: number;
-  booking_window_days: number;
-  min_lead_minutes: number;
-  cancel_deadline_minutes: number;
-  reminder_hour: number;
-};
-
 /**
  * 店名と予約ポリシー4値・前日リマインドの送信時刻を取得する(salon_settings は id=true の1行だけ)。
  *
@@ -251,7 +214,7 @@ export async function fetchSalonSettings(
       "name, slot_interval_minutes, booking_window_days, min_lead_minutes, cancel_deadline_minutes, reminder_hour",
     )
     .single();
-  const row: SalonSettingsRow = must(result, "店舗設定");
+  const row = must(result, "店舗設定");
 
   return {
     name: row.name,
@@ -284,10 +247,7 @@ export async function fetchDisplaySettings(
     .from("salon_settings")
     .select("theme_preset, font_family")
     .single();
-  const row: { theme_preset: unknown; font_family: unknown } = must(
-    result,
-    "表示設定",
-  );
+  const row = must(result, "表示設定");
   return resolveDisplaySettings(row);
 }
 
@@ -305,23 +265,6 @@ export type MenuSettings = {
    * カテゴリの削除可否(所属メニュー数)の判定にも全件が要る。
    */
   menus: MenuRecord[];
-};
-
-type MenuCategoryTableRow = {
-  id: string;
-  name: string;
-  description: string | null;
-  display_order: number;
-};
-
-type MenuTableRow = {
-  id: string;
-  name: string;
-  category_id: string;
-  price: number;
-  duration_minutes: number;
-  display_order: number;
-  is_active: boolean;
 };
 
 /**
@@ -345,11 +288,8 @@ export async function fetchMenuSettings(
       .order("display_order"),
   ]);
 
-  const categories: MenuCategoryTableRow[] = must(
-    categoriesRes,
-    "メニューカテゴリ",
-  );
-  const menus: MenuTableRow[] = must(menusRes, "メニュー");
+  const categories = must(categoriesRes, "メニューカテゴリ");
+  const menus = must(menusRes, "メニュー");
 
   return {
     categories: categories.map((row) => ({
