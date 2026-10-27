@@ -27,7 +27,7 @@
 | [ADR-005](./ADR-005-admin.md)          | 店側管理画面と認証                                | 承認待ち   |
 | [ADR-006](./ADR-006-design-system.md)  | UIデザインシステム(Tailwind + shadcn/ui)          | 承認待ち   |
 | [ADR-007](./ADR-007-single-tenant.md)  | マルチテナント化しない(2店舗目はインスタンス複製) | 承認待ち   |
-| [ADR-008](./ADR-008-e2e-testing.md)    | E2Eテスト(Playwright)と手元のSupabase             | 承認待ち   |
+| [ADR-008](./ADR-008-e2e-testing.md)    | E2Eテスト(Playwright)と手元のSupabase             | 承認済み   |
 
 ## ADRの読み方
 
