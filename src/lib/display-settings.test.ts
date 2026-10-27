@@ -129,18 +129,11 @@ describe("validateDisplaySettingsInput", () => {
   });
 
   it("テーマとフォントの両方が不正なら、先にテーマの誤りを返す", () => {
+    // 2つの文言が同じだと、どちらの誤りが先に返ったかを区別できないまま通ってしまう
+    expect(THEME_PRESET_INVALID_MESSAGE).not.toBe(FONT_FAMILY_INVALID_MESSAGE);
     expect(
       validateDisplaySettingsInput({ themePreset: "x", fontFamily: "y" }),
     ).toEqual({ ok: false, message: THEME_PRESET_INVALID_MESSAGE });
-  });
-
-  it("エラーメッセージはテーマとフォントで言い分ける", () => {
-    expect(THEME_PRESET_INVALID_MESSAGE).toBe(
-      "テーマカラーの選択が正しくありません",
-    );
-    expect(FONT_FAMILY_INVALID_MESSAGE).toBe(
-      "フォントの選択が正しくありません",
-    );
   });
 });
 

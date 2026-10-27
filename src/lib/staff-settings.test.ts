@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { jstDateTime } from "./jst";
 import {
-  BLOCK_CONFLICT_MESSAGE,
   BLOCK_NO_WORKING_DAY_MESSAGE,
   LAST_OWNER_MESSAGE,
   STAFF_INVALID_MESSAGE,
@@ -606,10 +605,6 @@ describe("isBlockConflictError", () => {
   it("EXCLUDE制約違反(23P01)を、既存予約との重なりとして判定する", () => {
     expect(isBlockConflictError({ code: "23P01" })).toBe(true);
     expect(isBlockConflictError({ code: "23505" })).toBe(false);
-  });
-
-  it("重なりの文言はDB制約に任せた結果を伝えるものになっている", () => {
-    expect(BLOCK_CONFLICT_MESSAGE).toBe("その時間帯には予約が入っています");
   });
 });
 

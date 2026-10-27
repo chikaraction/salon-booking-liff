@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  DATE_OVERRIDE_OVERLAP_MESSAGE,
   changedNthWeekdayWeekdays,
   changedWeeklyHourWeekdays,
   closureListWindow,
@@ -622,14 +621,6 @@ describe("isDateRangeOverlapError", () => {
   it("EXCLUDE制約違反(23P01)を、期間の重なりとして判定する", () => {
     expect(isDateRangeOverlapError({ code: "23P01" })).toBe(true);
     expect(isDateRangeOverlapError({ code: "23505" })).toBe(false);
-  });
-});
-
-describe("DATE_OVERRIDE_OVERLAP_MESSAGE", () => {
-  it("事前チェックと23P01の変換で同じ文言を使う", () => {
-    expect(DATE_OVERRIDE_OVERLAP_MESSAGE).toBe(
-      "その期間はすでに登録されています",
-    );
   });
 });
 
