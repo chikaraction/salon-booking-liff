@@ -16,22 +16,6 @@ import { getServiceRoleClient } from "@/server/supabase";
 
 const MINUTE_MS = 60 * 1000;
 
-type RecentReservationRow = {
-  id: string;
-  kind: string;
-  status: string;
-  created_at: string; // timestamptz は ISO 8601 の文字列で返る
-  during: string; // tstzrange は文字列で返る
-  // 多対一の埋め込みは単一オブジェクト(admin-data.ts と同じ)
-  staff: { name: string } | null;
-  // 一対多の埋め込み(予約時点のスナップショット)は配列
-  reservation_menus: Array<{
-    menu_name: string;
-    price: number;
-    duration_minutes: number;
-  }>;
-};
-
 /** pickRecentReservation に渡せて、そのまま文面にも使える予約1件分 */
 export type RecentLineReservation = RecentReservationCandidate &
   LineReservation;
@@ -65,7 +49,9 @@ export async function getRecentReservationsForLineUser(
   if (result.error !== null) {
     throw new Error(`直近の予約の取得に失敗しました: ${result.error.message}`);
   }
-  const rows = (result.data ?? []) as unknown as RecentReservationRow[];
+  // 埋め込みの形は生成された型から推論される(多対一の staff は単一
+  // オブジェクト、一対多の reservation_menus は配列)
+  const rows = result.data ?? [];
 
   return rows.map((row) => ({
     id: row.id,
@@ -91,5 +77,5 @@ export async function getSalonName(): Promise<string> {
       `店舗設定の取得に失敗しました: ${result.error?.message ?? "データがありません"}`,
     );
   }
-  return (result.data as { name: string }).name;
+  return result.data.name;
 }

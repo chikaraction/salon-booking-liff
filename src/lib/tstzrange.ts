@@ -25,8 +25,19 @@ function toIsoTimestamp(raw: string): string {
   return ts;
 }
 
-/** tstzrange文字列を { start, end }(いずれもUTCのDate)に変換する */
-export function parseTstzrange(value: string): BusyRange {
+/**
+ * tstzrange文字列を { start, end }(いずれもUTCのDate)に変換する。
+ *
+ * 引数を unknown で受けるのは、Supabase の生成された型では tstzrange 列が
+ * unknown になるため(生成器が範囲型を型にしない)。実際に返るのは文字列なので、
+ * 文字列以外が来たら型を示すメッセージ付きでエラーにする。
+ */
+export function parseTstzrange(value: unknown): BusyRange {
+  if (typeof value !== "string") {
+    const typeName = value === null ? "null" : typeof value;
+    throw new Error(`tstzrangeの値が文字列ではありません(型: ${typeName})`);
+  }
+
   // 境界のタイムスタンプは空白を含むためPostgreSQLが二重引用符で囲む
   const match = /^\["?([^",]+?)"?\s*,\s*"?([^",]+?)"?\)$/.exec(value.trim());
   if (!match) {

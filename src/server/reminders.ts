@@ -31,25 +31,6 @@ import { countPushMessagesThisMonth } from "@/server/admin-data";
 import { pushMessage } from "@/server/line-messaging";
 import { getServiceRoleClient } from "@/server/supabase";
 
-type ReminderSettingsRow = { name: string; reminder_hour: number };
-
-type ReminderReservationRow = {
-  id: string;
-  kind: string;
-  status: string;
-  created_at: string; // timestamptz は ISO 8601 の文字列で返る
-  during: string; // tstzrange は文字列で返る
-  // 多対一の埋め込みは単一オブジェクト(admin-data.ts と同じ)
-  customers: { line_user_id: string | null } | null;
-  staff: { name: string } | null;
-  // 一対多の埋め込み(予約時点のスナップショット)は配列
-  reservation_menus: Array<{
-    menu_name: string;
-    price: number;
-    duration_minutes: number;
-  }>;
-};
-
 /** selectReminderTargets に渡せて、そのまま文面にも使える予約1件分 */
 type ReminderCandidate = ReminderReservation & {
   staffName: string;
@@ -70,7 +51,7 @@ async function getReminderSettings(): Promise<{
       `店舗設定の取得に失敗しました: ${result.error?.message ?? "データがありません"}`,
     );
   }
-  const row = result.data as ReminderSettingsRow;
+  const row = result.data;
   return { salonName: row.name, reminderHour: row.reminder_hour };
 }
 
@@ -94,7 +75,9 @@ async function getReservationsOverlapping(
   if (result.error !== null) {
     throw new Error(`翌日の予約の取得に失敗しました: ${result.error.message}`);
   }
-  const rows = (result.data ?? []) as unknown as ReminderReservationRow[];
+  // 埋め込みの形は生成された型から推論される(多対一の customers・staff は
+  // 単一オブジェクト、一対多の reservation_menus は配列)
+  const rows = result.data ?? [];
 
   return rows.map((row) => ({
     id: row.id,
@@ -127,6 +110,7 @@ async function getRemindedReservationIds(
       `送信済みのリマインドの取得に失敗しました: ${result.error.message}`,
     );
   }
+  // 列は null 可(string | null)と推論されるが、in で絞っているので null は来ない
   return (result.data as Array<{ reservation_id: string }>).map(
     (row) => row.reservation_id,
   );

@@ -27,7 +27,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { isStaffRole } from "@/lib/admin-permissions";
+import { toStaffRole } from "@/lib/admin-permissions";
 import { isUuid } from "@/lib/booking";
 import {
   DATE_OVERRIDE_OVERLAP_MESSAGE,
@@ -88,6 +88,7 @@ import {
   fetchWeeklyBusinessHours,
 } from "@/server/closure-data";
 import { fetchMenuSettings } from "@/server/settings-data";
+import type { Tables } from "@/types/database";
 
 /** 設定系アクションの戻り値(既存のアクションと同じ判別可能なResult型) */
 export type SettingsActionResult =
@@ -459,15 +460,9 @@ export async function saveStaff(params: {
       console.error("saveStaff failed", staffResult.error);
       return { ok: false, message: "スタッフの取得に失敗しました" };
     }
-    const staffList = (
-      staffResult.data as Array<{
-        id: string;
-        role: string;
-        is_active: boolean;
-      }>
-    ).map((row) => ({
+    const staffList = staffResult.data.map((row) => ({
       id: row.id,
-      role: isStaffRole(row.role) ? row.role : ("staff" as const),
+      role: toStaffRole(row.role),
       isActive: row.is_active,
     }));
 
@@ -760,16 +755,12 @@ function revalidateMenuSettings(): void {
   revalidatePath("/admin/reservations/[id]/edit", "page");
 }
 
-/** menus の1行(並べ替えのupsertに使う。upsertは全列を送る必要がある) */
-type MenuTableRow = {
-  id: string;
-  name: string;
-  category_id: string;
-  price: number;
-  duration_minutes: number;
-  display_order: number;
-  is_active: boolean;
-};
+/**
+ * menus の1行(並べ替えのupsertに使う。upsertは全列を送る必要がある)。
+ * 既定値のある created_at を除く全列。生成された型から作るので、menus に列が
+ * 増えると saveMenuOrder の select の列が足りないことを型エラーで知らせる
+ */
+type MenuTableRow = Omit<Tables<"menus">, "created_at">;
 
 /**
  * メニューを1件追加・更新する(id が null なら追加)。
@@ -848,7 +839,7 @@ export async function saveMenu(params: {
         console.error("saveMenu failed", siblingsResult.error);
         return { ok: false, message: "メニューの保存に失敗しました" };
       }
-      const siblings = siblingsResult.data as Array<{ display_order: number }>;
+      const siblings = siblingsResult.data;
       const displayOrder = siblings.reduce(
         (max, sibling) => Math.max(max, sibling.display_order + 1),
         0,
@@ -931,7 +922,7 @@ export async function saveMenuOrder(params: {
       console.error("saveMenuOrder failed", result.error);
       return { ok: false, message: "表示順の保存に失敗しました" };
     }
-    const rows = result.data as MenuTableRow[];
+    const rows = result.data;
 
     const changes = renumberDisplayOrder(
       orderedIds,
@@ -942,7 +933,9 @@ export async function saveMenuOrder(params: {
       return { ok: true };
     }
 
-    const byId = new Map(rows.map((row) => [row.id, row]));
+    const byId = new Map<string, MenuTableRow>(
+      rows.map((row) => [row.id, row]),
+    );
     const { error } = await supabase.from("menus").upsert(
       changes.map((change) => ({
         ...(byId.get(change.id) as MenuTableRow),

@@ -5,9 +5,8 @@ import "server-only";
 // service_role は使わない(docs/milestone-4-plan.md「サーバー・UI」)。
 // 例外はログイン画面(未認証で表示する店名)のみ。下記コメント参照。
 
-import type { SupabaseClient } from "@supabase/supabase-js";
-
 import type { AdminCalendarItem, AdminStaff } from "@/lib/admin-calendar";
+import { toStaffRole } from "@/lib/admin-permissions";
 import { sortMenusForProxyRegistration } from "@/lib/admin-reservation-form";
 import type { StaffWorkingDay } from "@/lib/availability";
 import { addMonths } from "@/lib/calendar";
@@ -17,18 +16,17 @@ import type { ReservationMenuSnapshot } from "@/lib/my-reservations";
 import { parseTstzrange } from "@/lib/tstzrange";
 import { must } from "@/server/postgrest";
 import { getServiceRoleClient } from "@/server/supabase";
+import type { DbClient } from "@/types/database";
 
 /** 店名(salon_settings.name)を取得する(ADR-007: 店舗固有値はDBから) */
-export async function fetchSalonName(
-  supabase: SupabaseClient,
-): Promise<string> {
+export async function fetchSalonName(supabase: DbClient): Promise<string> {
   const result = await supabase.from("salon_settings").select("name").single();
   if (result.error !== null || result.data === null) {
     throw new Error(
       `店舗設定の取得に失敗しました: ${result.error?.message ?? "データがありません"}`,
     );
   }
-  return (result.data as { name: string }).name;
+  return result.data.name;
 }
 
 /**
@@ -37,7 +35,7 @@ export async function fetchSalonName(
  * 店舗固有値をコードに書かない)。
  */
 export async function fetchSlotIntervalMinutes(
-  supabase: SupabaseClient,
+  supabase: DbClient,
 ): Promise<number> {
   const result = await supabase
     .from("salon_settings")
@@ -48,8 +46,7 @@ export async function fetchSlotIntervalMinutes(
       `店舗設定の取得に失敗しました: ${result.error?.message ?? "データがありません"}`,
     );
   }
-  return (result.data as { slot_interval_minutes: number })
-    .slot_interval_minutes;
+  return result.data.slot_interval_minutes;
 }
 
 /**
@@ -68,58 +65,33 @@ export async function fetchSalonNameForLogin(): Promise<string> {
 // アダプタ層(booking-data.ts と同じ役割分担)。
 // ---------------------------------------------------------------------------
 
-type StaffRow = {
-  id: string;
-  name: string;
-  role: "owner" | "staff";
-};
-
-type StaffWorkingHoursRow = {
-  staff_id: string;
-  start_time: string;
-  end_time: string;
-  break_start: string | null;
-  break_end: string | null;
-};
-
-type AdminReservationRow = {
-  id: string;
-  kind: "booking" | "block";
-  staff_id: string;
-  during: string; // tstzrangeは文字列で返る
-  // 多対一の埋め込み(reservations.customer_id → customers)は単一オブジェクトで返る
-  customers: { name: string } | null;
-  // 一対多の埋め込みは配列で返る(予約時点のスナップショット)
-  reservation_menus: Array<{
-    menu_name: string;
-    price: number;
-    duration_minutes: number;
-  }>;
-};
-
 /** 有効スタッフ一覧(display_order順)を取得する */
 export async function fetchAdminStaff(
-  supabase: SupabaseClient,
+  supabase: DbClient,
 ): Promise<AdminStaff[]> {
   const result = await supabase
     .from("staff")
     .select("id, name, role")
     .eq("is_active", true)
     .order("display_order");
-  const rows: StaffRow[] = must(result, "スタッフ");
-  return rows.map((row) => ({ id: row.id, name: row.name, role: row.role }));
+  const rows = must(result, "スタッフ");
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    role: toStaffRole(row.role),
+  }));
 }
 
 /** 対象曜日のスタッフ勤務パターン(休憩ブロックの生成に使う)を取得する */
 export async function fetchStaffWorkingHoursForWeekday(
-  supabase: SupabaseClient,
+  supabase: DbClient,
   weekday: number,
 ): Promise<Array<{ staffId: string } & StaffWorkingDay>> {
   const result = await supabase
     .from("staff_working_hours")
     .select("staff_id, start_time, end_time, break_start, break_end")
     .eq("weekday", weekday);
-  const rows: StaffWorkingHoursRow[] = must(result, "スタッフ勤務時間");
+  const rows = must(result, "スタッフ勤務時間");
   return rows.map((row) => ({
     staffId: row.staff_id,
     startTime: row.start_time,
@@ -144,7 +116,7 @@ function jstDayRange(startDate: string, endDateExclusive: string): string {
  * - tstzrangeの重なり(&&)は overlaps フィルタ(booking-data.ts と同じ)
  */
 export async function fetchAdminCalendarItems(
-  supabase: SupabaseClient,
+  supabase: DbClient,
   startDate: string,
   endDateExclusive: string,
 ): Promise<AdminCalendarItem[]> {
@@ -155,7 +127,9 @@ export async function fetchAdminCalendarItems(
     )
     .eq("status", "confirmed")
     .overlaps("during", jstDayRange(startDate, endDateExclusive));
-  const rows = must(result, "予約") as unknown as AdminReservationRow[];
+  // 埋め込みの形は生成された型から推論される(多対一の customers は単一
+  // オブジェクトか null、一対多の reservation_menus は配列)
+  const rows = must(result, "予約");
 
   return rows.map((row) => {
     const during = parseTstzrange(row.during);
@@ -206,31 +180,12 @@ export type ReservationDetail = {
   staffMemo: string | null;
 };
 
-type ReservationDetailRow = {
-  id: string;
-  kind: "booking" | "block";
-  during: string;
-  note: string | null;
-  customer_id: string | null;
-  staff_id: string;
-  // 多対一の埋め込みは単一オブジェクト(顧客・スタッフ)
-  customers: { name: string; phone: string | null; note: string | null } | null;
-  staff: { name: string } | null;
-  // 一対多の埋め込み(予約時点のスナップショット)
-  reservation_menus: Array<{
-    menu_id: string | null;
-    menu_name: string;
-    price: number;
-    duration_minutes: number;
-  }>;
-};
-
 /**
  * 予約詳細(顧客・担当・メニュースナップショット・要望・スタッフメモ)を1件取得する。
  * kind='booking' の確定予約のみが対象。ブロック・存在しない・キャンセル済みは null。
  */
 export async function fetchReservationDetail(
-  supabase: SupabaseClient,
+  supabase: DbClient,
   id: string,
 ): Promise<ReservationDetail | null> {
   const result = await supabase
@@ -247,7 +202,9 @@ export async function fetchReservationDetail(
   if (result.data === null) {
     return null;
   }
-  const row = result.data as unknown as ReservationDetailRow;
+  // 埋め込みの形は生成された型から推論される(多対一の customers・staff は
+  // 単一オブジェクト、一対多の reservation_menus は配列)
+  const row = result.data;
   // ブロック(予約不可)には顧客・メニューがないため詳細は出さない
   if (row.kind !== "booking" || row.customer_id === null) {
     return null;
@@ -288,7 +245,7 @@ export type AdminMiniSummary = {
 
 /** JST暦日の範囲に重なる確定予約(kind=booking)の件数を数える */
 export async function countConfirmedBookings(
-  supabase: SupabaseClient,
+  supabase: DbClient,
   startDate: string,
   endDateExclusive: string,
 ): Promise<number> {
@@ -308,7 +265,7 @@ export async function countConfirmedBookings(
 
 /** 今月(JSTの暦月)に送信したLINEプッシュ数を数える(ADR-002の可視化用) */
 export async function countPushMessagesThisMonth(
-  supabase: SupabaseClient,
+  supabase: DbClient,
   now: Date,
 ): Promise<number> {
   const yearMonth = jstCalendarDate(now).slice(0, 7);
@@ -329,7 +286,7 @@ export async function countPushMessagesThisMonth(
 
 /** サイドバーのミニ集計(モックB左下)をまとめて取得する */
 export async function getAdminMiniSummary(
-  supabase: SupabaseClient,
+  supabase: DbClient,
   now: Date,
 ): Promise<AdminMiniSummary> {
   const today = jstCalendarDate(now);
@@ -359,13 +316,6 @@ export type DashboardSummary = {
   monthlyPushCount: number;
 };
 
-type DashboardStaffRow = {
-  id: string;
-  name: string;
-  is_active: boolean;
-  display_order: number;
-};
-
 /**
  * ダッシュボードの3カード分の数値をまとめて取得する。
  * 今日の予約は countConfirmedBookings と同じ条件(kind=booking・status=confirmed・
@@ -373,7 +323,7 @@ type DashboardStaffRow = {
  * (合計と内訳を同じ取得結果から出す)。
  */
 export async function getDashboardSummary(
-  supabase: SupabaseClient,
+  supabase: DbClient,
   now: Date,
 ): Promise<DashboardSummary> {
   const today = jstCalendarDate(now);
@@ -391,8 +341,8 @@ export async function getDashboardSummary(
       countConfirmedBookings(supabase, lastMonth.start, lastMonth.endExclusive),
       countPushMessagesThisMonth(supabase, now),
     ]);
-  const todayRows: Array<{ staff_id: string }> = must(todayRes, "今日の予約");
-  const staffRows: DashboardStaffRow[] = must(staffRes, "スタッフ");
+  const todayRows = must(todayRes, "今日の予約");
+  const staffRows = must(staffRes, "スタッフ");
 
   return {
     todayStaffIds: todayRows.map((row) => row.staff_id),
@@ -420,20 +370,6 @@ export type ActiveMenu = {
   durationMinutes: number;
 };
 
-type ActiveMenuRow = {
-  id: string;
-  name: string;
-  price: number;
-  duration_minutes: number;
-  category_id: string;
-  display_order: number;
-};
-
-type ActiveMenuCategoryRow = {
-  id: string;
-  display_order: number;
-};
-
 /**
  * 有効メニュー一覧を取得する(代行登録の複数選択用)。
  * 並び順(カテゴリ順 → カテゴリ内の表示順 → id)は純粋関数
@@ -441,7 +377,7 @@ type ActiveMenuCategoryRow = {
  * カテゴリは客側(getBookingPageData)と同じく別に取得する。
  */
 export async function fetchActiveMenus(
-  supabase: SupabaseClient,
+  supabase: DbClient,
 ): Promise<ActiveMenu[]> {
   const [categoriesRes, menusRes] = await Promise.all([
     supabase.from("menu_categories").select("id, display_order"),
@@ -450,11 +386,8 @@ export async function fetchActiveMenus(
       .select("id, name, price, duration_minutes, category_id, display_order")
       .eq("is_active", true),
   ]);
-  const categories: ActiveMenuCategoryRow[] = must(
-    categoriesRes,
-    "メニューカテゴリ",
-  );
-  const rows: ActiveMenuRow[] = must(menusRes, "メニュー");
+  const categories = must(categoriesRes, "メニューカテゴリ");
+  const rows = must(menusRes, "メニュー");
   const sorted = sortMenusForProxyRegistration(
     categories.map((category) => ({
       id: category.id,
@@ -491,7 +424,7 @@ const CUSTOMER_SEARCH_LIMIT = 10;
  * (店側の入力だがフィルタ構文の破損を防ぐ)。
  */
 export async function searchCustomers(
-  supabase: SupabaseClient,
+  supabase: DbClient,
   query: string,
 ): Promise<CustomerSearchResult[]> {
   const sanitized = query
@@ -509,7 +442,7 @@ export async function searchCustomers(
     .or(`name.ilike.${pattern},phone.ilike.${pattern}`)
     .order("name")
     .limit(CUSTOMER_SEARCH_LIMIT);
-  const rows: CustomerSearchResult[] = must(result, "顧客検索");
+  const rows = must(result, "顧客検索");
   return rows.map((row) => ({
     id: row.id,
     name: row.name,

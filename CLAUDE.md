@@ -24,11 +24,16 @@ npm run build    # 本番ビルド + 型チェック
 npm test         # ユニットテスト(src/lib/ の純粋ロジック、Vitest)
 npm run lint     # Lint(ESLint)
 npm run format   # Prettierで全体整形
+npm run db:types # DBの型を再生成(リンク済みのリモートDBを読み取る)
 ```
 
 スキーマ変更: `supabase/migrations/` にマイグレーションを追加し
 `npx supabase db push` で適用(ローカルにDockerはない。制約の実機検証は
-verify-booking スキル、SQLの事前検証はPGliteが使える)。
+verify-booking スキル、SQLの事前検証はPGliteが使える)。適用したら
+`npm run db:types` で `src/types/database.types.ts` を再生成してコミットする
+(生成ファイルは手で直さない)。null を受け付ける引数を持つRPCを足したら
+`src/types/database.ts` の上書きにも足す。コードは `@/types/database` の
+`Database` / `DbClient` を使う。
 
 ## 設計規約
 

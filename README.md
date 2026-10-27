@@ -26,7 +26,11 @@ cp .env.example .env.local   # 値はSupabase/LINE Developersから取得して�
 ```sh
 npx supabase link --project-ref <project-ref>
 npx supabase db push
+npm run db:types   # DBの型(src/types/database.types.ts)を再生成する
 ```
+
+`npm run db:types` はリンク済みのDBのスキーマを読み取るだけで、Dockerは要らない
+(`npx supabase login` 済みであること)。生成ファイルは手で直さずにコミットする。
 
 ローカルでDockerが使える環境なら `npx supabase db reset` で
 マイグレーション+seed(開発用ダミーデータ)が投入できる。

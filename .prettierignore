@@ -4,3 +4,5 @@ package-lock.json
 supabase/.temp/
 docs/mockups/
 .claude/
+# Supabase CLI の生成物(npm run db:types)。手で直さず、出力のまま置く
+src/types/database.types.ts

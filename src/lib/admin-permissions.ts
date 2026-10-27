@@ -32,6 +32,19 @@ export function isStaffRole(value: unknown): value is StaffRole {
   return value === "owner" || value === "staff";
 }
 
+/**
+ * DBから読んだ role 文字列を StaffRole に詰め替える(一覧表示などのデータ用)。
+ * 想定外の値は権限の小さい "staff" に倒す。staff.role には check 制約が
+ * あるので、通常は起きない。
+ *
+ * 認証・認可の判定(admin-auth.ts の getCurrentStaff)には使わないこと。
+ * あちらは想定外のロールを「権限なし(null)」として拒否するのが正しく、
+ * "staff" に倒すとスタッフ権限を与えてしまう。
+ */
+export function toStaffRole(value: string): StaffRole {
+  return isStaffRole(value) ? value : "staff";
+}
+
 /** サイドバーのナビ項目のうち、表示可否の判断に使う属性 */
 export type AdminNavVisibility = {
   /** オーナーだけに見せる項目か(設定グループはすべて true) */

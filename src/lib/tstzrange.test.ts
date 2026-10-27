@@ -36,6 +36,20 @@ describe("parseTstzrange: PostgRESTが返すtstzrange文字列の変換", () => 
     ).toThrow();
     expect(() => parseTstzrange('["not-a-date","also-not-a-date")')).toThrow();
   });
+
+  it("文字列以外(null・数値・オブジェクト)は型を示すメッセージ付きで例外を投げる", () => {
+    // 生成された型では during が unknown になるため、文字列でない値が来たら
+    // 何が来たのかが分かるメッセージで落とす
+    expect(() => parseTstzrange(null)).toThrow(
+      "tstzrangeの値が文字列ではありません(型: null)",
+    );
+    expect(() => parseTstzrange(123)).toThrow(
+      "tstzrangeの値が文字列ではありません(型: number)",
+    );
+    expect(() => parseTstzrange({ lower: "2026-07-18 02:00:00+00" })).toThrow(
+      "tstzrangeの値が文字列ではありません(型: object)",
+    );
+  });
 });
 
 describe("formatTstzrange", () => {

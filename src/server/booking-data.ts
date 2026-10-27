@@ -6,6 +6,7 @@ import "server-only";
 // - tstzrange型は文字列で返るため parseTstzrange(src/lib/tstzrange.ts)で変換する
 // - 空き枠計算そのものは src/lib/availability.ts の純粋関数が行う
 
+import { toStaffRole } from "@/lib/admin-permissions";
 import {
   computeStaffDaySlots,
   type BookingPolicy,
@@ -33,53 +34,6 @@ import { parseTstzrange } from "@/lib/tstzrange";
 import { fetchBusinessCalendar } from "@/server/closure-data";
 import { must } from "@/server/postgrest";
 import { getServiceRoleClient } from "@/server/supabase";
-
-// ---------------------------------------------------------------------------
-// DBの行の型(supabase/migrations/ のスキーマに対応)。
-// 営業時間・休業日ルールの行の型は closure-data.ts にある
-// ---------------------------------------------------------------------------
-
-type SalonSettingsRow = {
-  name: string;
-  slot_interval_minutes: number;
-  booking_window_days: number;
-  min_lead_minutes: number;
-};
-
-type MenuCategoryRow = {
-  id: string;
-  name: string;
-  description: string | null;
-};
-
-type MenuRow = {
-  id: string;
-  name: string;
-  price: number;
-  duration_minutes: number;
-  category_id: string;
-};
-
-type StaffRow = {
-  id: string;
-  name: string;
-  role: "owner" | "staff";
-  photo_url: string | null;
-  bio: string | null;
-};
-
-type StaffWorkingHoursRow = {
-  staff_id: string;
-  start_time: string;
-  end_time: string;
-  break_start: string | null;
-  break_end: string | null;
-};
-
-type ReservationRangeRow = {
-  staff_id: string;
-  during: string; // tstzrangeは文字列で返る
-};
 
 // ---------------------------------------------------------------------------
 // 予約フローUIの初期表示データ
@@ -140,10 +94,10 @@ export async function getBookingPageData(): Promise<BookingPageData> {
         .order("display_order"),
     ]);
 
-  const settings: SalonSettingsRow = must(settingsRes, "店舗設定");
-  const categories: MenuCategoryRow[] = must(categoriesRes, "メニューカテゴリ");
-  const menus: MenuRow[] = must(menusRes, "メニュー");
-  const staff: StaffRow[] = must(staffRes, "スタッフ");
+  const settings = must(settingsRes, "店舗設定");
+  const categories = must(categoriesRes, "メニューカテゴリ");
+  const menus = must(menusRes, "メニュー");
+  const staff = must(staffRes, "スタッフ");
 
   return {
     salonName: settings.name,
@@ -162,7 +116,7 @@ export async function getBookingPageData(): Promise<BookingPageData> {
     staff: staff.map((row) => ({
       id: row.id,
       name: row.name,
-      role: row.role,
+      role: toStaffRole(row.role),
       photoUrl: row.photo_url,
       bio: row.bio,
     })),
@@ -280,20 +234,11 @@ export async function getDayAvailability(
       busyQuery,
     ]);
 
-  const settings = must(settingsRes, "店舗設定") as Pick<
-    SalonSettingsRow,
-    "slot_interval_minutes" | "booking_window_days" | "min_lead_minutes"
-  >;
-  const menus: Array<Omit<MenuRow, "category_id">> = must(menusRes, "メニュー");
-  const staff: Array<Pick<StaffRow, "id" | "name">> = must(
-    staffRes,
-    "スタッフ",
-  );
-  const workingRows: StaffWorkingHoursRow[] = must(
-    workingRes,
-    "スタッフ勤務時間",
-  );
-  const busyRows: ReservationRangeRow[] = must(busyRes, "既存予約");
+  const settings = must(settingsRes, "店舗設定");
+  const menus = must(menusRes, "メニュー");
+  const staff = must(staffRes, "スタッフ");
+  const workingRows = must(workingRes, "スタッフ勤務時間");
+  const busyRows = must(busyRes, "既存予約");
 
   // 存在しない・無効化済みメニューが混ざっていたら拒否(RPC側と同じ判定)
   if (menus.length !== distinctMenuIds.length) {
@@ -403,20 +348,12 @@ export async function findCustomerByLineUserId(
   if (result.error !== null) {
     throw new Error(`顧客の取得に失敗しました: ${result.error.message}`);
   }
-  return result.data as { id: string; name: string } | null;
+  return result.data;
 }
 
 // ---------------------------------------------------------------------------
 // 変更元予約の取得(M3: 変更フロー)
 // ---------------------------------------------------------------------------
-
-type OwnBookingRow = {
-  id: string;
-  staff_id: string;
-  during: string; // tstzrangeは文字列で返る
-  note: string | null;
-  reservation_menus: Array<{ menu_id: string | null }>;
-};
 
 export type OwnConfirmedBooking = {
   id: string;
@@ -454,7 +391,8 @@ export async function findOwnConfirmedBooking(
   if (result.error !== null) {
     throw new Error(`変更元予約の取得に失敗しました: ${result.error.message}`);
   }
-  const row = result.data as OwnBookingRow | null;
+  // 一対多の埋め込み(reservation_menus)は配列として推論される
+  const row = result.data;
   if (row === null) {
     return null;
   }
@@ -473,18 +411,6 @@ export async function findOwnConfirmedBooking(
 // ---------------------------------------------------------------------------
 // マイ予約(M3): 今後の確定予約一覧 + キャンセル締切
 // ---------------------------------------------------------------------------
-
-type UpcomingReservationRow = {
-  id: string;
-  staff_id: string;
-  during: string; // tstzrangeは文字列で返る
-  // 一対多の埋め込み(reservation_menus.reservation_id が本テーブルへのFK)は配列で返る
-  reservation_menus: Array<{
-    menu_name: string;
-    price: number;
-    duration_minutes: number;
-  }>;
-};
 
 /**
  * 該当顧客の今後の確定予約(kind=booking)を開始時刻昇順で返す。
@@ -511,7 +437,8 @@ export async function getUpcomingReservations(
     .eq("customer_id", customer.id)
     .eq("kind", "booking")
     .eq("status", "confirmed");
-  const rows: UpcomingReservationRow[] = must(result, "マイ予約");
+  // 一対多の埋め込み(reservation_menus)は配列として推論される
+  const rows = must(result, "マイ予約");
 
   // スタッフ名は別クエリで引く(退職などで無効化済みでも予約表示には名前が要るため
   // is_active では絞らない)
@@ -522,10 +449,7 @@ export async function getUpcomingReservations(
       .from("staff")
       .select("id, name")
       .in("id", staffIds);
-    const staffRows: Array<Pick<StaffRow, "id" | "name">> = must(
-      staffRes,
-      "スタッフ",
-    );
+    const staffRows = must(staffRes, "スタッフ");
     for (const row of staffRows) {
       staffNameById.set(row.id, row.name);
     }
@@ -553,8 +477,6 @@ export async function getCancelDeadlineMinutes(): Promise<number> {
     .from("salon_settings")
     .select("cancel_deadline_minutes")
     .single();
-  const settings = must(result, "店舗設定") as {
-    cancel_deadline_minutes: number;
-  };
+  const settings = must(result, "店舗設定");
   return settings.cancel_deadline_minutes;
 }

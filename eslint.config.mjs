@@ -18,6 +18,8 @@ const eslintConfig = defineConfig([
     // OpenNext / wrangler の生成物
     ".open-next/**",
     ".wrangler/**",
+    // Supabase CLI の生成物(npm run db:types)
+    "src/types/database.types.ts",
   ]),
 ]);
 
