@@ -55,6 +55,9 @@ import { cn } from "@/lib/utils";
 const pickerInputClass =
   "h-11 rounded-xl border border-input bg-card text-base outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50";
 const inputClass = `${pickerInputClass} px-3`;
+// 曜日ごとの営業時間の時刻欄を包む span(PickerInput の wrapperClassName)。
+// 幅の決め方は WeeklyHoursSection の入力欄のコメントを参照
+const hoursPickerWrapperClass = "min-w-[7.25rem] max-w-32 flex-1";
 const sectionLabelClass = "text-base font-bold text-muted-foreground";
 const saveButtonClass = "h-11 rounded-xl px-5 text-base";
 /**
@@ -241,7 +244,8 @@ function WeeklyHoursSection({
               changedWeekdays.includes(day.weekday) && changedRowClass,
             )}
           >
-            {/* スマホ幅は曜日を上の行に逃がし、開店〜閉店は1行に収める(ADR-005) */}
+            {/* スマホ幅は曜日を上の行に逃がし、開店〜閉店は1行に並べる(ADR-005)。
+                入りきらない幅では閉店(と「定休」)を次の行に折り返す */}
             <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
               <span
                 className={cn(
@@ -254,14 +258,17 @@ function WeeklyHoursSection({
               {changedWeekdays.includes(day.weekday) && (
                 <ChangedMark className="self-start sm:order-last sm:self-center" />
               )}
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 sm:flex-1">
                 <label className="sr-only" htmlFor={`open-${day.weekday}`}>
                   {weekdayLongLabel(day.weekday)}の開店時刻
                 </label>
-                {/* 幅は w-32 を上限にし、狭い画面では縮む(flex の既定は
-                    grow 0 / shrink 1。flex-1 だと中の文字以上に伸びていた)。
-                    固定幅なので iOS の content-box の補正は掛からない。
-                    span が flex 行の項目になるので、span にも min-w-0 を付ける */}
+                {/* 幅は span で決める: 116px(Firefox + LINE Seed JP で中身が欠けない幅
+                    113.5px に余裕を足したもの)〜128px(max-w-32)の間で伸び縮みし、
+                    2欄が 116px ずつ入らない幅では閉店を次の行に折り返す(折り返しの
+                    判定は flex-1 の basis 0 を最小で留めた 116px で行われる)。
+                    input は span の中で flex-1 で伸ばす(iOS は % 幅の時刻入力を
+                    content-box にしてはみ出すので w-full は使わない)。行は sm 以上で
+                    flex-1 にして幅を決めておき、span が上限まで伸びるようにする */}
                 <PickerInput
                   id={`open-${day.weekday}`}
                   type="time"
@@ -270,8 +277,8 @@ function WeeklyHoursSection({
                   onChange={(event) =>
                     update(day.weekday, { openTime: event.target.value })
                   }
-                  wrapperClassName="min-w-0"
-                  className={cn(pickerInputClass, "w-32 min-w-0")}
+                  wrapperClassName={hoursPickerWrapperClass}
+                  className={cn(pickerInputClass, "min-w-0 flex-1")}
                 />
                 <span className="text-muted-foreground">〜</span>
                 <label className="sr-only" htmlFor={`close-${day.weekday}`}>
@@ -285,8 +292,8 @@ function WeeklyHoursSection({
                   onChange={(event) =>
                     update(day.weekday, { closeTime: event.target.value })
                   }
-                  wrapperClassName="min-w-0"
-                  className={cn(pickerInputClass, "w-32 min-w-0")}
+                  wrapperClassName={hoursPickerWrapperClass}
+                  className={cn(pickerInputClass, "min-w-0 flex-1")}
                 />
                 {!day.isOpen && (
                   <span className="shrink-0 text-sm text-muted-foreground">
