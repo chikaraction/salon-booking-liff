@@ -19,6 +19,7 @@ import { isSlotTakenError } from "./db-errors";
 import {
   canonicalIntegerInput,
   canonicalTimeInput,
+  changedWeekdays,
   normalizeTimeInput,
 } from "./form-input";
 import { isCalendarDate, isWallClockTime, jstDateTime } from "./jst";
@@ -607,12 +608,5 @@ export function changedWorkingDayWeekdays(
   saved: readonly WorkingDayInput[],
   draft: readonly WorkingDayInput[],
 ): number[] {
-  const toMap = (days: readonly WorkingDayInput[]) =>
-    new Map(days.map((day) => [day.weekday, canonicalWorkingDay(day)]));
-  const savedMap = toMap(saved);
-  const draftMap = toMap(draft);
-
-  return [...new Set([...savedMap.keys(), ...draftMap.keys()])]
-    .filter((weekday) => savedMap.get(weekday) !== draftMap.get(weekday))
-    .sort((a, b) => a - b);
+  return changedWeekdays(saved, draft, canonicalWorkingDay);
 }

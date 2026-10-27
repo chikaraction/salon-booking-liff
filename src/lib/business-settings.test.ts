@@ -674,10 +674,6 @@ describe("closureListWindow", () => {
 // ---------------------------------------------------------------------------
 
 describe("changedWeeklyHourWeekdays", () => {
-  it("保存済みの値と同じなら変更なし", () => {
-    expect(changedWeeklyHourWeekdays(weeklyInput(), weeklyInput())).toEqual([]);
-  });
-
   it("時刻を変えた曜日だけを返す", () => {
     expect(
       changedWeeklyHourWeekdays(
@@ -732,30 +728,6 @@ describe("changedWeeklyHourWeekdays", () => {
         }),
       ),
     ).toEqual([]);
-  });
-
-  it("値を変えてから手で元の値に戻すと変更なしに戻る", () => {
-    const saved = weeklyInput();
-    const edited = weeklyInput({ 3: { closeTime: "21:00" } });
-    expect(changedWeeklyHourWeekdays(saved, edited)).toEqual([3]);
-    expect(
-      changedWeeklyHourWeekdays(
-        saved,
-        weeklyInput({ 3: { closeTime: "19:00" } }),
-      ),
-    ).toEqual([]);
-  });
-
-  it("曜日の並びが違っても曜日ごとに突き合わせる", () => {
-    const saved = weeklyInput();
-    const reversed = [...weeklyInput()].reverse();
-    expect(changedWeeklyHourWeekdays(saved, reversed)).toEqual([]);
-  });
-
-  it("片方に無い曜日は変更として返す(行が欠けた入力でも判定できる)", () => {
-    expect(
-      changedWeeklyHourWeekdays(weeklyInput(), weeklyInput().slice(0, 6)),
-    ).toEqual([6]);
   });
 });
 

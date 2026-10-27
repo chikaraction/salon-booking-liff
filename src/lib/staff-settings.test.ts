@@ -731,14 +731,6 @@ describe("changedStaffFields", () => {
 });
 
 describe("changedWorkingDayWeekdays", () => {
-  it("保存済みの値と同じなら変更なし", () => {
-    const saved = allWeekdays({
-      1: { isWorking: true },
-      2: { isWorking: true },
-    });
-    expect(changedWorkingDayWeekdays(saved, saved)).toEqual([]);
-  });
-
   it("勤務曜日のON/OFFを切り替えた曜日を返す", () => {
     expect(
       changedWorkingDayWeekdays(
@@ -796,21 +788,5 @@ describe("changedWorkingDayWeekdays", () => {
         }),
       ),
     ).toEqual([1, 5]);
-  });
-
-  it("値を変えてから手で元の値に戻すと変更なしに戻る", () => {
-    const saved = allWeekdays({ 1: { isWorking: true, endTime: "19:00" } });
-    expect(
-      changedWorkingDayWeekdays(
-        saved,
-        allWeekdays({ 1: { isWorking: true, endTime: "20:00" } }),
-      ),
-    ).toEqual([1]);
-    expect(
-      changedWorkingDayWeekdays(
-        saved,
-        allWeekdays({ 1: { isWorking: true, endTime: "19:00" } }),
-      ),
-    ).toEqual([]);
   });
 });

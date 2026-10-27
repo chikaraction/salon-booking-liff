@@ -13,7 +13,7 @@
 // ここは「設定を編集して保存するまで」に必要な判断だけを置く。
 
 import { isSlotTakenError } from "./db-errors";
-import { canonicalTimeInput } from "./form-input";
+import { canonicalTimeInput, changedWeekdays } from "./form-input";
 import {
   addCalendarDays,
   calendarWeekday,
@@ -517,14 +517,7 @@ export function changedWeeklyHourWeekdays(
   saved: readonly WeeklyHoursInput[],
   draft: readonly WeeklyHoursInput[],
 ): number[] {
-  const toMap = (days: readonly WeeklyHoursInput[]) =>
-    new Map(days.map((day) => [day.weekday, canonicalWeeklyHours(day)]));
-  const savedMap = toMap(saved);
-  const draftMap = toMap(draft);
-
-  return [...new Set([...savedMap.keys(), ...draftMap.keys()])]
-    .filter((weekday) => savedMap.get(weekday) !== draftMap.get(weekday))
-    .sort((a, b) => a - b);
+  return changedWeekdays(saved, draft, canonicalWeeklyHours);
 }
 
 /**

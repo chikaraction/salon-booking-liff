@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   canonicalIntegerInput,
   canonicalTimeInput,
+  changedWeekdays,
   normalizeTimeInput,
 } from "./form-input";
 
@@ -86,5 +87,55 @@ describe("canonicalIntegerInput", () => {
 
   it("全角数字は整数として読まず、そのまま返す", () => {
     expect(canonicalIntegerInput("１０")).toBe("１０");
+  });
+});
+
+// 曜日ごとの値の比べ方(Map の突き合わせ・和集合・昇順)だけを確かめる。
+// 1曜日ぶんの値の揃え方(秒の有無・休みの曜日など)は、各設定の canonical を
+// 通す changedWeeklyHourWeekdays / changedWorkingDayWeekdays のテストに置く。
+describe("changedWeekdays", () => {
+  type Day = { weekday: number; value: string };
+  const asIs = (day: Day) => day.value;
+  const week = (values: string[]): Day[] =>
+    values.map((value, weekday) => ({ weekday, value }));
+
+  it("違いが無ければ空配列", () => {
+    expect(
+      changedWeekdays(week(["a", "b", "c"]), week(["a", "b", "c"]), asIs),
+    ).toEqual([]);
+    expect(changedWeekdays([], [], asIs)).toEqual([]);
+  });
+
+  it("値が違う曜日だけを返す", () => {
+    expect(
+      changedWeekdays(week(["a", "b", "c"]), week(["a", "x", "c"]), asIs),
+    ).toEqual([1]);
+  });
+
+  it("片方にしか無い曜日も、違いとして返す(保存済みだけ・編集中だけのどちらも)", () => {
+    expect(changedWeekdays(week(["a", "b"]), week(["a"]), asIs)).toEqual([1]);
+    expect(changedWeekdays(week(["a"]), week(["a", "b"]), asIs)).toEqual([1]);
+  });
+
+  it("結果は入力の順序に関係なく昇順になる", () => {
+    const saved = week(["a", "b", "c", "d"]);
+    const draft = week(["x", "b", "x", "x"]).reverse();
+    expect(changedWeekdays(saved, draft, asIs)).toEqual([0, 2, 3]);
+    expect(changedWeekdays(draft, saved, asIs)).toEqual([0, 2, 3]);
+  });
+
+  it("入力の並びが違っても、曜日どうしで突き合わせる", () => {
+    const saved = week(["a", "b", "c"]);
+    expect(changedWeekdays(saved, [...saved].reverse(), asIs)).toEqual([]);
+  });
+
+  it("canonical を通して同じ文字列になれば、違いではない", () => {
+    const trimmed = (day: Day) => day.value.trim();
+    expect(
+      changedWeekdays(week(["a", "b"]), week([" a ", "b  "]), trimmed),
+    ).toEqual([]);
+    expect(
+      changedWeekdays(week(["a", "b"]), week([" a ", "c"]), trimmed),
+    ).toEqual([1]);
   });
 });

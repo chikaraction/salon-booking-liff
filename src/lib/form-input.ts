@@ -40,3 +40,26 @@ export function canonicalIntegerInput(value: string): string {
   const parsed = Number(trimmed);
   return Number.isInteger(parsed) ? String(parsed) : trimmed;
 }
+
+/**
+ * 曜日ごとの値で、保存済み(saved)と編集中(draft)に差がある曜日を昇順で返す。
+ * 空配列なら「変更なし」。
+ * 1曜日ぶんの値は canonical で比較用の文字列に直してから比べるので、
+ * 「同じ値」の定義(保存結果が同じか)は canonical を渡す側が決める。
+ * 曜日は weekday どうしで突き合わせるので、入力の並び順には左右されない。
+ * 片方にしか無い曜日は差として返す。
+ */
+export function changedWeekdays<T extends { weekday: number }>(
+  saved: readonly T[],
+  draft: readonly T[],
+  canonical: (day: T) => string,
+): number[] {
+  const toMap = (days: readonly T[]) =>
+    new Map(days.map((day) => [day.weekday, canonical(day)]));
+  const savedMap = toMap(saved);
+  const draftMap = toMap(draft);
+
+  return [...new Set([...savedMap.keys(), ...draftMap.keys()])]
+    .filter((weekday) => savedMap.get(weekday) !== draftMap.get(weekday))
+    .sort((a, b) => a - b);
+}
