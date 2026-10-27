@@ -70,6 +70,7 @@ import {
 import {
   BLOCK_CONFLICT_MESSAGE,
   diffStaffWorkingHours,
+  findDeactivationViolation,
   findLastOwnerViolation,
   isBlockConflictError,
   resolveStaffBlockRange,
@@ -79,7 +80,7 @@ import {
   type StaffInput,
   type WorkingDayInput,
 } from "@/lib/staff-settings";
-import { formatTstzrange } from "@/lib/tstzrange";
+import { formatTstzrange, formatTstzrangeFrom } from "@/lib/tstzrange";
 import { fetchStaffWorkingHoursForWeekday } from "@/server/admin-data";
 import { createAdminAuthClient, requireOwner } from "@/server/admin-auth";
 import {
@@ -476,6 +477,39 @@ export async function saveStaff(params: {
     });
     if (violation !== null) {
       return { ok: false, message: violation };
+    }
+
+    // 「これからの予約が残っているスタッフの無効化」の判定。予約を数えるのは
+    // DBの現在値が有効で、保存する値が無効の更新だけ(それ以外は問い合わせない)。
+    // これからの予約 = 終了時刻が現在より後の確定予約(進行中を含む。
+    // 臨時休ブロックは数えない)
+    // 判定のあとに予約が入る同時操作の隙は残る(客側は有効なスタッフにしか予約できず、起きうるのは代行登録と重なったときだけ)
+    const current =
+      id === null ? undefined : staffList.find((staff) => staff.id === id);
+    if (
+      current !== undefined &&
+      current.isActive &&
+      !validated.value.isActive
+    ) {
+      const countResult = await supabase
+        .from("reservations")
+        .select("id", { count: "exact", head: true })
+        .eq("staff_id", current.id)
+        .eq("kind", "booking")
+        .eq("status", "confirmed")
+        .overlaps("during", formatTstzrangeFrom(new Date()));
+      if (countResult.error !== null || countResult.count === null) {
+        console.error("saveStaff failed", countResult.error);
+        return { ok: false, message: "スタッフの保存に失敗しました" };
+      }
+      const deactivationViolation = findDeactivationViolation({
+        wasActive: current.isActive,
+        willBeActive: validated.value.isActive,
+        upcomingBookingCount: countResult.count,
+      });
+      if (deactivationViolation !== null) {
+        return { ok: false, message: deactivationViolation };
+      }
     }
 
     const row = {

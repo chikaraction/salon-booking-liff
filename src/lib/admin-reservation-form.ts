@@ -225,6 +225,43 @@ export function restoreSelectableMenuIds(
   return [...new Set(savedMenuIds)].filter((id) => active.has(id));
 }
 
+/**
+ * 変更フォームの初期選択スタッフを復元する(restoreSelectableMenuIds と同じ考え方)。
+ * 予約の担当が選べるスタッフ(有効なスタッフ = fetchAdminStaff)に含まれていれば
+ * そのIDを、含まれていなければ空文字(未選択)を返す。
+ *
+ * 無効にしたスタッフの予約を変更で開くと、担当が選択肢に無い。そのまま初期値に
+ * すると、select は「選択してください」を表示するのにフォームの状態は無効の
+ * スタッフのままになり、選び直さずに保存できてしまう。未選択から始めれば、
+ * 既存の入力検証が「スタッフを選択してください」で止める。
+ */
+export function restoreSelectableStaffId(
+  savedStaffId: string,
+  selectableStaffIds: readonly string[],
+): string {
+  return selectableStaffIds.includes(savedStaffId) ? savedStaffId : "";
+}
+
+/** 担当のスタッフが無効・存在しないときの文言(スタッフ欄に出す) */
+export const INACTIVE_STAFF_MESSAGE =
+  "選択したスタッフは現在選べません。別のスタッフを選んでください";
+
+/**
+ * 代行登録・店側変更で、担当のスタッフが選べるか(有効か)を判定する。
+ * 断るなら文言、問題なければ null を返す。
+ *
+ * 画面のスタッフ選択は有効なスタッフだけだが、画面を通らない送信や、
+ * 画面を開いている間にスタッフが無効にされた場合に備えて、Server Action が
+ * RPCの前に確かめる(RPCは is_active を見ない)。
+ *
+ * @param staff staff を id で読んだ結果。行が無ければ null
+ */
+export function findInactiveStaffViolation(
+  staff: { isActive: boolean } | null,
+): string | null {
+  return staff !== null && staff.isActive ? null : INACTIVE_STAFF_MESSAGE;
+}
+
 /** 代行登録のメニュー並べ替えに使うカテゴリ(表示順だけを見る) */
 export type MenuCategoryOrder = { id: string; displayOrder: number };
 

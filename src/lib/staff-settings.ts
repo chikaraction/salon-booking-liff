@@ -230,6 +230,30 @@ export function findLastOwnerViolation(params: {
   return activeOwners.length === 0 ? LAST_OWNER_MESSAGE : null;
 }
 
+/**
+ * 「これからの予約が残っているスタッフを無効にする変更」を拒否する判定。
+ * 拒否するならメッセージ、問題なければ null を返す。
+ *
+ * 管理画面のカレンダーは有効なスタッフしか列にしないため、予約が残ったまま
+ * 無効にすると、その予約が日表示から見えなくなる。この状態を新しく作らない。
+ *
+ * 止めるのは「有効 → 無効」に切り替える保存だけ。すでに無効のスタッフを
+ * 無効のまま保存する(名前を直すだけなど)のは妨げない。
+ *
+ * @param params.wasActive            DBの現在値で有効か
+ * @param params.willBeActive         保存する値で有効か
+ * @param params.upcomingBookingCount これからの予約(進行中を含む)の件数
+ */
+export function findDeactivationViolation(params: {
+  wasActive: boolean;
+  willBeActive: boolean;
+  upcomingBookingCount: number;
+}): string | null {
+  const { wasActive, willBeActive, upcomingBookingCount } = params;
+  if (!wasActive || willBeActive || upcomingBookingCount <= 0) return null;
+  return `これからの予約が${upcomingBookingCount}件あるため無効にできません。予約の担当を変えるかキャンセルしてから無効にしてください`;
+}
+
 // ---------------------------------------------------------------------------
 // 2. 週次勤務パターン(staff_working_hours)
 // ---------------------------------------------------------------------------

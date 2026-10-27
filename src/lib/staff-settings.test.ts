@@ -13,6 +13,7 @@ import {
   describeStaffLogin,
   diffStaffWorkingHours,
   fillStaffWorkingHours,
+  findDeactivationViolation,
   findLastOwnerViolation,
   isBlockConflictError,
   resolveStaffBlockRange,
@@ -252,6 +253,60 @@ describe("findLastOwnerViolation", () => {
       findLastOwnerViolation({
         staffList,
         target: { id: "staff-1", role: "owner", isActive: true },
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("findDeactivationViolation", () => {
+  it("有効なスタッフを無効にしようとして、これからの予約があれば件数入りの文言で拒否する", () => {
+    expect(
+      findDeactivationViolation({
+        wasActive: true,
+        willBeActive: false,
+        upcomingBookingCount: 3,
+      }),
+    ).toBe(
+      "これからの予約が3件あるため無効にできません。予約の担当を変えるかキャンセルしてから無効にしてください",
+    );
+  });
+
+  it("有効なスタッフを無効にしても、これからの予約が0件なら妨げない", () => {
+    expect(
+      findDeactivationViolation({
+        wasActive: true,
+        willBeActive: false,
+        upcomingBookingCount: 0,
+      }),
+    ).toBeNull();
+  });
+
+  it("有効のまま保存するときは予約があっても妨げない", () => {
+    expect(
+      findDeactivationViolation({
+        wasActive: true,
+        willBeActive: true,
+        upcomingBookingCount: 3,
+      }),
+    ).toBeNull();
+  });
+
+  it("すでに無効のスタッフを無効のまま保存するときは予約があっても妨げない(名前の修正などを止めない)", () => {
+    expect(
+      findDeactivationViolation({
+        wasActive: false,
+        willBeActive: false,
+        upcomingBookingCount: 3,
+      }),
+    ).toBeNull();
+  });
+
+  it("無効のスタッフを有効に戻すときは妨げない", () => {
+    expect(
+      findDeactivationViolation({
+        wasActive: false,
+        willBeActive: true,
+        upcomingBookingCount: 3,
       }),
     ).toBeNull();
   });

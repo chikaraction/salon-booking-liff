@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   isPastStart,
+  findInactiveStaffViolation,
   restoreSelectableMenuIds,
+  restoreSelectableStaffId,
   sortMenusForProxyRegistration,
   validateProxyRegistration,
   validateReservationEdit,
@@ -304,6 +306,41 @@ describe("restoreSelectableMenuIds", () => {
 
   it("保存済みが空なら空配列", () => {
     expect(restoreSelectableMenuIds([], ["cut"])).toEqual([]);
+  });
+});
+
+describe("restoreSelectableStaffId", () => {
+  it("保存済みのスタッフが選べるスタッフに含まれていれば、そのまま復元する", () => {
+    expect(
+      restoreSelectableStaffId("staff-tanaka", ["staff-sato", "staff-tanaka"]),
+    ).toBe("staff-tanaka");
+  });
+
+  it("選べるスタッフに含まれていなければ空文字(未選択にフォールバック)", () => {
+    // 無効にしたスタッフの予約を変更で開いた場合
+    expect(restoreSelectableStaffId("staff-suzuki", ["staff-tanaka"])).toBe("");
+  });
+
+  it("選べるスタッフが空なら空文字", () => {
+    expect(restoreSelectableStaffId("staff-tanaka", [])).toBe("");
+  });
+});
+
+describe("findInactiveStaffViolation", () => {
+  it("担当のスタッフが有効なら断らない", () => {
+    expect(findInactiveStaffViolation({ isActive: true })).toBeNull();
+  });
+
+  it("担当のスタッフが無効なら、別のスタッフを選ぶよう促す文言で断る", () => {
+    expect(findInactiveStaffViolation({ isActive: false })).toBe(
+      "選択したスタッフは現在選べません。別のスタッフを選んでください",
+    );
+  });
+
+  it("担当のスタッフが見つからなければ、無効と同じ文言で断る", () => {
+    expect(findInactiveStaffViolation(null)).toBe(
+      "選択したスタッフは現在選べません。別のスタッフを選んでください",
+    );
   });
 });
 

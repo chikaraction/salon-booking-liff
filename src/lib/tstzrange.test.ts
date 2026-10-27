@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { formatTstzrange, parseTstzrange } from "./tstzrange";
+import {
+  formatTstzrange,
+  formatTstzrangeFrom,
+  parseTstzrange,
+} from "./tstzrange";
 
 describe("parseTstzrange: PostgRESTが返すtstzrange文字列の変換", () => {
   it("引用符付き・+00オフセットの標準形式を変換する", () => {
@@ -68,5 +72,13 @@ describe("formatTstzrange", () => {
     const range = parseTstzrange(formatTstzrange(start, end));
     expect(range.start.toISOString()).toBe(start.toISOString());
     expect(range.end.toISOString()).toBe(end.toISOString());
+  });
+});
+
+describe("formatTstzrangeFrom", () => {
+  it("上限の無い [開始, ∞) の範囲リテラルにする", () => {
+    expect(formatTstzrangeFrom(new Date("2026-10-27T00:00:00.000Z"))).toBe(
+      "[2026-10-27T00:00:00.000Z,)",
+    );
   });
 });

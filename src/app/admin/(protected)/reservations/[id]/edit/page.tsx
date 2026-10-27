@@ -4,11 +4,15 @@
 // 認証は保護レイアウトが担う。配線に徹し、判断は src/lib/ の純粋関数に置く:
 // - 開始時刻(UTC)→ JSTの日付・時刻の分解は jstCalendarDate / jstClockTime
 // - 初期選択メニューの復元(無効化メニューの除外)は restoreSelectableMenuIds
+// - 初期選択スタッフの復元(無効のスタッフなら未選択)は restoreSelectableStaffId
 
 import { notFound } from "next/navigation";
 
 import { ProxyRegistrationForm } from "@/app/admin/(protected)/_components/proxy-registration-form";
-import { restoreSelectableMenuIds } from "@/lib/admin-reservation-form";
+import {
+  restoreSelectableMenuIds,
+  restoreSelectableStaffId,
+} from "@/lib/admin-reservation-form";
 import { isUuid } from "@/lib/booking";
 import { jstCalendarDate, jstClockTime } from "@/lib/jst";
 import { createAdminAuthClient } from "@/server/admin-auth";
@@ -48,6 +52,12 @@ export default async function EditReservationPage({
     detail.menuIds,
     menus.map((menu) => menu.id),
   );
+  // 初期選択スタッフは選べる(有効な)スタッフに含まれるときだけ復元する。
+  // 無効のスタッフの予約は未選択から始め、選び直してもらう
+  const staffId = restoreSelectableStaffId(
+    detail.staffId,
+    staff.map((member) => member.id),
+  );
 
   return (
     <ProxyRegistrationForm
@@ -63,7 +73,7 @@ export default async function EditReservationPage({
       fixedCustomerName={detail.customerName}
       initial={{
         menuIds,
-        staffId: detail.staffId,
+        staffId,
         date,
         time,
         note: detail.requestNote ?? "",

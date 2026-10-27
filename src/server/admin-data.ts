@@ -9,6 +9,7 @@ import type { AdminCalendarItem, AdminStaff } from "@/lib/admin-calendar";
 import { toStaffRole } from "@/lib/admin-permissions";
 import { sortMenusForProxyRegistration } from "@/lib/admin-reservation-form";
 import type { StaffWorkingDay } from "@/lib/availability";
+import { isUuid } from "@/lib/booking";
 import { addMonths } from "@/lib/calendar";
 import { monthRanges, type DashboardStaff } from "@/lib/dashboard";
 import { addCalendarDays, jstCalendarDate, jstDateTime } from "@/lib/jst";
@@ -79,7 +80,55 @@ export async function fetchAdminStaff(
     id: row.id,
     name: row.name,
     role: toStaffRole(row.role),
+    // is_active = true で絞っているので、全員が有効
+    isActive: true,
   }));
+}
+
+/**
+ * カレンダー用の全スタッフ(無効のスタッフも含む。display_order順)を取得する。
+ * 無効のスタッフに残っている予約をカレンダーから消さないために使う
+ * (どのスタッフを出すかは純粋関数 calendarStaff が決める)。
+ * 代行登録・変更のスタッフ選択には使わない(そちらは fetchAdminStaff の
+ * 有効なスタッフだけ)。
+ */
+export async function fetchCalendarStaff(
+  supabase: DbClient,
+): Promise<AdminStaff[]> {
+  const result = await supabase
+    .from("staff")
+    .select("id, name, role, is_active")
+    .order("display_order");
+  const rows = must(result, "スタッフ");
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    role: toStaffRole(row.role),
+    isActive: row.is_active,
+  }));
+}
+
+/**
+ * 代行登録・店側変更の担当スタッフが有効かを確かめるため、staff を id で1件読む。
+ * 行が無ければ null(断るかどうかは純粋関数 findInactiveStaffViolation が決める)。
+ * UUIDの形でない値は、存在しないのと同じ扱いにして問い合わせない
+ * (uuid 列との比較が 22P02 で失敗し、取得失敗と区別できなくなるため)。
+ * 取得に失敗したら例外を投げる(呼び出し側の catch が server_error にする)。
+ */
+export async function fetchStaffActiveState(
+  supabase: DbClient,
+  staffId: string,
+): Promise<{ isActive: boolean } | null> {
+  if (!isUuid(staffId)) return null;
+  const result = await supabase
+    .from("staff")
+    .select("is_active")
+    .eq("id", staffId)
+    .maybeSingle();
+  if (result.error !== null) {
+    throw new Error(`スタッフの取得に失敗しました: ${result.error.message}`);
+  }
+  return result.data === null ? null : { isActive: result.data.is_active };
 }
 
 /** 対象曜日のスタッフ勤務パターン(休憩ブロックの生成に使う)を取得する */

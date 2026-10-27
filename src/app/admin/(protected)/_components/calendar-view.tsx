@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import {
+  calendarStaffLegendLabel,
   dayNavLabel,
   moveDay,
   shouldFollowDate,
@@ -25,7 +26,10 @@ import {
   type TimelineAxis,
   type WeekView,
 } from "@/lib/admin-calendar";
-import { restoreSelectableMenuIds } from "@/lib/admin-reservation-form";
+import {
+  restoreSelectableMenuIds,
+  restoreSelectableStaffId,
+} from "@/lib/admin-reservation-form";
 import { isCalendarDate, jstCalendarDate, jstClockTime } from "@/lib/jst";
 import { cn } from "@/lib/utils";
 import type { ActiveMenu, ReservationDetail } from "@/server/admin-data";
@@ -48,7 +52,13 @@ import {
 } from "./timeline-column";
 
 type Props = {
+  /**
+   * カレンダーに出すスタッフ(列・一覧・凡例・色・週表示の担当名)。
+   * 表示中の範囲に予約がある無効のスタッフも後ろに含む(calendarStaff)
+   */
   staff: AdminStaff[];
+  /** 代行登録・変更のスタッフ選択に出すスタッフ(有効なスタッフだけ) */
+  selectableStaff: AdminStaff[];
   date: string; // 表示中のJST暦日 "YYYY-MM-DD"
   todayDate: string; // サーバーが渡す今日(JST)。ハイドレーション不一致回避
   view: "day" | "week";
@@ -65,6 +75,7 @@ type Props = {
 
 export function CalendarView({
   staff,
+  selectableStaff,
   date,
   todayDate,
   view,
@@ -112,7 +123,8 @@ export function CalendarView({
   /**
    * 予約詳細の「変更」→ 変更ダイアログ。詳細ダイアログは閉じる(排他)。
    * 詳細は取得済みなので再取得しない。開始時刻(UTC)→ JSTの日付・時刻の分解、
-   * 初期選択メニューの復元(無効化されたメニューの除外)は、変更ページ
+   * 初期選択メニューの復元(無効化されたメニューの除外)と初期選択スタッフの
+   * 復元(無効のスタッフなら未選択)は、変更ページ
    * (/admin/reservations/[id]/edit)と同じ純粋関数に任せる。
    * 初期位置は代行登録と同じロジック(押した列以外の領域の中央)にするため、
    * 詳細を開いたときに測っておいた列の座標(selectedAnchor)を載せる。
@@ -125,7 +137,10 @@ export function CalendarView({
       mode: "edit",
       reservationId: detail.id,
       customerName: detail.customerName,
-      staffId: detail.staffId,
+      staffId: restoreSelectableStaffId(
+        detail.staffId,
+        selectableStaff.map((member) => member.id),
+      ),
       date: jstCalendarDate(detail.start),
       time: jstClockTime(detail.start),
       menuIds: restoreSelectableMenuIds(
@@ -328,7 +343,7 @@ export function CalendarView({
                   aria-hidden="true"
                   className={cn("size-3 rounded-sm", staffColor(index).legend)}
                 />
-                {member.name}
+                {calendarStaffLegendLabel(member)}
               </li>
             ))}
           </ul>
@@ -409,7 +424,7 @@ export function CalendarView({
           key={
             editTarget !== null ? `edit-${editTarget.reservationId}` : "create"
           }
-          staff={staff}
+          staff={selectableStaff}
           menus={menus}
           target={formTarget}
           onClose={closeFormDialog}
@@ -649,11 +664,13 @@ function DayTimelineGrid({
               // stopPropagation するので、カード上は従来どおり予約詳細が開く。
               // 休憩・予約不可の上は登録ダイアログでよい(店側は休憩を削って
               // 受けられる)。キーボード操作の導線はサイドバーの「代行登録」
-              // ページが担うため、ここはポインタ操作の近道として置く
+              // ページが担うため、ここはポインタ操作の近道として置く。
+              // 無効のスタッフの列(予約が残っている日だけ出る)は新しい予約を
+              // 入れられないので開かない。予約カードの詳細は今までどおり開く
               <div
                 key={column.staffId}
                 onClick={
-                  axis === null || onCreateAt === undefined
+                  axis === null || onCreateAt === undefined || !column.isActive
                     ? undefined
                     : (event) =>
                         onCreateAt(
@@ -664,7 +681,10 @@ function DayTimelineGrid({
                 }
                 className={cn(
                   "relative border-l border-calendar-divider",
-                  axis !== null && onCreateAt !== undefined && emptySlotClass,
+                  axis !== null &&
+                    onCreateAt !== undefined &&
+                    column.isActive &&
+                    emptySlotClass,
                 )}
               >
                 <TimelineBlocks
@@ -741,17 +761,21 @@ function MobileTimeline({
         <div className="relative w-16 shrink-0">
           <TimeGutter tickMarks={timeline.tickMarks} />
         </div>
-        {/* 空きをタップすると代行登録ダイアログ(スタッフは上のセグメントで選択中の1名) */}
+        {/* 空きをタップすると代行登録ダイアログ(スタッフは上のセグメントで選択中の1名)。
+            無効のスタッフの列は新しい予約を入れられないので開かない */}
         <div
           onClick={
-            axis === null || onCreateAt === undefined
+            axis === null || onCreateAt === undefined || !column.isActive
               ? undefined
               : (event) =>
                   onCreateAt(column.staffId, columnClickPoint(event), axis)
           }
           className={cn(
             "relative flex-1 border-l border-calendar-divider",
-            axis !== null && onCreateAt !== undefined && emptySlotClass,
+            axis !== null &&
+              onCreateAt !== undefined &&
+              column.isActive &&
+              emptySlotClass,
           )}
         >
           <HourLines tickMarks={timeline.tickMarks} />

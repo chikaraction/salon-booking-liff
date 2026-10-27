@@ -61,3 +61,14 @@ export function parseTstzrange(value: unknown): BusyRange {
 export function formatTstzrange(start: Date, end: Date): string {
   return `[${start.toISOString()},${end.toISOString()})`;
 }
+
+/**
+ * 上限の無い [開始, ∞) の tstzrange リテラル文字列にする。
+ * 「ある時刻より後に終わる区間」を overlaps(&&)で探すときに使う
+ * (半開区間なので、ちょうど開始時刻に終わる区間は重ならない)。
+ * 上端を空にした書き方が tstzrange として解釈され、重なり判定が
+ * 期待どおりになることは PGlite(PostgreSQL)で確認した。
+ */
+export function formatTstzrangeFrom(start: Date): string {
+  return `[${start.toISOString()},)`;
+}
