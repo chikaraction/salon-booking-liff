@@ -131,12 +131,14 @@ export function AdminSidebar({ salonName, role, miniSummary }: Props) {
         result = await logout();
       } catch (error) {
         // 成功時は Server Action の redirect でログイン画面へ移る。そのとき await は
-        // Next のリダイレクトのエラーで reject されるので、Next に投げ返す
+        // Next のリダイレクトのエラーで reject されるので、Next に投げ返す。
+        // 別の端末で先にログアウトしていてセッションが既に無効なときは、Server Action は
+        // 実行されず、middleware.ts が Server Action 向けのリダイレクト(x-action-redirect)
+        // でログイン画面へ移す。このときも await は同じリダイレクトのエラーで reject される
         unstable_rethrow(error);
-        // 応答が壊れたとき。別の端末で先にログアウトしていてセッションが既に無効だと、
-        // Server Action の POST を middleware.ts がログイン画面へリダイレクトし、
-        // Server Action は実行されない。ログインは切れているのでログイン画面が正しい
-        // 行き先。まだログイン中なら middleware.ts が /admin に戻すので害はない
+        // ほかの理由で応答が壊れたとき(通信エラーなど)の保険。ログイン画面へ移しておけば、
+        // ログインが切れていればそのまま、まだログイン中なら middleware.ts が /admin に
+        // 戻すので害はない
         router.replace("/admin/login");
         router.refresh();
         return;

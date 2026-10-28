@@ -1,5 +1,6 @@
 // 管理画面のアクセス制御(ADR-005 / ADR-008 範囲2)。verify-booking の「認証・アクセス制御」の自動化。
 // - 未ログインはログイン画面へ。ログイン済みでログイン画面を開くと /admin へ
+// - 開いたままの画面でログインが切れていたら、保存などを押したときにログイン画面へ
 // - 設定はオーナーのみ(スタッフは設定のリンクが出ず、直URLでも権限の案内になる)
 // - スタッフに紐付いていないユーザー・anon キーは予約まわりのデータを読めない(RLS)
 // - 管理画面にだけ埋め込み禁止のヘッダーが付く
@@ -11,7 +12,7 @@ import {
   UNLINKED_ACCOUNT,
   logoutAccount,
 } from "../support/accounts";
-import { loginAsAdmin } from "../support/admin";
+import { loginAsAdmin, waitForHydration } from "../support/admin";
 import { readLocalSupabase } from "../support/local-supabase";
 
 const PROTECTED_PATHS = [
@@ -104,6 +105,24 @@ test.describe("オーナー", () => {
   test("ログイン済みでログイン画面を開くと /admin に移る", async ({ page }) => {
     await page.goto("/admin/login");
     await expect(page).toHaveURL(/\/admin$/);
+  });
+
+  test("ログインが切れた画面で保存を押すと、ログイン画面に移る", async ({
+    page,
+    context,
+  }) => {
+    // 別の端末でログアウトしたあとなど、開いたままの画面のログインが切れている場面。
+    // cookie を消して作る(全セッションを無効にするログアウトだと、並行するテストの
+    // オーナーのログインまで消える)。保存の Server Action はミドルウェアで止まり、動かない
+    await page.goto("/admin/settings/salon");
+    await waitForHydration(page, "salon-name");
+    await context.clearCookies();
+    await page.getByLabel("店名").fill("ログイン切れの確認");
+    await page.getByRole("button", { name: "保存する" }).first().click();
+    await expect(page).toHaveURL(/\/admin\/login$/);
+    await expect(
+      page.getByRole("heading", { name: "管理画面ログイン" }),
+    ).toBeVisible();
   });
 
   test("サイドバーに設定のリンクが出て、設定画面を開ける", async ({ page }) => {

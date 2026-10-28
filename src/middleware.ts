@@ -19,16 +19,31 @@
 //    セッション更新を必須としている。型定義コメントで確認)
 // 2. 未ログインで /admin 配下(ログイン画面を除く)→ /admin/login へリダイレクト
 // 3. ログイン済みで /admin/login → /admin へリダイレクト
-// 4. すべての応答にクリックジャッキング対策のヘッダーを付ける
+//    (2・3 の判定は src/lib/admin-access.ts の decideAdminAccess)
+// 4. fetch で送る Server Action の要求(POST + next-action ヘッダー)は、307 ではなく
+//    「200 + x-action-redirect ヘッダー・本文なし」で移す。307 だと fetch が自動で
+//    追いかけてログイン画面の HTML を受け取り、Next のクライアントが
+//    "An unexpected response was received from the server." を投げて英語のエラー画面になる
+//    (別の端末でログアウトしたあと、開いたままの画面で保存したときなど)。
+//    200 + x-action-redirect は Next 本体が Server Action の redirect() で返す形
+//    (next/dist/server/app-render/action-handler.js)。クライアントはこのヘッダーがあれば
+//    RSC でない応答もエラーにせず、本文が無ければ action の Promise をリダイレクトの
+//    エラーで reject してその URL へページ遷移する
+//    (next/dist/client/components/router-reducer/reducers/server-action-reducer.js)
+// 5. すべての応答にクリックジャッキング対策のヘッダーを付ける
 //    (matcher が /admin だけなので客側のLIFFには影響しない)
 // レイアウト側でも getAdminUser で再確認する(二重チェック)。
 
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { decideAdminAccess } from "@/lib/admin-access";
 import { ADMIN_SECURITY_HEADERS } from "@/lib/admin-security-headers";
 
-const LOGIN_PATH = "/admin/login";
+/** Server Action のリダイレクトを伝えるヘッダー(Next 本体と同じ名前) */
+const ACTION_REDIRECT_HEADER = "x-action-redirect";
+/** Server Action を見分けるヘッダー(next/dist/client/components/app-router-headers.js の ACTION_HEADER) */
+const ACTION_HEADER = "next-action";
 
 /** 管理画面のセキュリティヘッダーを応答に付けて返す */
 function withSecurityHeaders(response: NextResponse): NextResponse {
@@ -79,30 +94,48 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const pathname = request.nextUrl.pathname;
-  const isLoginPage = pathname === LOGIN_PATH;
-
-  const redirectTo = (path: string): NextResponse => {
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = path;
-    redirectUrl.search = "";
-    const redirectResponse = NextResponse.redirect(redirectUrl);
-    // トークン更新で発行されたSet-Cookieをリダイレクト応答にも引き継ぐ
+  // トークン更新で発行されたSet-Cookieをリダイレクト応答にも引き継ぐ
+  const withRefreshedCookies = (
+    redirectResponse: NextResponse,
+  ): NextResponse => {
     response.cookies
       .getAll()
       .forEach((cookie) => redirectResponse.cookies.set(cookie));
     return redirectResponse;
   };
 
-  // response は setAll で作り直されるので、ヘッダーは return の直前に付ける
-  if (user === null && !isLoginPage) {
-    return withSecurityHeaders(redirectTo(LOGIN_PATH));
-  }
-  if (user !== null && isLoginPage) {
-    return withSecurityHeaders(redirectTo("/admin"));
-  }
+  const redirectTo = (path: string): NextResponse => {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = path;
+    redirectUrl.search = "";
+    return withRefreshedCookies(NextResponse.redirect(redirectUrl));
+  };
 
-  return withSecurityHeaders(response);
+  // Server Action 向けのリダイレクト(冒頭コメントの 4)。履歴は置き換える
+  const actionRedirectTo = (path: string): NextResponse =>
+    withRefreshedCookies(
+      new NextResponse(null, {
+        status: 200,
+        headers: { [ACTION_REDIRECT_HEADER]: `${path};replace` },
+      }),
+    );
+
+  const decision = decideAdminAccess({
+    pathname: request.nextUrl.pathname,
+    isLoggedIn: user !== null,
+    method: request.method,
+    hasActionHeader: request.headers.has(ACTION_HEADER),
+  });
+
+  // response は setAll で作り直されるので、ヘッダーは return の直前に付ける
+  switch (decision.kind) {
+    case "redirect":
+      return withSecurityHeaders(redirectTo(decision.path));
+    case "action_redirect":
+      return withSecurityHeaders(actionRedirectTo(decision.path));
+    case "pass":
+      return withSecurityHeaders(response);
+  }
 }
 
 export const config = {
