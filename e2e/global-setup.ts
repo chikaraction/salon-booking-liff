@@ -1,13 +1,17 @@
 // テストの前に、手元のSupabaseを毎回同じ状態に作り直す(ADR-008)。
 // 1. マイグレーションと supabase/seed.sql を当て直す
 // 2. 管理画面のアカウント(オーナー・スタッフ)を作り、seed のスタッフに紐付ける。
-//    紐付けないアカウント(UNLINKED_ACCOUNT)も作る
+//    紐付けないアカウント(UNLINKED_ACCOUNT と、ブラウザごとのログアウト用)も作る
 // 3. 主な画面を一度開いて、開発サーバーのコンパイルを済ませておく
 
 import { execSync } from "node:child_process";
 import type { FullConfig } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
-import { ADMIN_ACCOUNTS, UNLINKED_ACCOUNT } from "./support/accounts";
+import {
+  ADMIN_ACCOUNTS,
+  UNLINKED_ACCOUNT,
+  logoutAccount,
+} from "./support/accounts";
 import { readLocalSupabase } from "./support/local-supabase";
 
 // 管理画面は未ログインだとログイン画面へのリダイレクトになるが、ミドルウェアと
@@ -24,15 +28,22 @@ export default async function globalSetup(config: FullConfig) {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { error: unlinkedError } = await admin.auth.admin.createUser({
-    email: UNLINKED_ACCOUNT.email,
-    password: UNLINKED_ACCOUNT.password,
-    email_confirm: true,
-  });
-  if (unlinkedError) {
-    throw new Error(
-      `テスト用アカウントを作れませんでした(${UNLINKED_ACCOUNT.email}): ${unlinkedError.message}`,
-    );
+  // スタッフに紐付けないアカウント(RLS の確認用と、ブラウザごとのログアウト用)
+  const unlinkedAccounts = [
+    UNLINKED_ACCOUNT,
+    ...config.projects.map((project) => logoutAccount(project.name)),
+  ];
+  for (const account of unlinkedAccounts) {
+    const { error } = await admin.auth.admin.createUser({
+      email: account.email,
+      password: account.password,
+      email_confirm: true,
+    });
+    if (error) {
+      throw new Error(
+        `テスト用アカウントを作れませんでした(${account.email}): ${error.message}`,
+      );
+    }
   }
 
   for (const account of Object.values(ADMIN_ACCOUNTS)) {

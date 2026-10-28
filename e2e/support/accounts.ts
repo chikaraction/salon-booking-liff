@@ -27,3 +27,15 @@ export const UNLINKED_ACCOUNT = {
   email: "unlinked@e2e.test",
   password: "e2e-unlinked-password",
 } as const;
+
+/**
+ * ログアウトのテスト用のアカウント(スタッフに紐付けない)。ブラウザごとに分ける。
+ * ログアウトは同じアカウントの全セッションを無効にするので、3つのブラウザで1つを
+ * 共有すると、並行するテストどうしでログイン状態を消し合う
+ */
+export function logoutAccount(projectName: string) {
+  return {
+    email: `logout-${projectName}@e2e.test`,
+    password: "e2e-logout-password",
+  } as const;
+}

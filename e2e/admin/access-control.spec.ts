@@ -6,7 +6,11 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { expect, test } from "@playwright/test";
-import { ADMIN_ACCOUNTS, UNLINKED_ACCOUNT } from "../support/accounts";
+import {
+  ADMIN_ACCOUNTS,
+  UNLINKED_ACCOUNT,
+  logoutAccount,
+} from "../support/accounts";
 import { loginAsAdmin } from "../support/admin";
 import { readLocalSupabase } from "../support/local-supabase";
 
@@ -52,13 +56,45 @@ test.describe("未ログイン", () => {
     await expect(page).toHaveURL(/\/admin\/login$/);
   });
 
-  test("ログアウトすると管理画面を開けなくなる", async ({ page }) => {
-    await loginAsAdmin(page, UNLINKED_ACCOUNT.email, UNLINKED_ACCOUNT.password);
+  test("ログアウトすると管理画面を開けなくなる", async ({ page }, testInfo) => {
+    const account = logoutAccount(testInfo.project.name);
+    await loginAsAdmin(page, account.email, account.password);
     await expect(page).toHaveURL(/\/admin$/);
     await page.getByRole("button", { name: "ログアウト" }).click();
     await expect(page).toHaveURL(/\/admin\/login$/);
     await page.goto("/admin");
     await expect(page).toHaveURL(/\/admin\/login$/);
+  });
+
+  test("別の端末で先にログアウトしていても、ログアウトするとログイン画面に移る", async ({
+    browser,
+  }, testInfo) => {
+    // ログアウトは同じアカウントの全セッションを無効にする。スマホとPCの両方で
+    // ログインしていて、片方でログアウトしたあと、もう片方でもログアウトを押す場面
+    const account = logoutAccount(testInfo.project.name);
+    const [phone, pc] = await Promise.all([
+      browser.newContext(),
+      browser.newContext(),
+    ]);
+    const [phonePage, pcPage] = await Promise.all([
+      phone.newPage(),
+      pc.newPage(),
+    ]);
+    for (const page of [phonePage, pcPage]) {
+      await loginAsAdmin(page, account.email, account.password);
+      await expect(page).toHaveURL(/\/admin$/);
+    }
+
+    await phonePage.getByRole("button", { name: "ログアウト" }).click();
+    await expect(phonePage).toHaveURL(/\/admin\/login$/);
+
+    await pcPage.getByRole("button", { name: "ログアウト" }).click();
+    await expect(pcPage).toHaveURL(/\/admin\/login$/);
+    await expect(
+      pcPage.getByRole("heading", { name: "管理画面ログイン" }),
+    ).toBeVisible();
+
+    await Promise.all([phone.close(), pc.close()]);
   });
 });
 
