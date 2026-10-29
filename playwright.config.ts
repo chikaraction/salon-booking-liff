@@ -34,7 +34,12 @@ export default defineConfig({
     baseURL: BASE_URL,
     locale: "ja-JP",
     timezoneId: "Asia/Tokyo",
-    trace: "retain-on-failure",
+    // 通ったテストも後から画面で確かめられるよう、全テストで記録を残す。
+    // npx playwright show-report で、テストごとに最後の画面とトレースが見られる。
+    // 動画は付けない: トレースに画面の連続写真(screencast)と操作ごとの画面が入っていて、
+    // 動画で見られるものはほぼトレースで見られる
+    screenshot: "on",
+    trace: "on",
   },
   projects: [
     { name: "setup", testMatch: /auth\.setup\.ts/ },
