@@ -32,8 +32,9 @@ npm run db:types   # DBの型(src/types/database.types.ts)を再生成する
 `npm run db:types` はリンク済みのDBのスキーマを読み取るだけで、Dockerは要らない
 (`npx supabase login` 済みであること)。生成ファイルは手で直さずにコミットする。
 
-ローカルでDockerが使える環境なら `npx supabase db reset` で
-マイグレーション+seed(開発用ダミーデータ)が投入できる。
+マイグレーションの事前の検証は、手元のSupabase(Docker。準備は「テスト」の節)で
+`npx supabase db reset --local` して行う。マイグレーション+seed(開発用ダミーデータ)が
+入り直る。`--local` を付けて、リンク済みのリモートのDBには触れないこと。
 
 ### スタッフの追加
 
@@ -123,6 +124,49 @@ npm run check:deploy-env    # デプロイ前チェックだけ(process.env を�
 npm run build:cloudflare    # デプロイ前チェック → OpenNext でWorker用にビルド(Workers Builds 用)
 npm run preview:cloudflare  # ビルドしてローカルの workerd で動かす(開発用。チェックなし)
 ```
+
+## テスト
+
+### ユニットテスト
+
+`src/lib/` の純粋ロジック(予約枠の計算・営業時間の判定・通知の文面など)のテスト(Vitest)。
+
+```sh
+npm test               # すべて流す
+npm run test:watch     # 変更のたびに流す
+npm run test:coverage  # カバレッジも計測する(結果は coverage/index.html)
+```
+
+### E2E(Playwright。ADR-008)
+
+ブラウザで実際の画面を操作して確かめるテスト。客側の予約の流れ・ダブルブッキング・
+管理画面のアクセス制御・設定の反映・スマホ幅の崩れなどを、Chromium / WebKit / Firefox で流す。
+
+準備(初回だけ):
+
+1. WSL2 と Docker Desktop を入れる(手元のSupabaseを動かすため)
+2. Playwright のブラウザを取得する
+
+```sh
+npx playwright install
+```
+
+流すとき:
+
+```sh
+npx supabase start   # 手元のSupabaseを起動する(Docker Desktop を先に起動しておく)
+npm run test:e2e     # 全テストを流す(5分ほど)
+npx playwright show-report   # 結果を見る
+```
+
+- テストのたびに手元のDBを作り直してから流す(`supabase db reset --local`)。
+  つなぐのは手元のSupabaseだけで、`.env.local` のリモートのDB・本物のLINEの値は使わない
+- 開発サーバーはテスト用に別のポート(3100)で自動で起動する。`npm run dev` と同時に動かしてよい
+- `show-report` では、通ったテストも含めて、テストごとに最後の画面とトレース
+  (操作ごとの画面・通信・コンソールのログ)が見られる。トレースは「View Trace」で開く
+- 一部のテストだけ流すとき: `npx playwright test e2e/customer --project=chromium`
+- iPhone の Safari でだけ起きる崩れは E2E では確かめられない(テスト用の WebKit は Windows 版)。
+  実機での確認は verify-booking のチェックリスト(`.claude/skills/verify-booking/SKILL.md`)
 
 ## デプロイ(Cloudflare Workers)
 
