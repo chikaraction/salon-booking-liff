@@ -1,13 +1,18 @@
 // 管理画面のアクセス制御(ADR-005 / ADR-008 範囲2)。verify-booking の「認証・アクセス制御」の自動化。
 // - 未ログインはログイン画面へ。ログイン済みでログイン画面を開くと /admin へ
+// - 開いたままの画面でログインが切れていたら、保存などを押したときにログイン画面へ
 // - 設定はオーナーのみ(スタッフは設定のリンクが出ず、直URLでも権限の案内になる)
 // - スタッフに紐付いていないユーザー・anon キーは予約まわりのデータを読めない(RLS)
 // - 管理画面にだけ埋め込み禁止のヘッダーが付く
 
 import { createClient } from "@supabase/supabase-js";
 import { expect, test } from "@playwright/test";
-import { ADMIN_ACCOUNTS, UNLINKED_ACCOUNT } from "../support/accounts";
-import { loginAsAdmin } from "../support/admin";
+import {
+  ADMIN_ACCOUNTS,
+  UNLINKED_ACCOUNT,
+  logoutAccount,
+} from "../support/accounts";
+import { loginAsAdmin, waitForHydration } from "../support/admin";
 import { readLocalSupabase } from "../support/local-supabase";
 
 const PROTECTED_PATHS = [
@@ -52,13 +57,45 @@ test.describe("未ログイン", () => {
     await expect(page).toHaveURL(/\/admin\/login$/);
   });
 
-  test("ログアウトすると管理画面を開けなくなる", async ({ page }) => {
-    await loginAsAdmin(page, UNLINKED_ACCOUNT.email, UNLINKED_ACCOUNT.password);
+  test("ログアウトすると管理画面を開けなくなる", async ({ page }, testInfo) => {
+    const account = logoutAccount(testInfo.project.name);
+    await loginAsAdmin(page, account.email, account.password);
     await expect(page).toHaveURL(/\/admin$/);
     await page.getByRole("button", { name: "ログアウト" }).click();
     await expect(page).toHaveURL(/\/admin\/login$/);
     await page.goto("/admin");
     await expect(page).toHaveURL(/\/admin\/login$/);
+  });
+
+  test("別の端末で先にログアウトしていても、ログアウトするとログイン画面に移る", async ({
+    browser,
+  }, testInfo) => {
+    // ログアウトは同じアカウントの全セッションを無効にする。スマホとPCの両方で
+    // ログインしていて、片方でログアウトしたあと、もう片方でもログアウトを押す場面
+    const account = logoutAccount(testInfo.project.name);
+    const [phone, pc] = await Promise.all([
+      browser.newContext(),
+      browser.newContext(),
+    ]);
+    const [phonePage, pcPage] = await Promise.all([
+      phone.newPage(),
+      pc.newPage(),
+    ]);
+    for (const page of [phonePage, pcPage]) {
+      await loginAsAdmin(page, account.email, account.password);
+      await expect(page).toHaveURL(/\/admin$/);
+    }
+
+    await phonePage.getByRole("button", { name: "ログアウト" }).click();
+    await expect(phonePage).toHaveURL(/\/admin\/login$/);
+
+    await pcPage.getByRole("button", { name: "ログアウト" }).click();
+    await expect(pcPage).toHaveURL(/\/admin\/login$/);
+    await expect(
+      pcPage.getByRole("heading", { name: "管理画面ログイン" }),
+    ).toBeVisible();
+
+    await Promise.all([phone.close(), pc.close()]);
   });
 });
 
@@ -68,6 +105,24 @@ test.describe("オーナー", () => {
   test("ログイン済みでログイン画面を開くと /admin に移る", async ({ page }) => {
     await page.goto("/admin/login");
     await expect(page).toHaveURL(/\/admin$/);
+  });
+
+  test("ログインが切れた画面で保存を押すと、ログイン画面に移る", async ({
+    page,
+    context,
+  }) => {
+    // 別の端末でログアウトしたあとなど、開いたままの画面のログインが切れている場面。
+    // cookie を消して作る(全セッションを無効にするログアウトだと、並行するテストの
+    // オーナーのログインまで消える)。保存の Server Action はミドルウェアで止まり、動かない
+    await page.goto("/admin/settings/salon");
+    await waitForHydration(page, "salon-name");
+    await context.clearCookies();
+    await page.getByLabel("店名").fill("ログイン切れの確認");
+    await page.getByRole("button", { name: "保存する" }).first().click();
+    await expect(page).toHaveURL(/\/admin\/login$/);
+    await expect(
+      page.getByRole("heading", { name: "管理画面ログイン" }),
+    ).toBeVisible();
   });
 
   test("サイドバーに設定のリンクが出て、設定画面を開ける", async ({ page }) => {

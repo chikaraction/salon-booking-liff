@@ -5,6 +5,8 @@
 // - 戻り値は判別可能なResult型でUIが分岐に迷わない形にする
 // - セッションcookieの読み書きは createAdminAuthClient(@supabase/ssr)が行う
 
+import { redirect, RedirectType } from "next/navigation";
+
 import {
   describeSlotAvailability,
   type ProxyDaySlot,
@@ -75,9 +77,15 @@ export async function login(
   }
 }
 
-export type LogoutResult = { ok: true } | { ok: false; message: string };
+/** 成功時はログイン画面へ redirect するので、戻り値は失敗時だけ */
+export type LogoutResult = { ok: false; message: string };
 
-/** ログアウトする。セッションcookieが削除される */
+/**
+ * ログアウトする。セッションcookieを削除してログイン画面へ移す。
+ * 成功時は戻らない(redirect。クライアントの await は Next のリダイレクトの
+ * エラーで reject される: next/dist/client/components/router-reducer/reducers/
+ * server-action-reducer.js)
+ */
 export async function logout(): Promise<LogoutResult> {
   try {
     const supabase = await createAdminAuthClient();
@@ -86,11 +94,16 @@ export async function logout(): Promise<LogoutResult> {
       console.error("logout failed", error);
       return { ok: false, message: "ログアウトに失敗しました" };
     }
-    return { ok: true };
   } catch (error) {
     console.error("logout failed", error);
     return { ok: false, message: "ログアウトに失敗しました" };
   }
+  // cookieを消して値を返すだけだと、Next は今の画面(/admin)をログインが切れた
+  // 状態で描き直し、店舗設定などの取得が失敗する。redirect なら今の画面は描かず、
+  // 移り先のログイン画面だけを描いて返す(next/dist/server/app-render/action-handler.js
+  // の createRedirectRenderResult)。redirect は例外で実装されているので try の外で呼ぶ。
+  // 戻る操作で /admin に戻らないよう replace(Server Action の既定は push)
+  redirect("/admin/login", RedirectType.replace);
 }
 
 // ---------------------------------------------------------------------------

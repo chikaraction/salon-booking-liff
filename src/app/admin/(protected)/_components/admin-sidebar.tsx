@@ -26,10 +26,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { unstable_rethrow, usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { logout } from "@/app/admin/actions";
+import { logout, type LogoutResult } from "@/app/admin/actions";
 import { isAdminNavActive } from "@/lib/admin-nav";
 import {
   visibleAdminNavItems,
@@ -126,8 +126,19 @@ export function AdminSidebar({ salonName, role, miniSummary }: Props) {
   const handleLogout = () => {
     setErrorMessage(null);
     startTransition(async () => {
-      const result = await logout();
-      if (result.ok) {
+      let result: LogoutResult;
+      try {
+        result = await logout();
+      } catch (error) {
+        // 成功時は Server Action の redirect でログイン画面へ移る。そのとき await は
+        // Next のリダイレクトのエラーで reject されるので、Next に投げ返す。
+        // 別の端末で先にログアウトしていてセッションが既に無効なときは、Server Action は
+        // 実行されず、middleware.ts が Server Action 向けのリダイレクト(x-action-redirect)
+        // でログイン画面へ移す。このときも await は同じリダイレクトのエラーで reject される
+        unstable_rethrow(error);
+        // ほかの理由で応答が壊れたとき(通信エラーなど)の保険。ログイン画面へ移しておけば、
+        // ログインが切れていればそのまま、まだログイン中なら middleware.ts が /admin に
+        // 戻すので害はない
         router.replace("/admin/login");
         router.refresh();
         return;
