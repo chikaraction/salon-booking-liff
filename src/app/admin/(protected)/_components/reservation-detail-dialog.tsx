@@ -17,6 +17,7 @@ import {
   updateStaffMemo,
 } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
+import { useCloseOnEscape } from "@/components/use-close-on-escape";
 import { buildReservationDetailLabels } from "@/lib/admin-calendar";
 import type { ReservationDetail } from "@/server/admin-data";
 
@@ -70,6 +71,11 @@ export function ReservationDetailDialog({
       ignore = true;
     };
   }, [reservationId]);
+
+  // Escape で閉じる。背景クリックと同じく、キャンセルの確認中・メモの編集中でも
+  // そのまま閉じる(背景クリックはこれらの状態で閉じ方を変えていないため揃える)。
+  // 変換中の Escape(メモの入力中)では閉じない
+  useCloseOnEscape(onClose);
 
   return (
     <div

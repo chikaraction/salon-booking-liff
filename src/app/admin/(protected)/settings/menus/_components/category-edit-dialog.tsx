@@ -21,6 +21,7 @@ import { useState, useTransition } from "react";
 
 import { saveMenuCategories } from "@/app/admin/(protected)/settings/actions";
 import { Button } from "@/components/ui/button";
+import { useCloseOnEscape } from "@/components/use-close-on-escape";
 import {
   findCategoryDeleteViolation,
   toCategoryDrafts,
@@ -55,6 +56,10 @@ export function CategoryEditDialog({ categories, menuCounts, onClose }: Props) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // Escape で閉じる(背景クリックと同じ onClose)。変換中の Escape(カテゴリ名の
+  // 入力中)と、キーボードでの並べ替え中の Escape(並べ替えの取り消し)では閉じない
+  useCloseOnEscape(onClose);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;

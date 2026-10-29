@@ -97,15 +97,19 @@ export function takenTime(page: Page, time: string) {
     .getByText(time, { exact: true });
 }
 
-/** 時刻を選んで確認画面まで進む(初回の客はお客様情報を入れる) */
-export async function goToConfirm(page: Page, time: string) {
+/** 時刻を選んで確認画面まで進む(初回の客はお客様情報を入れる。名前は name) */
+export async function goToConfirm(
+  page: Page,
+  time: string,
+  name = "E2E テスト",
+) {
   await timeButton(page, time).click();
   await page.getByRole("button", { name: "確認へ進む" }).click();
   const info = page.getByRole("heading", { name: "お客様情報の入力" });
   const confirm = page.getByRole("heading", { name: "内容の確認" });
   await info.or(confirm).waitFor();
   if (await info.isVisible()) {
-    await page.getByRole("textbox", { name: "お名前" }).fill("E2E テスト");
+    await page.getByRole("textbox", { name: "お名前" }).fill(name);
     await page.getByRole("textbox", { name: "電話番号" }).fill("09012345678");
     await page.getByRole("button", { name: "確認画面へ" }).click();
     await confirm.waitFor();
@@ -115,7 +119,14 @@ export async function goToConfirm(page: Page, time: string) {
 /** 予約を1件作り、日付の見出しを返す */
 export async function book(
   page: Page,
-  options: { menu?: string; staff?: string; dateIndex: number; time: string },
+  options: {
+    menu?: string;
+    staff?: string;
+    dateIndex: number;
+    time: string;
+    /** 初回の客の名前(管理画面で予約を見分けたいときに変える) */
+    name?: string;
+  },
 ): Promise<string> {
   await startBooking(
     page,
@@ -123,7 +134,7 @@ export async function book(
     options.staff ?? "オーナー",
   );
   const date = await pickOpenDate(page, options.dateIndex);
-  await goToConfirm(page, options.time);
+  await goToConfirm(page, options.time, options.name);
   await page.getByRole("button", { name: "予約を確定する" }).click();
   await page.getByRole("heading", { name: "ご予約が完了しました" }).waitFor();
   return date;
@@ -132,6 +143,20 @@ export async function book(
 /** マイ予約のカード(日時の文言で探す) */
 export function reservationCard(page: Page, dateTime: string) {
   return page.getByRole("article").filter({ hasText: dateTime });
+}
+
+/**
+ * 日時選択の日付の見出し(例: 「10月30日(金)」)を YYYY-MM-DD にする。
+ * 年は書かれていないので、今日より前の月なら来年とみなす(受付期間は1年より短い)
+ */
+export function headingToDate(heading: string): string {
+  const match = /(\d{1,2})月(\d{1,2})日/.exec(heading);
+  if (!match) throw new Error(`日付の見出しではありません: ${heading}`);
+  const [, month, day] = match;
+  const today = todayJst();
+  let year = Number(today.slice(0, 4));
+  if (Number(month) < Number(today.slice(5, 7))) year++;
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
 }
 
 /** JSTの今日(YYYY-MM-DD) */

@@ -15,6 +15,7 @@
 import { GripHorizontal, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useCloseOnEscape } from "@/components/use-close-on-escape";
 import {
   clampDialogPosition,
   formDialogInitialX,
@@ -189,14 +190,9 @@ export function ReservationFormDialog({
     };
   }, [clampToViewport]);
 
-  // Escape で閉じる(非モーダルでもキーボードから抜けられるように)
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  // Escape で閉じる(非モーダルでもキーボードから抜けられるように)。
+  // 変換中の Escape(要望欄などの入力中)では閉じない
+  useCloseOnEscape(onClose);
 
   // --- ドラッグ(pointer events + setPointerCapture) -------------------------
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {

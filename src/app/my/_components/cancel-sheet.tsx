@@ -2,6 +2,7 @@
 
 import type { MyReservationCard } from "@/app/my/actions";
 import { Button } from "@/components/ui/button";
+import { useCloseOnEscape } from "@/components/use-close-on-escape";
 
 type Props = {
   reservation: MyReservationCard;
@@ -20,6 +21,10 @@ export function CancelSheet({
   onConfirm,
   onClose,
 }: Props) {
+  // Escape で閉じる(背景タップと同じ onClose)。背景タップと同じく、
+  // キャンセル処理中(busy)は閉じない
+  useCloseOnEscape(onClose, !busy);
+
   return (
     <div
       className="fixed inset-0 z-50"
