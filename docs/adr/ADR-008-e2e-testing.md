@@ -18,7 +18,7 @@ E2Eテストは予約を作ったりキャンセルしたりするのでDBに書
 - **E2EテストはPlaywright(`@playwright/test`)で書く。** テストは `e2e/` に置き、
   `npm run test:e2e` で実行する
 - **テスト用のDBは手元のSupabase(`npx supabase start`)にする。** 開発機にWSL2とDocker Desktopを入れる
-  - テストを始める前に `npx supabase db reset` でマイグレーションと `supabase/seed.sql` を
+  - テストを始める前に `npx supabase db reset --local` でマイグレーションと `supabase/seed.sql` を
     当て直し、毎回同じデータから始める
   - アプリはスタブモード(`NEXT_PUBLIC_LIFF_STUB=1`)で起動し、接続先を手元のSupabaseに向ける。
     接続先は Playwright の起動設定から環境変数で渡し、`.env.local`(リモートのDB)は使わない

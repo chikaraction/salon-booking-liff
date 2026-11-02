@@ -25,6 +25,7 @@ import {
   saveMenuOrder,
 } from "@/app/admin/(protected)/settings/actions";
 import { Button } from "@/components/ui/button";
+import { useCloseOnEscape } from "@/components/use-close-on-escape";
 import {
   MENU_HIDE_INSTEAD_OF_DELETE_LINES,
   formatMenuDuration,
@@ -418,6 +419,10 @@ function MenuEditDialog({
   const [errors, setErrors] = useState<MenuErrors>({});
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // Escape で閉じる(背景クリックと同じ onClose)。変換中の Escape(メニュー名の
+  // 入力中)では閉じない
+  useCloseOnEscape(onClose);
 
   const update = (patch: Partial<MenuInput>) => {
     setMessage(null);
