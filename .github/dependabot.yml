@@ -12,6 +12,11 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # 型は動かしている Node の版(.node-version の 24 系)に合わせる。
+      # それより新しい版の型にすると、24 に無い API も型の上では使えてしまう
+      - dependency-name: "@types/node"
+        versions: [">= 25"]
     groups:
       npm-minor-patch:
         update-types:
