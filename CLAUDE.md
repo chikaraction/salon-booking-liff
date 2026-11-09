@@ -27,6 +27,7 @@ npm run test:e2e # E2E(Playwright。先に npx supabase start。手元のDBを�
 npx playwright show-report # E2Eの結果。全テストの最後の画面とトレースが見られる
 npm run lint     # Lint(ESLint)
 npm run format   # Prettierで全体整形
+npm run format:check # 整形のチェックだけ(CI でも回る)
 npm run db:types # DBの型を再生成(リンク済みのリモートDBを読み取る)
 ```
 

@@ -117,11 +117,11 @@ alter table public.salon_settings
 モーヴ以外では**色相が崩れる**ことを計算で確認した(oklch の混合は色相も補間するため、
 `--foreground` の色相35へ寄る):
 
-| プリセット | `--primary`(モック accent) | 白文字 on primary | 派生 35% の結果 | モック accentDark | accentDark on 白 |
-| --- | --- | --- | --- | --- | --- |
-| A セージ | #5B7B6F oklch(0.555 0.041 170) | 4.66 | #545b48(オリーブ寄り) | #3F5A50 | 7.53 |
-| B モーヴ | 現行 oklch(0.58 0.05 22) | 4.38 | #705453 | #7A4F4F | 6.87 |
-| C スレート | #4F6D7A oklch(0.516 0.040 227) | 5.52 | #4f4f61(紫寄り) | #3A525C | 8.26 |
+| プリセット | `--primary`(モック accent)     | 白文字 on primary | 派生 35% の結果       | モック accentDark | accentDark on 白 |
+| ---------- | ------------------------------ | ----------------- | --------------------- | ----------------- | ---------------- |
+| A セージ   | #5B7B6F oklch(0.555 0.041 170) | 4.66              | #545b48(オリーブ寄り) | #3F5A50           | 7.53             |
+| B モーヴ   | 現行 oklch(0.58 0.05 22)       | 4.38              | #705453               | #7A4F4F           | 6.87             |
+| C スレート | #4F6D7A oklch(0.516 0.040 227) | 5.52              | #4f4f61(紫寄り)       | #3A525C           | 8.26             |
 
 派生で「`--primary` だけ替えれば追従する」は成り立たないので、**`--primary-strong` を
 プリセットごとの固定値トークン**にする(値はモックの accentDark をoklchにしたもの。
@@ -254,12 +254,12 @@ alter table public.salon_settings
 README の「スタッフ色: 田中 = accent / 佐藤 = #B7B2A6(背景 #F0EFE9)/ 休憩 #C99A86
 (背景 #EFE6E0)」に合わせる。M4 で決めたローズ/アンバー/ブルーの3色循環は置き換える。
 
-| 対象 | 帯・凡例 | 下地 | 備考 |
-| --- | --- | --- | --- |
-| 1人目のスタッフ(表示順) | `--primary` | `--accent` | テーマに追従する |
-| 2人目 | oklch(0.764 0.018 88)(#B7B2A6) | oklch(0.951 0.008 99)(#F0EFE9) | ニュートラル |
-| 3人目以降 | 現行の staff-3(ダスティブルー) | 現行の staff-3-surface | 循環させず全員この色(モックに指定なし) |
-| 休憩 | oklch(0.725 0.063 44)(#C99A86) | oklch(0.930 0.013 56)(#EFE6E0) | 文字 oklch(0.572 0.075 50.5)(#9C6B4F、下地上で約4.5:1)。新トークン `--break` / `--break-surface` / `--break-foreground` |
+| 対象                    | 帯・凡例                       | 下地                           | 備考                                                                                                                    |
+| ----------------------- | ------------------------------ | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| 1人目のスタッフ(表示順) | `--primary`                    | `--accent`                     | テーマに追従する                                                                                                        |
+| 2人目                   | oklch(0.764 0.018 88)(#B7B2A6) | oklch(0.951 0.008 99)(#F0EFE9) | ニュートラル                                                                                                            |
+| 3人目以降               | 現行の staff-3(ダスティブルー) | 現行の staff-3-surface         | 循環させず全員この色(モックに指定なし)                                                                                  |
+| 休憩                    | oklch(0.725 0.063 44)(#C99A86) | oklch(0.930 0.013 56)(#EFE6E0) | 文字 oklch(0.572 0.075 50.5)(#9C6B4F、下地上で約4.5:1)。新トークン `--break` / `--break-surface` / `--break-foreground` |
 
 - 休憩の下地(0.930 / 56°)は予約不可・定休日の `--secondary`(0.93 / 60°)とほぼ同色に
   なる。モックも同じで、**帯の色・文字ラベル(☕ 休憩 13:00–13:30)・定休日の斜線**で
@@ -274,62 +274,62 @@ README の「スタッフ色: 田中 = accent / 佐藤 = #B7B2A6(背景 #F0EFE9)
 `mock.dc.html` のもの。tint の面の上の accentDark の文字は `text-primary-strong` に
 対応させる(`--accent-foreground` はモックの accentDark より暗い)。
 
-| 画面 | 部品 | モック | 実装(修正前) | 対応 |
-| --- | --- | --- | --- | --- |
-| (モック資料) | 冒頭・各セクションの見出しと注記(37/64/370/791行) | accent の文字 / tint+accentDark | — | 対象外(画面ではなくモック資料の注記) |
-| 客1 メニュー選択 | カテゴリ見出し(82〜131行・7か所) | 文字 accentDark・13px・太字 | `text-base font-bold`(文字は既定の foreground) | 修正: `text-primary-strong`。大きさ(16px)は色の範囲外なので変えない |
-| 客1 メニュー選択 | 選択中のメニューカード(86/96行) | 枠 2px accent+影 `0 2px 6px rgba(accent,0.12)` | `border-primary`(1px)・影なし | 修正: `--primary` を12%にした影を追加。枠の太さは色の範囲外なので変えない |
-| 客1・客2 | 選択中の ✓ 丸(86/96/166行) | 塗り accent | `bg-primary` | 対応済み |
-| 客1〜客4 | 下部の主ボタン(141/182/225/256/288行) | 塗り accent | `Button` 既定(`bg-primary`) | 対応済み |
-| 客2・客3 | ヘッダーのメニュー要約チップ(157/198行) | tint+accentDark(2つ目以降のチップはニュートラル) | 全チップ `bg-secondary text-secondary-foreground` | 修正: 先頭のチップだけ `bg-accent text-primary-strong` |
-| 客2 スタッフ選択 | 選択中のスタッフカード(163行) | 枠 2px accent+影 | `border-primary`(1px)・影なし | 修正: 影を追加(メニューカードと同じ) |
-| 客2 スタッフ選択 | 1人目の顔写真枠(164行) | tint+accentDark(2人目・どちらでもは `#f0eee9`) | 写真が無ければ頭文字の丸 `bg-secondary`(全員) | 修正(選択状態に連動。下記の決定) |
-| 客3 日時選択 | 選択日(208行) | 塗り accent | `bg-primary` | 対応済み |
-| 客3 日時選択 | 選択中の時間ボタン(215行) | 枠・塗り accent | `border-primary bg-primary` | 対応済み |
-| 客 初回情報入力 | 案内ボックス(252行) | tint+accentDark | `bg-accent text-accent-foreground` | 修正: 文字のみ `text-primary-strong` |
-| 客4 予約確認 | 合計の行(277行) | tint、「合計」と金額は accentDark | `bg-accent text-accent-foreground` | 修正: 文字のみ `text-primary-strong` |
-| 客5 予約完了 | ✓ 丸(301行) | 塗り accent | `bg-primary` | 対応済み |
-| 客5 予約完了 | 案内ボックス(309行) | tint+accentDark | `bg-accent text-accent-foreground` | 修正: 文字のみ `text-primary-strong` |
-| 客5 予約完了 | 「マイ予約を見る」(312行) | 枠 accent・文字 accentDark | `outline-accent` | 対応済み |
-| 客7 マイ予約 | ステータスチップ「確定」(330行) | tint+accentDark | `bg-secondary text-secondary-foreground` | 修正: `bg-accent text-primary-strong` |
-| A ログイン | 店名(380行) | 文字 accent | `text-primary` | 対応済み |
-| A ログイン | ログインボタン(385行) | 塗り accent | `Button` 既定 | 対応済み |
-| サイドバー(日・週) | 店名「LUCE 管理」(399/471行) | 文字 accent | `text-primary` | 対応済み |
-| サイドバー(日・週) | 選択中のナビ(401/473行) | 塗り accent | `bg-primary` | 対応済み |
-| サイドバー(日・週) | ミニ集計のプッシュ使用量バー(413/485行) | 塗り accent | `bg-primary` | 対応済み |
-| B カレンダー日 | 「今日」チップ(422行) | tint+accentDark | `border-primary bg-accent text-accent-foreground` | 修正: 文字のみ `text-primary-strong`(枠は「押せる」ことを示すために付けたもので据え置き) |
-| B・B-2 | 日/週トグルの選択中(424/495行) | 塗り accent | `bg-primary` | 対応済み |
-| B カレンダー日・H スマホ日 | 1人目の予約カード(444〜446/816〜817行) | 下地 tint+左帯 4px accent | `staff-1`(ローズ固定 oklch(0.58 0.09 20)/ 下地 oklch(0.89 0.05 20)) | 修正: スタッフ色の方針どおり `staff-1` = `--primary` / `--accent` |
-| B カレンダー日 | 予約カードの料金(445行) | 文字 accentDark(1人目のカード) | `text-xs font-bold`(foreground) | 意図して変えない(下記の決定) |
-| B-2 カレンダー週 | 凡例の1人目(493行) | 塗り accent | `bg-staff-1`(ローズ固定) | 修正: スタッフ色の方針どおり |
-| B-2 カレンダー週 | 1人目の予約カード(514/518/520/524行) | 下地 tint+左帯 3px accent | `staff-1`(ローズ固定) | 修正: スタッフ色の方針どおり |
-| B-2 カレンダー週 | 今日の列の曜日見出し(524行) | 下地 tint | 強調なし | 修正: `bg-accent`(定休日なら `bg-secondary` を優先)+ `aria-current="date"` |
-| C 予約詳細 | お客様からのご要望(543行) | 下地 tint・見出し accentDark(本文はニュートラル `#5b6270`) | `bg-accent`、見出し・本文とも `text-accent-foreground` | 修正: 見出しの文字のみ `text-primary-strong`(本文は下記の補足) |
-| C 予約詳細 | スタッフメモの「編集」(544行) | 文字 accent | `text-primary` | 対応済み |
-| C 予約詳細 | 「変更」(547行) | 塗り accent | `Button` 既定 | 対応済み |
-| D 代行登録 | お客様名の検索欄・フォーカス中(564行) | 枠 accent | `focus-visible:border-ring`(`--ring` = `--primary`) | 対応済み |
-| D 代行登録 | 候補リストの強調行(566行) | 下地 tint | `hover:bg-muted` | 修正: `hover:bg-accent` |
-| D 代行登録 | 空き判定メッセージ(578行) | tint+accentDark | `bg-accent text-accent-foreground` | 修正: 文字のみ `text-primary-strong` |
-| D 代行登録 | 「この内容で登録」(583行) | 塗り accent | `Button` 既定 | 対応済み |
-| E スタッフ設定 | 勤務曜日チップの選択中(598〜603行) | 塗り accent | `bg-primary` | 対応済み |
-| E・E-2 | 「＋ 追加」「＋ 日付を追加」(612/635/656行) | 枠 accent・文字 accentDark | `outline-accent` | 対応済み |
-| E-2 定休日・祝日 | 毎週の定休曜日・第N チップの選択中(629/643行) | 塗り accent | `bg-primary` | 対応済み |
-| E-2 定休日・祝日 | 第N曜日の定休の説明文(648行) | tint+accentDark | `bg-accent text-accent-foreground` | 修正: 文字のみ `text-primary-strong` |
-| E-2 定休日・祝日 | 祝日休業のスイッチ(653行) | 塗り accent | `bg-primary` | 対応済み |
-| F メニュー管理 | 「カテゴリを編集」(670行) | 枠 accent・文字 accentDark | `outline-accent` | 対応済み |
-| F メニュー管理 | 「＋ 新規メニュー」(670行) | 塗り accent | `Button` 既定 | 対応済み |
-| F メニュー管理 | カテゴリの区切り行(675〜710行) | 文字 accentDark(下地はニュートラル `#faf9f6`) | `bg-muted text-muted-foreground` | 修正: 文字のみ `text-primary-strong` |
-| F メニュー管理 | 行の「編集」(676〜714行) | 文字 accent | `text-primary` | 対応済み |
-| F詳細 カテゴリ編集 | 名称入力・フォーカス中(727行) | 枠 2px accent | `focus-visible:border-ring` | 対応済み |
-| F詳細 カテゴリ編集 | 「＋ カテゴリを追加」(733行) | 破線の枠 accent・tint・文字 accentDark | `outline-accent` + `border-dashed bg-accent` | 対応済み |
-| F詳細・F-2 | 「保存する」(737/764行) | 塗り accent | `Button` 既定 | 対応済み |
-| F-2 表示設定 | 選択中のテーマのカード(752行) | 枠 accent・tint・「採用中」accentDark・✓ 丸 accent | `border-primary bg-accent` / `text-primary-strong` / `bg-primary` | 対応済み |
-| F-2 表示設定 | フォントの選択中(760行) | 塗り accent | `border-primary bg-primary` | 対応済み |
-| G ダッシュボード | プッシュ使用量バー(780行) | 塗り accent | `bg-primary` | 対応済み |
-| H スマホ日 | スタッフ切替の選択中(803行) | 塗り accent | `bg-primary` | 対応済み |
-| I スマホリスト | 件数チップ「6件」(830行) | tint+accentDark | — | 実装なし |
-| I スマホリスト | 時刻(832〜836行) | 文字 accentDark | `text-primary` | 修正: `text-primary-strong` |
-| I スマホリスト | 選択中の予約カード(834行) | 枠 2px accent+影 | — | 実装なし(リストに選択状態が無く、押すと予約詳細が開く) |
+| 画面                       | 部品                                              | モック                                                     | 実装(修正前)                                                        | 対応                                                                                     |
+| -------------------------- | ------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| (モック資料)               | 冒頭・各セクションの見出しと注記(37/64/370/791行) | accent の文字 / tint+accentDark                            | —                                                                   | 対象外(画面ではなくモック資料の注記)                                                     |
+| 客1 メニュー選択           | カテゴリ見出し(82〜131行・7か所)                  | 文字 accentDark・13px・太字                                | `text-base font-bold`(文字は既定の foreground)                      | 修正: `text-primary-strong`。大きさ(16px)は色の範囲外なので変えない                      |
+| 客1 メニュー選択           | 選択中のメニューカード(86/96行)                   | 枠 2px accent+影 `0 2px 6px rgba(accent,0.12)`             | `border-primary`(1px)・影なし                                       | 修正: `--primary` を12%にした影を追加。枠の太さは色の範囲外なので変えない                |
+| 客1・客2                   | 選択中の ✓ 丸(86/96/166行)                        | 塗り accent                                                | `bg-primary`                                                        | 対応済み                                                                                 |
+| 客1〜客4                   | 下部の主ボタン(141/182/225/256/288行)             | 塗り accent                                                | `Button` 既定(`bg-primary`)                                         | 対応済み                                                                                 |
+| 客2・客3                   | ヘッダーのメニュー要約チップ(157/198行)           | tint+accentDark(2つ目以降のチップはニュートラル)           | 全チップ `bg-secondary text-secondary-foreground`                   | 修正: 先頭のチップだけ `bg-accent text-primary-strong`                                   |
+| 客2 スタッフ選択           | 選択中のスタッフカード(163行)                     | 枠 2px accent+影                                           | `border-primary`(1px)・影なし                                       | 修正: 影を追加(メニューカードと同じ)                                                     |
+| 客2 スタッフ選択           | 1人目の顔写真枠(164行)                            | tint+accentDark(2人目・どちらでもは `#f0eee9`)             | 写真が無ければ頭文字の丸 `bg-secondary`(全員)                       | 修正(選択状態に連動。下記の決定)                                                         |
+| 客3 日時選択               | 選択日(208行)                                     | 塗り accent                                                | `bg-primary`                                                        | 対応済み                                                                                 |
+| 客3 日時選択               | 選択中の時間ボタン(215行)                         | 枠・塗り accent                                            | `border-primary bg-primary`                                         | 対応済み                                                                                 |
+| 客 初回情報入力            | 案内ボックス(252行)                               | tint+accentDark                                            | `bg-accent text-accent-foreground`                                  | 修正: 文字のみ `text-primary-strong`                                                     |
+| 客4 予約確認               | 合計の行(277行)                                   | tint、「合計」と金額は accentDark                          | `bg-accent text-accent-foreground`                                  | 修正: 文字のみ `text-primary-strong`                                                     |
+| 客5 予約完了               | ✓ 丸(301行)                                       | 塗り accent                                                | `bg-primary`                                                        | 対応済み                                                                                 |
+| 客5 予約完了               | 案内ボックス(309行)                               | tint+accentDark                                            | `bg-accent text-accent-foreground`                                  | 修正: 文字のみ `text-primary-strong`                                                     |
+| 客5 予約完了               | 「マイ予約を見る」(312行)                         | 枠 accent・文字 accentDark                                 | `outline-accent`                                                    | 対応済み                                                                                 |
+| 客7 マイ予約               | ステータスチップ「確定」(330行)                   | tint+accentDark                                            | `bg-secondary text-secondary-foreground`                            | 修正: `bg-accent text-primary-strong`                                                    |
+| A ログイン                 | 店名(380行)                                       | 文字 accent                                                | `text-primary`                                                      | 対応済み                                                                                 |
+| A ログイン                 | ログインボタン(385行)                             | 塗り accent                                                | `Button` 既定                                                       | 対応済み                                                                                 |
+| サイドバー(日・週)         | 店名「LUCE 管理」(399/471行)                      | 文字 accent                                                | `text-primary`                                                      | 対応済み                                                                                 |
+| サイドバー(日・週)         | 選択中のナビ(401/473行)                           | 塗り accent                                                | `bg-primary`                                                        | 対応済み                                                                                 |
+| サイドバー(日・週)         | ミニ集計のプッシュ使用量バー(413/485行)           | 塗り accent                                                | `bg-primary`                                                        | 対応済み                                                                                 |
+| B カレンダー日             | 「今日」チップ(422行)                             | tint+accentDark                                            | `border-primary bg-accent text-accent-foreground`                   | 修正: 文字のみ `text-primary-strong`(枠は「押せる」ことを示すために付けたもので据え置き) |
+| B・B-2                     | 日/週トグルの選択中(424/495行)                    | 塗り accent                                                | `bg-primary`                                                        | 対応済み                                                                                 |
+| B カレンダー日・H スマホ日 | 1人目の予約カード(444〜446/816〜817行)            | 下地 tint+左帯 4px accent                                  | `staff-1`(ローズ固定 oklch(0.58 0.09 20)/ 下地 oklch(0.89 0.05 20)) | 修正: スタッフ色の方針どおり `staff-1` = `--primary` / `--accent`                        |
+| B カレンダー日             | 予約カードの料金(445行)                           | 文字 accentDark(1人目のカード)                             | `text-xs font-bold`(foreground)                                     | 意図して変えない(下記の決定)                                                             |
+| B-2 カレンダー週           | 凡例の1人目(493行)                                | 塗り accent                                                | `bg-staff-1`(ローズ固定)                                            | 修正: スタッフ色の方針どおり                                                             |
+| B-2 カレンダー週           | 1人目の予約カード(514/518/520/524行)              | 下地 tint+左帯 3px accent                                  | `staff-1`(ローズ固定)                                               | 修正: スタッフ色の方針どおり                                                             |
+| B-2 カレンダー週           | 今日の列の曜日見出し(524行)                       | 下地 tint                                                  | 強調なし                                                            | 修正: `bg-accent`(定休日なら `bg-secondary` を優先)+ `aria-current="date"`               |
+| C 予約詳細                 | お客様からのご要望(543行)                         | 下地 tint・見出し accentDark(本文はニュートラル `#5b6270`) | `bg-accent`、見出し・本文とも `text-accent-foreground`              | 修正: 見出しの文字のみ `text-primary-strong`(本文は下記の補足)                           |
+| C 予約詳細                 | スタッフメモの「編集」(544行)                     | 文字 accent                                                | `text-primary`                                                      | 対応済み                                                                                 |
+| C 予約詳細                 | 「変更」(547行)                                   | 塗り accent                                                | `Button` 既定                                                       | 対応済み                                                                                 |
+| D 代行登録                 | お客様名の検索欄・フォーカス中(564行)             | 枠 accent                                                  | `focus-visible:border-ring`(`--ring` = `--primary`)                 | 対応済み                                                                                 |
+| D 代行登録                 | 候補リストの強調行(566行)                         | 下地 tint                                                  | `hover:bg-muted`                                                    | 修正: `hover:bg-accent`                                                                  |
+| D 代行登録                 | 空き判定メッセージ(578行)                         | tint+accentDark                                            | `bg-accent text-accent-foreground`                                  | 修正: 文字のみ `text-primary-strong`                                                     |
+| D 代行登録                 | 「この内容で登録」(583行)                         | 塗り accent                                                | `Button` 既定                                                       | 対応済み                                                                                 |
+| E スタッフ設定             | 勤務曜日チップの選択中(598〜603行)                | 塗り accent                                                | `bg-primary`                                                        | 対応済み                                                                                 |
+| E・E-2                     | 「＋ 追加」「＋ 日付を追加」(612/635/656行)       | 枠 accent・文字 accentDark                                 | `outline-accent`                                                    | 対応済み                                                                                 |
+| E-2 定休日・祝日           | 毎週の定休曜日・第N チップの選択中(629/643行)     | 塗り accent                                                | `bg-primary`                                                        | 対応済み                                                                                 |
+| E-2 定休日・祝日           | 第N曜日の定休の説明文(648行)                      | tint+accentDark                                            | `bg-accent text-accent-foreground`                                  | 修正: 文字のみ `text-primary-strong`                                                     |
+| E-2 定休日・祝日           | 祝日休業のスイッチ(653行)                         | 塗り accent                                                | `bg-primary`                                                        | 対応済み                                                                                 |
+| F メニュー管理             | 「カテゴリを編集」(670行)                         | 枠 accent・文字 accentDark                                 | `outline-accent`                                                    | 対応済み                                                                                 |
+| F メニュー管理             | 「＋ 新規メニュー」(670行)                        | 塗り accent                                                | `Button` 既定                                                       | 対応済み                                                                                 |
+| F メニュー管理             | カテゴリの区切り行(675〜710行)                    | 文字 accentDark(下地はニュートラル `#faf9f6`)              | `bg-muted text-muted-foreground`                                    | 修正: 文字のみ `text-primary-strong`                                                     |
+| F メニュー管理             | 行の「編集」(676〜714行)                          | 文字 accent                                                | `text-primary`                                                      | 対応済み                                                                                 |
+| F詳細 カテゴリ編集         | 名称入力・フォーカス中(727行)                     | 枠 2px accent                                              | `focus-visible:border-ring`                                         | 対応済み                                                                                 |
+| F詳細 カテゴリ編集         | 「＋ カテゴリを追加」(733行)                      | 破線の枠 accent・tint・文字 accentDark                     | `outline-accent` + `border-dashed bg-accent`                        | 対応済み                                                                                 |
+| F詳細・F-2                 | 「保存する」(737/764行)                           | 塗り accent                                                | `Button` 既定                                                       | 対応済み                                                                                 |
+| F-2 表示設定               | 選択中のテーマのカード(752行)                     | 枠 accent・tint・「採用中」accentDark・✓ 丸 accent         | `border-primary bg-accent` / `text-primary-strong` / `bg-primary`   | 対応済み                                                                                 |
+| F-2 表示設定               | フォントの選択中(760行)                           | 塗り accent                                                | `border-primary bg-primary`                                         | 対応済み                                                                                 |
+| G ダッシュボード           | プッシュ使用量バー(780行)                         | 塗り accent                                                | `bg-primary`                                                        | 対応済み                                                                                 |
+| H スマホ日                 | スタッフ切替の選択中(803行)                       | 塗り accent                                                | `bg-primary`                                                        | 対応済み                                                                                 |
+| I スマホリスト             | 件数チップ「6件」(830行)                          | tint+accentDark                                            | —                                                                   | 実装なし                                                                                 |
+| I スマホリスト             | 時刻(832〜836行)                                  | 文字 accentDark                                            | `text-primary`                                                      | 修正: `text-primary-strong`                                                              |
+| I スマホリスト             | 選択中の予約カード(834行)                         | 枠 2px accent+影                                           | —                                                                   | 実装なし(リストに選択状態が無く、押すと予約詳細が開く)                                   |
 
 集計: 修正 20件 / 対応済み 30件 / 意図して変えない 1件 / 要相談 0件 / 実装なし 2件
 (ほかにモック資料の注記が対象外 1件)。各計画書の「すり合わせ済みの決定」「実装中に
@@ -385,14 +385,14 @@ Claude Design からテーマ別に書き出したモック(sage / slate)を受�
 前回の照合はテーマ色の使用箇所だけが対象だったため、ニュートラルの差分を拾えていなかった。
 これらの値は3テーマ共通で、テーマ切替とは関係ない。
 
-| 場所 | モック | 修正前 | 修正後のトークン |
-| --- | --- | --- | --- |
-| サイドバーの地(PC幅) | #F4F2EC | #FFFFFF | `--sidebar`(shadcn 既定の未使用トークンを置き換え) |
-| サイドバーの右の境界線・ミニ集計カードの枠 | #E6E3DC | `--border` | `--sidebar-border` |
-| 予約カレンダーのツールバー・本体 | #FFFFFF | ページ背景 #F6F3EF が透けていた | `bg-card` |
-| カレンダーの列見出し | #FAF9F6 | ページ背景 | `--calendar-header`(新規) |
-| カレンダーの区切り線(ツールバー・見出しの下、列の間、時刻列の右) | #ECEAE4 | `--border` #E3DDD8 | `--calendar-divider`(新規) |
-| 時間の罫線 | #F2F0EA | `--border` #E3DDD8 | `--grid-line`(新規) |
+| 場所                                                             | モック  | 修正前                          | 修正後のトークン                                   |
+| ---------------------------------------------------------------- | ------- | ------------------------------- | -------------------------------------------------- |
+| サイドバーの地(PC幅)                                             | #F4F2EC | #FFFFFF                         | `--sidebar`(shadcn 既定の未使用トークンを置き換え) |
+| サイドバーの右の境界線・ミニ集計カードの枠                       | #E6E3DC | `--border`                      | `--sidebar-border`                                 |
+| 予約カレンダーのツールバー・本体                                 | #FFFFFF | ページ背景 #F6F3EF が透けていた | `bg-card`                                          |
+| カレンダーの列見出し                                             | #FAF9F6 | ページ背景                      | `--calendar-header`(新規)                          |
+| カレンダーの区切り線(ツールバー・見出しの下、列の間、時刻列の右) | #ECEAE4 | `--border` #E3DDD8              | `--calendar-divider`(新規)                         |
+| 時間の罫線                                                       | #F2F0EA | `--border` #E3DDD8              | `--grid-line`(新規)                                |
 
 - 白い地はモックがサイドバー付きの枠で描いている**予約カレンダー(日・週・スマホの日表示)だけ**。
   設定・ダッシュボード・代行登録はモックで単独のカードとして描かれているので、従来どおり
@@ -449,16 +449,16 @@ subtle #9AA0AB)で、実装は赤みの焦げ茶(本文 #2E2725 / 補足 `--mute
 
 あわせて、照合で値を変えたトークン:
 
-| トークン | 修正前 | 修正後(モック) |
-| --- | --- | --- |
-| --background | oklch(0.965 0.006 78)(#F6F3EF) | oklch(0.973 0.004 91.4)(#F7F6F3) |
-| --border | oklch(0.9 0.01 60)(#E3DDD8) | oklch(0.919 0.01 87.5)(#E7E4DD) |
-| --input | oklch(0.88 0.012 50)(#DED5D1) | oklch(0.864 0.011 89.7)(#D5D2CA) |
-| --secondary | oklch(0.93 0.012 60)(#EEE6E0) | oklch(0.955 0.008 91.5)(#F2F0EA) |
-| --muted | oklch(0.94 0.008 75)(#EEEAE5) | oklch(0.973 0.004 91.4)(#F7F6F3) |
-| --calendar-closed(新規) | — | oklch(0.93 0.012 60)(#EEE6E0。旧 --secondary) |
-| --calendar-closed-line(新規) | — | oklch(0.9 0.01 60)(#E3DDD8。旧 --border) |
-| --row-divider(新規) | — | oklch(0.955 0.008 91.5)(#F2F0EA。カード内の行の区切り) |
+| トークン                     | 修正前                         | 修正後(モック)                                         |
+| ---------------------------- | ------------------------------ | ------------------------------------------------------ |
+| --background                 | oklch(0.965 0.006 78)(#F6F3EF) | oklch(0.973 0.004 91.4)(#F7F6F3)                       |
+| --border                     | oklch(0.9 0.01 60)(#E3DDD8)    | oklch(0.919 0.01 87.5)(#E7E4DD)                        |
+| --input                      | oklch(0.88 0.012 50)(#DED5D1)  | oklch(0.864 0.011 89.7)(#D5D2CA)                       |
+| --secondary                  | oklch(0.93 0.012 60)(#EEE6E0)  | oklch(0.955 0.008 91.5)(#F2F0EA)                       |
+| --muted                      | oklch(0.94 0.008 75)(#EEEAE5)  | oklch(0.973 0.004 91.4)(#F7F6F3)                       |
+| --calendar-closed(新規)      | —                              | oklch(0.93 0.012 60)(#EEE6E0。旧 --secondary)          |
+| --calendar-closed-line(新規) | —                              | oklch(0.9 0.01 60)(#E3DDD8。旧 --border)               |
+| --row-divider(新規)          | —                              | oklch(0.955 0.008 91.5)(#F2F0EA。カード内の行の区切り) |
 
 ### 意味の区別の確認
 
@@ -485,65 +485,65 @@ subtle #9AA0AB)で、実装は赤みの焦げ茶(本文 #2E2725 / 補足 `--mute
 
 ### 照合結果
 
-| 画面 | 部品 | モック | 修正前 | 対応 |
-| --- | --- | --- | --- | --- |
-| 共通 | ページ背景 | #f7f6f3 | --background #F6F3EF | 修正(トークンの値) |
-| 共通 | カードの枠・区切り線 | #e7e4dd | --border #E3DDD8 | 修正(トークンの値) |
-| 共通 | 入力欄・アウトラインボタンの枠 | #d5d2ca | --input #DED5D1 | 修正(トークンの値) |
-| 共通 | 未選択のチップ・トグルの地 | #f2f0ea | --secondary #EEE6E0 | 修正(決定1) |
-| 共通 | 淡い面 | #f7f6f3 | --muted #EEEAE5 | 修正(決定2) |
-| 客1〜客7 | ヘッダーの下線・下部バーの上線 | #ece9e3 | `border-border` | 対応済み(--border との差は明度0.016) |
-| 客2・客3 | ヘッダーの2つ目以降のチップ | #f0eee9・文字 #7b818d | `bg-secondary text-secondary-foreground` | 修正: 文字を `text-muted-foreground`(決定4) |
-| 客1・客2 | 未選択のメニュー・スタッフのカードの枠 | 1.5px #e7e4dd | `border-border` | 対応済み(トークンの値で一致) |
-| 客1・客2 | 未選択の空丸の枠 | 2px #d5d2ca | `border-border` | 修正: `border-input` |
-| 客2 | 未選択の頭文字の丸・どちらでも | #f0eee9 | `bg-secondary text-secondary-foreground` | 修正: 文字を `text-muted-foreground`(地はトークンの値) |
-| 客3 | 月カレンダーのカード | 白・1px #ece9e3 | 枠なし | 修正: `border-border` を追加 |
-| 客3 | 選べる時刻 | 1.5px #d5d2ca・地なし | `border-border bg-card` | 修正: `border-input`(白地は押せる側の目印として残す) |
-| 客3 | 埋まっている時刻 | 1.5px #eceae4・地なし | `border-border bg-muted` | 対応済み(--muted がページ背景と同値になり「地なし」と一致) |
-| 客 初回情報・客4 | 入力欄・ご要望 | 1.5px #d5d2ca・白 | `border-input bg-card` | 対応済み(トークンの値で一致) |
-| 客4・客7 | 戻る・変更ボタン | 1.5px #d5d2ca・白 | outline(--input) | 対応済み(トークンの値で一致) |
-| 客4 | 確認のカード | 1px #ece9e3 | 枠なし | 修正: `border-border` を追加 |
-| 客5 | 予約内容のカード | 1px #ece9e3 | 枠なし | 修正: `border-border` を追加 |
-| 客7 | 予約カード | 1px #ece9e3 | 枠なし | 修正: `border-border` を追加 |
-| 客(モックなし) | 予約変更中の案内帯 | — | `bg-secondary/60` | 修正: `bg-secondary`(半透明ではページ背景と区別できない) |
-| 客4・D・E-2・F | カード内の行の区切り | #f0eee9・#f2f0ea | `border-border`(#e7e4dd)。D の候補リストは区切りなし | 修正: 新トークン `--row-divider`(#F2F0EA)の `border-row-divider` / `divide-row-divider`。D の候補リストに区切りを追加(要相談 → 2026-10-20 決定) |
-| A ログイン | 地・カード | #f7f6f3 にカードなし | ページ背景+白いカード(影) | 意図して変えない(既存のカードの形。影で区別できる) |
-| A ログイン | 入力欄 | #d5d2ca | `border-input` | 対応済み |
-| サイドバー | 地・境界線・ミニ集計の枠 | #f4f2ec / #e6e3dc | --sidebar / --sidebar-border | 対応済み(前節) |
-| サイドバー・G | プッシュ使用量バーの地 | #ece9e2 | `bg-muted` | 修正: `bg-border`(新しい --muted は白地でほぼ見えない) |
-| サイドバー(モックなし) | ナビ・ログアウトの hover | — | `hover:bg-muted` | 修正: --sidebar を 5% 濃く(決定5) |
-| B・B-2 | ツールバーの ‹ › ・日/週トグルの枠 | 1px #d5d2ca | `border-border` | 修正: `border-input`(並びの日付ピッカー・「今日」も揃える) |
-| B・B-2・H | ツールバー下・列の区切り・列見出し・時間の罫線 | #eceae4 / #faf9f6 / #f2f0ea | calendar 系トークン | 対応済み(前節) |
-| B-2 | 定休日の列・見出し | 斜線 #f5f2ee/#efeae4 | `bg-secondary`(べた塗り) | 修正: `bg-calendar-closed`(決定3。べた塗りは M4b の決定で据え置き) |
-| B-2(モックなし) | 営業時間外の帯 | — | `bg-secondary/50` | 修正: `bg-calendar-closed/50` |
-| B-2 | 予約カードの輪郭 | なし | `ring-border` | 修正: `ring-calendar-closed-line`(定休日の地の上で消えないように) |
-| B(モックなし) | 予約不可ブロック | — | `bg-secondary`+斜線・輪郭 --border | 修正: `bg-calendar-closed`+斜線・輪郭 --calendar-closed-line |
-| B | 休憩ブロック | #efe6e0・帯 #c99a86 | --break 系 | 対応済み(触らない) |
-| B・H(モックなし) | 定休日のお知らせ帯 | — | `bg-muted/50`+バッジ `bg-muted` | 修正: `bg-calendar-closed/50`+バッジ `bg-calendar-closed` |
-| B・B-2・H(モックなし) | 空き枠の hover | — | `hover:bg-muted/40` | 修正: `hover:bg-secondary/50`(罫線を透かす半透明のまま見える濃さに) |
-| H | スタッフ切替の未選択 | #f2f0ea | `bg-muted` | 修正: `bg-secondary`(文字は元から `text-muted-foreground`) |
-| H(モックなし) | タイムライン/リストの未選択 | — | `bg-muted` | 修正: `bg-secondary`(スタッフ切替と揃える) |
-| I | 予約カードの枠 | #ece9e3 | `border-calendar-divider` | 対応済み |
-| C 予約詳細 | ✕ | 地 #f2f0ea・枠なし | 枠 `border-border`・`hover:bg-muted` | 修正: `bg-secondary`+ 5% の hover(F詳細と揃える) |
-| C 予約詳細 | スタッフメモの面 | #f7f6f3 | `bg-muted` | 対応済み(トークンの値で一致) |
-| C 予約詳細(モックなし) | メモの入力欄 | — | `border-border bg-background` | 修正: `border-input bg-card`(--muted と同値になったため) |
-| 予約フォームダイアログ(モックなし) | ヘッダーの ✕ の hover | — | `hover:bg-background` | 修正: `hover:bg-secondary`(ヘッダーの地 --muted と同値になったため) |
-| D 代行登録 | 入力欄 | #d5d2ca | `border-input` | 対応済み |
-| D 代行登録 | 候補リストの枠 | #eceae4 | `border-border` | 対応済み |
-| D 代行登録(モックなし) | 選べる時刻 | — | `border-border` | 修正: `border-input`(客3 と揃える) |
-| E・E-2・F・F-2・G | 設定・ダッシュボードのカード | 外枠 #dfdcd4 | 枠なし(代行登録のみ `border-border`) | 修正: `border-border` を追加(#dfdcd4 用のトークンは足さない) |
-| E・E-2 | 未選択の曜日・第N・勤務曜日・スタッフ選択などのチップ | #f2f0ea・文字 #7b818d | `bg-secondary text-secondary-foreground hover:bg-muted` | 修正(決定1・4・5) |
-| E・E-2 | 「臨時休を追加」「祝日を休業にする」の行 | #f7f6f3 | `bg-muted` | 対応済み(トークンの値で一致) |
-| E・E-2・F | 開始・終了などの入力欄・セレクト | #d5d2ca | `border-input` | 対応済み |
-| E-2 | 第N の箱・臨時休業の一覧の箱 | 1px #eceae4 | `border-border` | 対応済み |
-| E-2 | 休業バッジ | #f0eee9・文字 #7b818d | `bg-secondary text-secondary-foreground` | 意図して変えない(文字: バッジはチップ・トグルではないので「文字色は変えない」に従う。地はトークンの値で一致) |
-| F | カテゴリの区切り行の地 | #faf9f6 | `bg-muted` | 対応済み(--muted #F7F6F3 で差は明度0.009) |
-| F | 列見出しの下線 | #eceae4 | `border-border` | 対応済み |
-| F詳細 | ✕ | #f2f0ea | `bg-muted hover:bg-input` | 修正: `bg-secondary`+ 5% の hover |
-| F詳細 | ヘッダー・フッターの区切り | #eceae4 | `border-border` | 対応済み |
-| F-2 | 未選択のテーマのカード | 1.5px #e7e4dd | `border-border` | 対応済み |
-| F-2 | 「カスタム」の破線 | #c7c3ba | `border-border`+ `opacity-60` | 意図して変えない(実装は未提供の無効表示で、モックと状態が違う) |
-| F-2 | フォントのトグル | 枠 #d5d2ca | `border-input` | 対応済み |
+| 画面                               | 部品                                                  | モック                      | 修正前                                                  | 対応                                                                                                                                            |
+| ---------------------------------- | ----------------------------------------------------- | --------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| 共通                               | ページ背景                                            | #f7f6f3                     | --background #F6F3EF                                    | 修正(トークンの値)                                                                                                                              |
+| 共通                               | カードの枠・区切り線                                  | #e7e4dd                     | --border #E3DDD8                                        | 修正(トークンの値)                                                                                                                              |
+| 共通                               | 入力欄・アウトラインボタンの枠                        | #d5d2ca                     | --input #DED5D1                                         | 修正(トークンの値)                                                                                                                              |
+| 共通                               | 未選択のチップ・トグルの地                            | #f2f0ea                     | --secondary #EEE6E0                                     | 修正(決定1)                                                                                                                                     |
+| 共通                               | 淡い面                                                | #f7f6f3                     | --muted #EEEAE5                                         | 修正(決定2)                                                                                                                                     |
+| 客1〜客7                           | ヘッダーの下線・下部バーの上線                        | #ece9e3                     | `border-border`                                         | 対応済み(--border との差は明度0.016)                                                                                                            |
+| 客2・客3                           | ヘッダーの2つ目以降のチップ                           | #f0eee9・文字 #7b818d       | `bg-secondary text-secondary-foreground`                | 修正: 文字を `text-muted-foreground`(決定4)                                                                                                     |
+| 客1・客2                           | 未選択のメニュー・スタッフのカードの枠                | 1.5px #e7e4dd               | `border-border`                                         | 対応済み(トークンの値で一致)                                                                                                                    |
+| 客1・客2                           | 未選択の空丸の枠                                      | 2px #d5d2ca                 | `border-border`                                         | 修正: `border-input`                                                                                                                            |
+| 客2                                | 未選択の頭文字の丸・どちらでも                        | #f0eee9                     | `bg-secondary text-secondary-foreground`                | 修正: 文字を `text-muted-foreground`(地はトークンの値)                                                                                          |
+| 客3                                | 月カレンダーのカード                                  | 白・1px #ece9e3             | 枠なし                                                  | 修正: `border-border` を追加                                                                                                                    |
+| 客3                                | 選べる時刻                                            | 1.5px #d5d2ca・地なし       | `border-border bg-card`                                 | 修正: `border-input`(白地は押せる側の目印として残す)                                                                                            |
+| 客3                                | 埋まっている時刻                                      | 1.5px #eceae4・地なし       | `border-border bg-muted`                                | 対応済み(--muted がページ背景と同値になり「地なし」と一致)                                                                                      |
+| 客 初回情報・客4                   | 入力欄・ご要望                                        | 1.5px #d5d2ca・白           | `border-input bg-card`                                  | 対応済み(トークンの値で一致)                                                                                                                    |
+| 客4・客7                           | 戻る・変更ボタン                                      | 1.5px #d5d2ca・白           | outline(--input)                                        | 対応済み(トークンの値で一致)                                                                                                                    |
+| 客4                                | 確認のカード                                          | 1px #ece9e3                 | 枠なし                                                  | 修正: `border-border` を追加                                                                                                                    |
+| 客5                                | 予約内容のカード                                      | 1px #ece9e3                 | 枠なし                                                  | 修正: `border-border` を追加                                                                                                                    |
+| 客7                                | 予約カード                                            | 1px #ece9e3                 | 枠なし                                                  | 修正: `border-border` を追加                                                                                                                    |
+| 客(モックなし)                     | 予約変更中の案内帯                                    | —                           | `bg-secondary/60`                                       | 修正: `bg-secondary`(半透明ではページ背景と区別できない)                                                                                        |
+| 客4・D・E-2・F                     | カード内の行の区切り                                  | #f0eee9・#f2f0ea            | `border-border`(#e7e4dd)。D の候補リストは区切りなし    | 修正: 新トークン `--row-divider`(#F2F0EA)の `border-row-divider` / `divide-row-divider`。D の候補リストに区切りを追加(要相談 → 2026-10-20 決定) |
+| A ログイン                         | 地・カード                                            | #f7f6f3 にカードなし        | ページ背景+白いカード(影)                               | 意図して変えない(既存のカードの形。影で区別できる)                                                                                              |
+| A ログイン                         | 入力欄                                                | #d5d2ca                     | `border-input`                                          | 対応済み                                                                                                                                        |
+| サイドバー                         | 地・境界線・ミニ集計の枠                              | #f4f2ec / #e6e3dc           | --sidebar / --sidebar-border                            | 対応済み(前節)                                                                                                                                  |
+| サイドバー・G                      | プッシュ使用量バーの地                                | #ece9e2                     | `bg-muted`                                              | 修正: `bg-border`(新しい --muted は白地でほぼ見えない)                                                                                          |
+| サイドバー(モックなし)             | ナビ・ログアウトの hover                              | —                           | `hover:bg-muted`                                        | 修正: --sidebar を 5% 濃く(決定5)                                                                                                               |
+| B・B-2                             | ツールバーの ‹ › ・日/週トグルの枠                    | 1px #d5d2ca                 | `border-border`                                         | 修正: `border-input`(並びの日付ピッカー・「今日」も揃える)                                                                                      |
+| B・B-2・H                          | ツールバー下・列の区切り・列見出し・時間の罫線        | #eceae4 / #faf9f6 / #f2f0ea | calendar 系トークン                                     | 対応済み(前節)                                                                                                                                  |
+| B-2                                | 定休日の列・見出し                                    | 斜線 #f5f2ee/#efeae4        | `bg-secondary`(べた塗り)                                | 修正: `bg-calendar-closed`(決定3。べた塗りは M4b の決定で据え置き)                                                                              |
+| B-2(モックなし)                    | 営業時間外の帯                                        | —                           | `bg-secondary/50`                                       | 修正: `bg-calendar-closed/50`                                                                                                                   |
+| B-2                                | 予約カードの輪郭                                      | なし                        | `ring-border`                                           | 修正: `ring-calendar-closed-line`(定休日の地の上で消えないように)                                                                               |
+| B(モックなし)                      | 予約不可ブロック                                      | —                           | `bg-secondary`+斜線・輪郭 --border                      | 修正: `bg-calendar-closed`+斜線・輪郭 --calendar-closed-line                                                                                    |
+| B                                  | 休憩ブロック                                          | #efe6e0・帯 #c99a86         | --break 系                                              | 対応済み(触らない)                                                                                                                              |
+| B・H(モックなし)                   | 定休日のお知らせ帯                                    | —                           | `bg-muted/50`+バッジ `bg-muted`                         | 修正: `bg-calendar-closed/50`+バッジ `bg-calendar-closed`                                                                                       |
+| B・B-2・H(モックなし)              | 空き枠の hover                                        | —                           | `hover:bg-muted/40`                                     | 修正: `hover:bg-secondary/50`(罫線を透かす半透明のまま見える濃さに)                                                                             |
+| H                                  | スタッフ切替の未選択                                  | #f2f0ea                     | `bg-muted`                                              | 修正: `bg-secondary`(文字は元から `text-muted-foreground`)                                                                                      |
+| H(モックなし)                      | タイムライン/リストの未選択                           | —                           | `bg-muted`                                              | 修正: `bg-secondary`(スタッフ切替と揃える)                                                                                                      |
+| I                                  | 予約カードの枠                                        | #ece9e3                     | `border-calendar-divider`                               | 対応済み                                                                                                                                        |
+| C 予約詳細                         | ✕                                                     | 地 #f2f0ea・枠なし          | 枠 `border-border`・`hover:bg-muted`                    | 修正: `bg-secondary`+ 5% の hover(F詳細と揃える)                                                                                                |
+| C 予約詳細                         | スタッフメモの面                                      | #f7f6f3                     | `bg-muted`                                              | 対応済み(トークンの値で一致)                                                                                                                    |
+| C 予約詳細(モックなし)             | メモの入力欄                                          | —                           | `border-border bg-background`                           | 修正: `border-input bg-card`(--muted と同値になったため)                                                                                        |
+| 予約フォームダイアログ(モックなし) | ヘッダーの ✕ の hover                                 | —                           | `hover:bg-background`                                   | 修正: `hover:bg-secondary`(ヘッダーの地 --muted と同値になったため)                                                                             |
+| D 代行登録                         | 入力欄                                                | #d5d2ca                     | `border-input`                                          | 対応済み                                                                                                                                        |
+| D 代行登録                         | 候補リストの枠                                        | #eceae4                     | `border-border`                                         | 対応済み                                                                                                                                        |
+| D 代行登録(モックなし)             | 選べる時刻                                            | —                           | `border-border`                                         | 修正: `border-input`(客3 と揃える)                                                                                                              |
+| E・E-2・F・F-2・G                  | 設定・ダッシュボードのカード                          | 外枠 #dfdcd4                | 枠なし(代行登録のみ `border-border`)                    | 修正: `border-border` を追加(#dfdcd4 用のトークンは足さない)                                                                                    |
+| E・E-2                             | 未選択の曜日・第N・勤務曜日・スタッフ選択などのチップ | #f2f0ea・文字 #7b818d       | `bg-secondary text-secondary-foreground hover:bg-muted` | 修正(決定1・4・5)                                                                                                                               |
+| E・E-2                             | 「臨時休を追加」「祝日を休業にする」の行              | #f7f6f3                     | `bg-muted`                                              | 対応済み(トークンの値で一致)                                                                                                                    |
+| E・E-2・F                          | 開始・終了などの入力欄・セレクト                      | #d5d2ca                     | `border-input`                                          | 対応済み                                                                                                                                        |
+| E-2                                | 第N の箱・臨時休業の一覧の箱                          | 1px #eceae4                 | `border-border`                                         | 対応済み                                                                                                                                        |
+| E-2                                | 休業バッジ                                            | #f0eee9・文字 #7b818d       | `bg-secondary text-secondary-foreground`                | 意図して変えない(文字: バッジはチップ・トグルではないので「文字色は変えない」に従う。地はトークンの値で一致)                                    |
+| F                                  | カテゴリの区切り行の地                                | #faf9f6                     | `bg-muted`                                              | 対応済み(--muted #F7F6F3 で差は明度0.009)                                                                                                       |
+| F                                  | 列見出しの下線                                        | #eceae4                     | `border-border`                                         | 対応済み                                                                                                                                        |
+| F詳細                              | ✕                                                     | #f2f0ea                     | `bg-muted hover:bg-input`                               | 修正: `bg-secondary`+ 5% の hover                                                                                                               |
+| F詳細                              | ヘッダー・フッターの区切り                            | #eceae4                     | `border-border`                                         | 対応済み                                                                                                                                        |
+| F-2                                | 未選択のテーマのカード                                | 1.5px #e7e4dd               | `border-border`                                         | 対応済み                                                                                                                                        |
+| F-2                                | 「カスタム」の破線                                    | #c7c3ba                     | `border-border`+ `opacity-60`                           | 意図して変えない(実装は未提供の無効表示で、モックと状態が違う)                                                                                  |
+| F-2                                | フォントのトグル                                      | 枠 #d5d2ca                  | `border-input`                                          | 対応済み                                                                                                                                        |
 
 集計: 修正 33件 / 対応済み 21件 / 意図して変えない 3件 / 要相談 0件。
 

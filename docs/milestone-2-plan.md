@@ -71,20 +71,20 @@
 
 店舗固有の運用値なのでコードに書かずDBへ(ADR-007)。管理画面での編集はM4。
 
-| 列                      | 型       | default | 意味                                   |
-| ----------------------- | -------- | ------- | -------------------------------------- |
-| `slot_interval_minutes` | integer  | 30      | 空き枠の開始時刻の刻み                 |
-| `booking_window_days`   | integer  | 30      | 何日先まで予約を受け付けるか           |
-| `min_lead_minutes`      | integer  | 60      | 開始何分前まで予約できるか(直前締切) |
+| 列                      | 型      | default | 意味                                 |
+| ----------------------- | ------- | ------- | ------------------------------------ |
+| `slot_interval_minutes` | integer | 30      | 空き枠の開始時刻の刻み               |
+| `booking_window_days`   | integer | 30      | 何日先まで予約を受け付けるか         |
+| `min_lead_minutes`      | integer | 60      | 開始何分前まで予約できるか(直前締切) |
 
 ### 2. メニューカテゴリの実体化(`menu_categories`)
 
-| 列              | 型      | 意味                                       |
-| --------------- | ------- | ------------------------------------------ |
-| `id`            | uuid    | PK                                         |
-| `name`          | text    | カテゴリ名(自由入力: ADR-007)            |
-| `description`   | text    | 客側に表示する説明文(nullable)           |
-| `display_order` | integer | 並び順(店側の編集ダイアログはM4)         |
+| 列              | 型      | 意味                             |
+| --------------- | ------- | -------------------------------- |
+| `id`            | uuid    | PK                               |
+| `name`          | text    | カテゴリ名(自由入力: ADR-007)    |
+| `description`   | text    | 客側に表示する説明文(nullable)   |
+| `display_order` | integer | 並び順(店側の編集ダイアログはM4) |
 
 `menus.category`(text)は `category_id`(FK)に置き換える。seedも更新する。
 
