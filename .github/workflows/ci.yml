@@ -1,4 +1,4 @@
-# CI: PR と main への push で、Lint・ユニットテスト・型チェック+ビルドを回す。
+# CI: PR と main への push で、Lint・整形のチェック・ユニットテスト・型チェック+ビルドを回す。
 # 手元でコミット前に流しているもの(milestone スキル)と同じ。Dependabot の PR もこれで確かめる。
 # E2E(Playwright)は手元の Supabase(Docker)が要り時間もかかるので、ここでは回さない(ADR-008)。
 name: CI
@@ -24,6 +24,8 @@ jobs:
         run: npm ci
       - name: Lint(ESLint)
         run: npm run lint
+      - name: 整形のチェック(Prettier)
+        run: npm run format:check
       - name: ユニットテスト(Vitest)
         run: npm test
       # 環境変数なしでもビルドできる(ページはすべて動的で、ビルド時に Supabase へ接続しない)

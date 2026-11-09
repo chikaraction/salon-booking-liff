@@ -216,8 +216,12 @@ export type ClosureRules = {
   nthWeekdayClosures: Array<{ weekday: number; nth: number }>;
   closeOnHolidays: boolean;
   overrides: Array<{
-    startDate: string; endDate: string; isOpen: boolean; label: string | null;
-    openTime: string | null; closeTime: string | null; // 臨時営業日の営業時間
+    startDate: string;
+    endDate: string;
+    isOpen: boolean;
+    label: string | null;
+    openTime: string | null;
+    closeTime: string | null; // 臨時営業日の営業時間
   }>;
 };
 export type ClosureReason = "override" | "holiday" | "nth-weekday" | "weekly";
@@ -227,20 +231,36 @@ export type DayClosure = {
   label: string | null; // 「海の日・祝日」「夏季休業」など
 };
 
-export function nthWeekdayOfMonth(date: string): number;      // その月の第何◯曜日か
+export function nthWeekdayOfMonth(date: string): number; // その月の第何◯曜日か
 export function japaneseHolidayName(date: string): string | null; // ライブラリのラップ
-export function resolveDayClosure(date: string, rules: ClosureRules): DayClosure;
+export function resolveDayClosure(
+  date: string,
+  rules: ClosureRules,
+): DayClosure;
 export function makeIsClosedDay(rules: ClosureRules): (date: string) => boolean;
-export function resolveBusinessDay(params: {                   // その日の営業時間
-  date: string; weeklyBusinessDay: BusinessDay; rules: ClosureRules;
+export function resolveBusinessDay(params: {
+  // その日の営業時間
+  date: string;
+  weeklyBusinessDay: BusinessDay;
+  rules: ClosureRules;
 }): BusinessDay;
-export function resolveStaffWorkingDay(params: {               // その日の勤務パターン
-  date: string; weeklyWorking: StaffWorkingDay | null;
-  weeklyBusinessDay: BusinessDay; businessDay: BusinessDay;
+export function resolveStaffWorkingDay(params: {
+  // その日の勤務パターン
+  date: string;
+  weeklyWorking: StaffWorkingDay | null;
+  weeklyBusinessDay: BusinessDay;
+  businessDay: BusinessDay;
 }): StaffWorkingDay | null;
-export function buildClosureListItems(params: {                // E-2下部の混在リスト
-  from: string; days: number; rules: ClosureRules;
-}): Array<{ dateRangeLabel: string; label: string; badge: "休業" | "臨時休" | "連休" }>;
+export function buildClosureListItems(params: {
+  // E-2下部の混在リスト
+  from: string;
+  days: number;
+  rules: ClosureRules;
+}): Array<{
+  dateRangeLabel: string;
+  label: string;
+  badge: "休業" | "臨時休" | "連休";
+}>;
 ```
 
 判定の優先順位(上が強い): `date_overrides` → 祝日 → 第◯曜日 → 毎週の定休。
@@ -499,6 +519,7 @@ M4で作った代行登録の画面にある。
 同値でも順序が決まる。並べ替え自体は純粋関数に置いてテストを併置する。
 
 **対応済み(2026-10-19、ブランチ feature/admin-menu-order)**:
+
 - 並べ替えは純粋関数 `sortMenusForProxyRegistration`(`src/lib/admin-reservation-form.ts`)に置き、テストを併置した
 - `fetchActiveMenus` は、客側の `getBookingPageData` と同じくカテゴリを別に取得し、この関数に渡す
 - 画面は平らなリストのまま。モックDでもメニューは1つのドロップダウンで、カテゴリの見出しは無い
