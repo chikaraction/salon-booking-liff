@@ -59,7 +59,7 @@
 | E2E(Playwright。[ADR-008](docs/adr/ADR-008-e2e-testing.md)) | 同時予約での競合、アクセス制御、予約の流れ、設定の反映、画面幅の崩れなど。Chromium、WebKit、Firefox で計 121 件(同じテストをブラウザごとに流す分を含む) |
 | 手作業の確認                                                | LINE の実機や通知など、自動テストで確かめられない項目は [チェックリスト](.claude/skills/verify-booking/SKILL.md) で確認する                             |
 
-PR と `main` への push では、GitHub Actions の CI が Lint・ユニットテスト・型チェック+ビルドを回す([`.github/workflows/ci.yml`](.github/workflows/ci.yml))。E2E は手元の Supabase が要るので CI では回さず、手元で流す。
+PR と `main` への push では、GitHub Actions の CI が Lint・ユニットテスト・型チェック+ビルドを回し([`.github/workflows/ci.yml`](.github/workflows/ci.yml))、CodeQL がコードの脆弱性を調べる([`.github/workflows/codeql.yml`](.github/workflows/codeql.yml))。どちらも通らないと `main` にマージできない。E2E は手元の Supabase が要るので CI では回さず、手元で流す。
 
 ## 店で運用しなかった理由
 
