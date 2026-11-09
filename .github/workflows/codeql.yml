@@ -1,0 +1,44 @@
+# CodeQL によるコードスキャン(公開リポジトリでは無料)。
+# ルールセットの「コードスキャンの結果を必須にする」の前提になる。
+#
+# 注意: 必須チェックにするので、paths / paths-ignore のフィルタは付けない。
+# ワークフローがスキップされると結果が上がらず、PR が「結果待ち」のまま止まる。
+name: CodeQL
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # 定期実行は置かないので、手動でも回せるようにしておく(クエリの更新への追随や設定の試行に使う)
+  workflow_dispatch:
+jobs:
+  analyze:
+    name: 解析 (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # リポジトリ全体の TypeScript と JavaScript(ビルドしなくても解析できる)
+          - language: javascript-typescript
+            build-mode: none
+          # ワークフロー自体の脆弱性(権限の付けすぎなど)
+          - language: actions
+            build-mode: none
+    steps:
+      - uses: actions/checkout@v7
+      - name: CodeQL の初期化
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          # クエリスイートは既定(security)のまま。security-extended は検出が増える一方で
+          # 誤検知も増え、ルールセット経由で PR が止まるため使わない
+      - name: CodeQL 解析の実行
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"
