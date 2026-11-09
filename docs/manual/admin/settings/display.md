@@ -8,7 +8,7 @@ permalink: /admin/settings/display/
 
 # 表示設定
 
-![表示設定]({{ '/manual/images/admin-13-display.png' | relative_url }})
+![表示設定]({{ site.baseurl }}/manual/images/admin-13-display.png)
 
 お客様の画面と管理画面の、色とフォントを決めます。
 

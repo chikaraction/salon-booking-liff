@@ -8,13 +8,13 @@ permalink: /admin/settings/menus/
 
 # メニュー
 
-![メニュー管理]({{ '/manual/images/admin-09-menus.png' | relative_url }})
+![メニュー管理]({{ site.baseurl }}/manual/images/admin-09-menus.png)
 
 メニューはカテゴリ(カット、カラーなど)ごとに並びます。ここでの並び順が、お客様の予約画面の並び順になります。
 
 ## メニューを追加・編集する
 
-![メニューの編集]({{ '/manual/images/admin-10-menu-edit.png' | relative_url }})
+![メニューの編集]({{ site.baseurl }}/manual/images/admin-10-menu-edit.png)
 
 1. 新しいメニューは「新規メニュー」、登録済みのメニューは行の「編集」を押します。
 2. メニュー名・カテゴリ・料金(税込)・所要時間(分)を入れます。
@@ -31,7 +31,7 @@ permalink: /admin/settings/menus/
 
 ## カテゴリを編集する
 
-![カテゴリの編集]({{ '/manual/images/admin-11-category-edit.png' | relative_url }})
+![カテゴリの編集]({{ site.baseurl }}/manual/images/admin-11-category-edit.png)
 
 「カテゴリを編集」を押すと、カテゴリの一覧が開きます。
 

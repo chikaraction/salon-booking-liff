@@ -8,7 +8,7 @@ permalink: /admin/settings/business/
 
 # 営業日・営業時間
 
-![営業日・営業時間の設定]({{ '/manual/images/admin-07-business.png' | relative_url }})
+![営業日・営業時間の設定]({{ site.baseurl }}/manual/images/admin-07-business.png)
 
 休業日を登録すると、その日はお客様の予約画面で選べなくなり、予約を受け付けません。
 
@@ -46,4 +46,4 @@ permalink: /admin/settings/business/
 登録を削除するときは、一覧の行の削除ボタンを押します。
 
 {: .note }
-スタッフ 1 人だけの休みは、ここではなく[スタッフ]({{ '/admin/settings/staff/' | relative_url }})の「臨時休」で登録します。
+スタッフ 1 人だけの休みは、ここではなく[スタッフ]({{ site.baseurl }}/admin/settings/staff/)の「臨時休」で登録します。

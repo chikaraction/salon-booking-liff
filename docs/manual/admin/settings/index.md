@@ -10,13 +10,13 @@ permalink: /admin/settings/
 
 サイドバーの「設定」の下にある画面です。オーナーでログインしたときだけ表示されます。
 
-| 画面                                              | 決めること       |
-| ------------------------------------------------- | ---------------- |
-| [営業日・営業時間]({{ '/admin/settings/business/' | relative_url }}) | 定休日、曜日ごとの営業時間、祝日、臨時休業         |
-| [スタッフ]({{ '/admin/settings/staff/'            | relative_url }}) | スタッフの追加、勤務曜日・時間・休憩、臨時休       |
-| [メニュー]({{ '/admin/settings/menus/'            | relative_url }}) | メニューとカテゴリ、料金、所要時間、並び順         |
-| [店舗・予約設定]({{ '/admin/settings/salon/'      | relative_url }}) | 店名、予約を受け付ける期間や締切、リマインドの時刻 |
-| [表示設定]({{ '/admin/settings/display/'          | relative_url }}) | 画面の色とフォント                                 |
+| 画面                                                            | 決めること                                         |
+| --------------------------------------------------------------- | -------------------------------------------------- |
+| [営業日・営業時間]({{ site.baseurl }}/admin/settings/business/) | 定休日、曜日ごとの営業時間、祝日、臨時休業         |
+| [スタッフ]({{ site.baseurl }}/admin/settings/staff/)            | スタッフの追加、勤務曜日・時間・休憩、臨時休       |
+| [メニュー]({{ site.baseurl }}/admin/settings/menus/)            | メニューとカテゴリ、料金、所要時間、並び順         |
+| [店舗・予約設定]({{ site.baseurl }}/admin/settings/salon/)      | 店名、予約を受け付ける期間や締切、リマインドの時刻 |
+| [表示設定]({{ site.baseurl }}/admin/settings/display/)          | 画面の色とフォント                                 |
 
 設定を変えると、お客様の予約画面の空き枠にすぐ反映されます。
 

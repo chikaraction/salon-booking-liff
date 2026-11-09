@@ -8,7 +8,7 @@
 
 - ページ: `docs/manual/customer/`(お客様の操作)、`docs/manual/admin/`(管理画面)、`docs/manual/faq.md`
 - 画像: `docs/manual/images/`(手元の Supabase とダミーデータで撮影。店名・人名は架空)
-- 画像のパスは `{{ '/manual/images/xxx.png' | relative_url }}` で書く(ページの URL は `permalink` で決まるため、相対パスは使わない)
+- 画像のパスは `{{ site.baseurl }}/manual/images/xxx.png` で書く(ページの URL は `permalink` で決まるため、相対パスは使わない)
 - 画面を変えたら、マニュアルの文言とスクリーンショットも合わせて直す
 
 ## 手元で確認する

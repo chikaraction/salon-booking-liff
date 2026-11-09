@@ -11,7 +11,7 @@ permalink: /admin/reservations/
 
 ## 電話予約を代行登録する
 
-![電話予約の代行登録]({{ '/manual/images/admin-05-proxy.png' | relative_url }})
+![電話予約の代行登録]({{ site.baseurl }}/manual/images/admin-05-proxy.png)
 
 サイドバーの「代行登録」を開きます。予約カレンダーの空いているところを押しても開けます。
 
@@ -31,7 +31,7 @@ permalink: /admin/reservations/
 2. 「予約の変更」が開きます。メニュー・スタッフ・日時・ご要望を変えられます。お客様は変えられません。
 3. 「この内容で変更」を押します。
 
-変更すると、元の時間は空きに戻ります。お店からの変更には、お客様の[変更締切]({{ '/admin/settings/salon/' | relative_url }})はかかりません。
+変更すると、元の時間は空きに戻ります。お店からの変更には、お客様の[変更締切]({{ site.baseurl }}/admin/settings/salon/)はかかりません。
 
 ## 店側でキャンセルする
 

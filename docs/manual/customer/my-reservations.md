@@ -9,7 +9,7 @@ permalink: /customer/my-reservations/
 
 リッチメニューの「マイ予約」から開きます。予約完了の画面の「マイ予約を見る」からも開けます。
 
-![マイ予約の画面]({{ '/manual/images/customer-07-my.png' | relative_url }}){: width="320" }
+![マイ予約の画面]({{ site.baseurl }}/manual/images/customer-07-my.png){: width="320" }
 
 これからの予約が、日時・メニュー・スタッフ・料金・所要時間と一緒に並びます。右上には予約日までの日数(「あと 3 日」など)が出ます。
 
@@ -23,7 +23,7 @@ permalink: /customer/my-reservations/
 
 ## 予約をキャンセルする
 
-![キャンセルの確認]({{ '/manual/images/customer-08-cancel.png' | relative_url }}){: width="320" }
+![キャンセルの確認]({{ site.baseurl }}/manual/images/customer-08-cancel.png){: width="320" }
 
 1. キャンセルしたい予約の「**キャンセル**」を押します。
 2. 画面の下から確認が出るので、「キャンセルする」を押します。やめるときは「戻る」を押します。
@@ -32,4 +32,4 @@ permalink: /customer/my-reservations/
 
 ## 変更・キャンセルの締切
 
-予約の開始時刻が近づくと(既定は 1 時間前を過ぎると)、変更とキャンセルのボタンが使えなくなり、「変更・キャンセルはお店に直接ご連絡ください」と表示されます。締切はお店が[店舗・予約設定]({{ '/admin/settings/salon/' | relative_url }})で決めます。
+予約の開始時刻が近づくと(既定は 1 時間前を過ぎると)、変更とキャンセルのボタンが使えなくなり、「変更・キャンセルはお店に直接ご連絡ください」と表示されます。締切はお店が[店舗・予約設定]({{ site.baseurl }}/admin/settings/salon/)で決めます。

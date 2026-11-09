@@ -11,7 +11,7 @@ permalink: /customer/booking/
 
 ## 1. メニューを選ぶ
 
-![メニュー選択の画面]({{ '/manual/images/customer-01-menu.png' | relative_url }}){: width="320" }
+![メニュー選択の画面]({{ site.baseurl }}/manual/images/customer-01-menu.png){: width="320" }
 
 - メニューは**複数選べます**(例: カット + トリートメント)。もう一度押すと選択が外れます。
 - 画面の下に、選んだ件数・合計の所要時間・合計金額が出ます。表示価格は税込です。
@@ -19,7 +19,7 @@ permalink: /customer/booking/
 
 ## 2. スタッフを選ぶ
 
-![スタッフ選択の画面]({{ '/manual/images/customer-02-staff.png' | relative_url }}){: width="320" }
+![スタッフ選択の画面]({{ site.baseurl }}/manual/images/customer-02-staff.png){: width="320" }
 
 - 担当してほしいスタッフを選びます。
 - 指名がなければ「**どちらでも**」を選びます。空いているスタッフに任されます。
@@ -27,7 +27,7 @@ permalink: /customer/booking/
 
 ## 3. 日時を選ぶ
 
-![日時選択の画面]({{ '/manual/images/customer-03-datetime.png' | relative_url }}){: width="320" }
+![日時選択の画面]({{ site.baseurl }}/manual/images/customer-03-datetime.png){: width="320" }
 
 - カレンダーで日付を選ぶと、その日の空き時間が並びます。休業日や受付期間の外の日は薄く表示され、選べません。
 - 選んだメニューの**所要時間をまるごと確保できる開始時刻だけ**が選べます。取り消し線の時刻は埋まっています。
@@ -35,13 +35,13 @@ permalink: /customer/booking/
 
 ## 4. お客様情報を入れる(初回のみ)
 
-![お客様情報の入力画面]({{ '/manual/images/customer-04-info.png' | relative_url }}){: width="320" }
+![お客様情報の入力画面]({{ site.baseurl }}/manual/images/customer-04-info.png){: width="320" }
 
 初めて予約するときだけ、お名前と電話番号を入れます。LINE アカウントと紐づくので、2 回目からは入力不要です。電話番号は当日の連絡に使われます。
 
 ## 5. 内容を確認して確定する
 
-![内容の確認画面]({{ '/manual/images/customer-05-confirm.png' | relative_url }}){: width="320" }
+![内容の確認画面]({{ site.baseurl }}/manual/images/customer-05-confirm.png){: width="320" }
 
 - メニューごとの料金・スタッフ・日時・所要時間・合計を確認します。
 - 「**ご要望・ご相談**」(任意)に書いた内容は、お店の予約詳細に表示されます。
@@ -49,9 +49,9 @@ permalink: /customer/booking/
 
 ## 6. 予約の完了
 
-![予約完了の画面]({{ '/manual/images/customer-06-complete.png' | relative_url }}){: width="320" }
+![予約完了の画面]({{ site.baseurl }}/manual/images/customer-06-complete.png){: width="320" }
 
-予約内容が表示され、LINE のトークに予約確認のメッセージが届きます([LINE に届くメッセージ]({{ '/customer/notifications/' | relative_url }}))。「マイ予約を見る」から、予約の確認・変更・キャンセルができます。
+予約内容が表示され、LINE のトークに予約確認のメッセージが届きます([LINE に届くメッセージ]({{ site.baseurl }}/customer/notifications/))。「マイ予約を見る」から、予約の確認・変更・キャンセルができます。
 
 ## 予約できないとき
 

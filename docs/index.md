@@ -23,21 +23,21 @@ permalink: /
 
 **お客様の操作**
 
-- [予約する]({{ '/customer/booking/' | relative_url }}) … メニュー・スタッフ・日時を選んで予約する
-- [予約を確認・変更・キャンセルする]({{ '/customer/my-reservations/' | relative_url }}) … マイ予約
-- [LINE に届くメッセージ]({{ '/customer/notifications/' | relative_url }}) … 予約確認と前日のリマインド
+- [予約する]({{ site.baseurl }}/customer/booking/) … メニュー・スタッフ・日時を選んで予約する
+- [予約を確認・変更・キャンセルする]({{ site.baseurl }}/customer/my-reservations/) … マイ予約
+- [LINE に届くメッセージ]({{ site.baseurl }}/customer/notifications/) … 予約確認と前日のリマインド
 
 **お店の操作(管理画面)**
 
-- [ログインと画面の見方]({{ '/admin/login/' | relative_url }})
-- [予約カレンダー]({{ '/admin/calendar/' | relative_url }}) … 日・週の予約を見る、予約の詳細を開く
-- [予約の登録・変更・キャンセル]({{ '/admin/reservations/' | relative_url }}) … 電話予約の代行登録など
-- [ダッシュボード]({{ '/admin/dashboard/' | relative_url }}) … 予約件数と LINE の送信数
-- 設定(オーナーのみ): [営業日・営業時間]({{ '/admin/settings/business/' | relative_url }}) / [スタッフ]({{ '/admin/settings/staff/' | relative_url }}) / [メニュー]({{ '/admin/settings/menus/' | relative_url }}) / [店舗・予約設定]({{ '/admin/settings/salon/' | relative_url }}) / [表示設定]({{ '/admin/settings/display/' | relative_url }})
+- [ログインと画面の見方]({{ site.baseurl }}/admin/login/)
+- [予約カレンダー]({{ site.baseurl }}/admin/calendar/) … 日・週の予約を見る、予約の詳細を開く
+- [予約の登録・変更・キャンセル]({{ site.baseurl }}/admin/reservations/) … 電話予約の代行登録など
+- [ダッシュボード]({{ site.baseurl }}/admin/dashboard/) … 予約件数と LINE の送信数
+- 設定(オーナーのみ): [営業日・営業時間]({{ site.baseurl }}/admin/settings/business/) / [スタッフ]({{ site.baseurl }}/admin/settings/staff/) / [メニュー]({{ site.baseurl }}/admin/settings/menus/) / [店舗・予約設定]({{ site.baseurl }}/admin/settings/salon/) / [表示設定]({{ site.baseurl }}/admin/settings/display/)
 
 **困ったとき**
 
-- [よくある質問]({{ '/faq/' | relative_url }}) … 予約枠が出ない、お客様が変更できない など
+- [よくある質問]({{ site.baseurl }}/faq/) … 予約枠が出ない、お客様が変更できない など
 
 ## 予約の流れ
 

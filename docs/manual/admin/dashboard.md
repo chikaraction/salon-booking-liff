@@ -7,7 +7,7 @@ permalink: /admin/dashboard/
 
 # ダッシュボード
 
-![ダッシュボード]({{ '/manual/images/admin-06-dashboard.png' | relative_url }})
+![ダッシュボード]({{ site.baseurl }}/manual/images/admin-06-dashboard.png)
 
 サイドバーの「ダッシュボード」で開きます。
 

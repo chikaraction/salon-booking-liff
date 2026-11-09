@@ -11,7 +11,7 @@ permalink: /admin/calendar/
 
 ## 日表示
 
-![予約カレンダー(日表示)]({{ '/manual/images/admin-02-calendar-day.png' | relative_url }})
+![予約カレンダー(日表示)]({{ site.baseurl }}/manual/images/admin-02-calendar-day.png)
 
 - 縦が時間、横がスタッフです。予約は「開始時刻・お名前・メニュー・料金」のブロックで出ます。
 - スタッフの休憩は「休憩」のブロックで出ます。
@@ -20,20 +20,20 @@ permalink: /admin/calendar/
 
 ## 週表示
 
-![予約カレンダー(週表示)]({{ '/manual/images/admin-03-calendar-week.png' | relative_url }})
+![予約カレンダー(週表示)]({{ site.baseurl }}/manual/images/admin-03-calendar-week.png)
 
 1 週間分の予約を並べて表示します。スタッフは色で見分けます(上部の凡例を見てください)。定休日の列には「定休日」と表示されます。
 
 ## 予約の詳細
 
-![予約詳細]({{ '/manual/images/admin-04-detail.png' | relative_url }})
+![予約詳細]({{ site.baseurl }}/manual/images/admin-04-detail.png)
 
 予約のブロックを押すと、予約詳細が開きます。
 
 - お客様の名前・連絡先・日時と担当・メニューと料金が出ます。
 - **ご要望・ご相談**: お客様が予約のときに書いた内容です。
 - **スタッフメモ**: お店の中だけで使うメモです。「編集」から書けます。メモは**お客様ごと**に保存されるので、同じお客様のほかの予約にも同じメモが出ます(アレルギーや次回の提案などに使います)。お客様には見えません。
-- 「変更」「店側でキャンセル」については[予約の登録・変更・キャンセル]({{ '/admin/reservations/' | relative_url }})を見てください。
+- 「変更」「店側でキャンセル」については[予約の登録・変更・キャンセル]({{ site.baseurl }}/admin/reservations/)を見てください。
 - 閉じるときは右上の「×」を押すか、Esc キーを押します。
 
 ## 空いている時間から予約を登録する
@@ -42,7 +42,7 @@ permalink: /admin/calendar/
 
 ## スマホで使うとき
 
-![スマホ幅のリスト表示]({{ '/manual/images/admin-15-phone-list.png' | relative_url }}){: width="320" }
+![スマホ幅のリスト表示]({{ site.baseurl }}/manual/images/admin-15-phone-list.png){: width="320" }
 
 スマホの幅では、日表示を「タイムライン」と「リスト」で切り替えられます。リストは、その日の予約を時刻順に並べた一覧で、移動中にさっと確認するのに向いています。
 

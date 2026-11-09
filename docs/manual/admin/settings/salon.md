@@ -8,7 +8,7 @@ permalink: /admin/settings/salon/
 
 # 店舗・予約設定
 
-![店舗・予約設定]({{ '/manual/images/admin-12-salon.png' | relative_url }})
+![店舗・予約設定]({{ site.baseurl }}/manual/images/admin-12-salon.png)
 
 ## 店舗
 
