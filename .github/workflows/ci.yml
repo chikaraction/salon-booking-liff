@@ -1,0 +1,31 @@
+# CI: PR と main への push で、Lint・ユニットテスト・型チェック+ビルドを回す。
+# 手元でコミット前に流しているもの(milestone スキル)と同じ。Dependabot の PR もこれで確かめる。
+# E2E(Playwright)は手元の Supabase(Docker)が要り時間もかかるので、ここでは回さない(ADR-008)。
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  check:
+    name: Lint・テスト・ビルド
+    runs-on: ubuntu-latest
+    # チェックアウトと npm の実行しかしないので、読み取りだけに絞る
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          # 手元と同じく .node-version の版を使う
+          node-version-file: .node-version
+          cache: npm
+      - name: 依存関係のインストール
+        run: npm ci
+      - name: Lint(ESLint)
+        run: npm run lint
+      - name: ユニットテスト(Vitest)
+        run: npm test
+      # 環境変数なしでもビルドできる(ページはすべて動的で、ビルド時に Supabase へ接続しない)
+      - name: 型チェック + ビルド(next build)
+        run: npm run build
