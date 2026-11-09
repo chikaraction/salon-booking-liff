@@ -10,6 +10,8 @@
 
 スクリーンショットは手元の環境とダミーデータで撮影したもの。
 
+操作の手順は **[操作マニュアル](https://chikaraction.github.io/salon-booking-liff/)**(GitHub Pages)にまとめている。
+
 | メニュー選択                                        | 日時選択                                            | マイ予約                                                   |
 | --------------------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------- |
 | ![メニュー選択](docs/screenshots/customer-menu.png) | ![日時選択](docs/screenshots/customer-datetime.png) | ![マイ予約](docs/screenshots/customer-my-reservations.png) |

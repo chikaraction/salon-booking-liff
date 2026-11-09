@@ -1,0 +1,53 @@
+# GitHub Pages(main ブランチの /docs)の設定。操作マニュアルだけをサイトにする。
+# 手元での確認方法は docs/manual/README.md
+title: salon-booking-liff 操作マニュアル
+description: 美容室の来店予約システム(LINE LIFF + Next.js + Supabase)の操作マニュアル
+lang: ja
+url: https://chikaraction.github.io
+baseurl: /salon-booking-liff
+
+# GitHub Pages が対応しているテーマ(https://pages.github.com/versions.json の jekyll-remote-theme)
+remote_theme: just-the-docs/just-the-docs@v0.12.0
+plugins:
+  - jekyll-remote-theme
+  - jekyll-include-cache
+  - jekyll-seo-tag
+
+# 検索は日本語の語の区切りに対応していないので使わない(左のメニューから探す)
+search_enabled: false
+color_scheme: light
+aux_links:
+  "GitHub のリポジトリ":
+    - https://github.com/chikaraction/salon-booking-liff
+aux_links_new_tab: true
+callouts:
+  note:
+    title: メモ
+    color: blue
+  warning:
+    title: 注意
+    color: red
+back_to_top: true
+back_to_top_text: ページの先頭へ
+footer_content: >-
+  店名・スタッフ名・メニュー・料金・お客様の名前はすべて架空のものです。
+  <a href="https://github.com/chikaraction/salon-booking-liff/blob/main/LICENSE">MIT License</a>
+
+# 全ページにテーマのレイアウトを当てる(GitHub Pages の暗黙のプラグインに頼らず、手元のビルドと揃える)
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+
+# docs/ にある設計文書・計画書・モックはサイトに含めない(GitHub 上で読む)
+exclude:
+  - adr/
+  - mockups/
+  - screenshots/
+  - manual/README.md
+  - setup.md
+  - mockup-brief.md
+  - ui-guidelines.md
+  - ui-polish-plan.md
+  - milestone-*.md

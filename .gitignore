@@ -50,3 +50,7 @@ next-env.d.ts
 /test-results/
 /playwright-report/
 /e2e/.auth/
+
+# GitHub Pages(Jekyll)の手元ビルドの生成物
+docs/.sass-cache/
+docs/_site/
