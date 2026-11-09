@@ -1,0 +1,30 @@
+# Dependabot のバージョン更新の設定(tendledge に合わせる)。
+# セキュリティ更新はこのファイルが無くても動く。ここで有効にするのは、ふだんの版の追随。
+#
+# 個人のプロジェクトで PR が増えすぎると追いきれないので、minor と patch は
+# エコシステムごとに 1 本へまとめる(groups)。major は破壊的変更の確認が要るので、
+# まとめずに個別の PR として出させる。
+version: 2
+updates:
+  # アプリと開発用の依存(package.json / package-lock.json)
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        update-types:
+          - minor
+          - patch
+  # ワークフローが使うアクション(.github/workflows/)
+  # ci.yml と codeql.yml で版がずれないよう、まとめて 1 本にする
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      actions-all:
+        patterns:
+          - "*"
