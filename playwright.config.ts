@@ -14,6 +14,16 @@ const local = readLocalSupabase();
 // メニュー)を崩すので、ブラウザごとのプロジェクトからは外し、全部が終わってから流す
 const SETTINGS_TESTS = /e2e[\\/]settings[\\/]/;
 
+// Chromium の時刻・日付入力の書式は、ページの言語(lang 属性・locale)ではなく
+// ブラウザの表示言語で決まる。Playwright 1.65(Chromium 158)の headless shell は
+// 表示言語が英語になり、locale: "ja-JP" でも時刻入力が「9:00 AM」の12時間表記になる
+// (欄の中身に必要な幅が 104px から 140px に増え、w-32 の欄に収まらない)。
+// 日本語の Chrome と同じ24時間表記で確かめるよう、表示言語を日本語にして起動する
+const desktopChromeJa = {
+  ...devices["Desktop Chrome"],
+  launchOptions: { args: ["--lang=ja-JP"] },
+};
+
 export default defineConfig({
   testDir: "e2e",
   outputDir: "test-results",
@@ -46,7 +56,7 @@ export default defineConfig({
     {
       name: "chromium",
       testIgnore: SETTINGS_TESTS,
-      use: { ...devices["Desktop Chrome"] },
+      use: desktopChromeJa,
       dependencies: ["setup"],
     },
     {
@@ -72,7 +82,7 @@ export default defineConfig({
       // 他のプロジェクトが1件でも失敗すると流れない(Playwright の dependencies の仕様)
       name: "settings",
       testMatch: SETTINGS_TESTS,
-      use: { ...devices["Desktop Chrome"] },
+      use: desktopChromeJa,
       dependencies: ["chromium", "webkit", "firefox"],
     },
   ],
