@@ -54,3 +54,6 @@ next-env.d.ts
 # GitHub Pages(Jekyll)の手元ビルドの生成物
 docs/.sass-cache/
 docs/_site/
+
+# Claude Code の個人用設定(許可したコマンドの全文が残る。PC ごとの除外設定に頼らずここで除外する)
+.claude/settings.local.json
