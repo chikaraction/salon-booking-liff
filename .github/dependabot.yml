@@ -4,6 +4,11 @@
 # 個人のプロジェクトで PR が増えすぎると追いきれないので、minor と patch は
 # エコシステムごとに 1 本へまとめる(groups)。major は破壊的変更の確認が要るので、
 # まとめずに個別の PR として出させる。
+#
+# 公開されたばかりの版はすぐには取り込まない(cooldown)。乗っ取られたパッケージの
+# 悪性版は、たいてい数日のうちに見つかって取り下げられる。main へのマージは本番の
+# ビルドにつながるので、公開から 7 日たった版だけを PR にする。
+# cooldown はバージョン更新だけに効き、セキュリティ更新は待たずに出る。
 version: 2
 updates:
   # アプリと開発用の依存(package.json / package-lock.json)
@@ -12,6 +17,8 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     ignore:
       # 型は動かしている Node の版(.node-version の 24 系)に合わせる。
       # それより新しい版の型にすると、24 に無い API も型の上では使えてしまう
@@ -29,6 +36,8 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     groups:
       actions-all:
         patterns:
