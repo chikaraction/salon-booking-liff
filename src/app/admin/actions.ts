@@ -31,7 +31,7 @@ import {
   isWallClockTime,
   jstDateTime,
 } from "@/lib/jst";
-import { createAdminAuthClient } from "@/server/admin-auth";
+import { createAdminAuthClient, requireStaff } from "@/server/admin-auth";
 import {
   fetchReservationDetail,
   fetchStaffActiveState,
@@ -110,7 +110,9 @@ export async function logout(): Promise<LogoutResult> {
 // 代行登録(電話予約: モックD)
 // - データ取得・RPCは authenticated クライアント(RLS適用)で行う。
 //   ただし空き枠計算 getDayAvailability は read-only の共有可用性計算のため
-//   例外的に再利用する(docs/milestone-4-plan.md「再利用する既存資産」)
+//   例外的に再利用する(docs/milestone-4-plan.md「再利用する既存資産」)。
+//   service_role で読むので RLS では守られない。呼ぶ前に requireStaff() で
+//   有効なスタッフであることを確かめる(checkProxySlot / getProxyDaySlots)
 // - 空き表示は補助であり、ダブルブッキング防止の本体はEXCLUDE制約(ADR-004)
 // ---------------------------------------------------------------------------
 
@@ -160,6 +162,16 @@ export async function checkProxySlot(
   input: CheckProxySlotInput,
 ): Promise<SlotAvailability> {
   try {
+    // 有効なスタッフだけに返す。getDayAvailability は service_role で読むので
+    // RLS では止まらない(requireStaff のコメント)
+    const guard = await requireStaff();
+    if (!guard.ok) {
+      return {
+        status: "unavailable",
+        canRegister: false,
+        message: guard.message,
+      };
+    }
     if (!isCalendarDate(input.date) || !isWallClockTime(input.time)) {
       return {
         status: "unavailable",
@@ -236,6 +248,11 @@ export async function getProxyDaySlots(
   input: GetProxyDaySlotsInput,
 ): Promise<GetProxyDaySlotsResult> {
   try {
+    // 有効なスタッフだけに返す(checkProxySlot と同じ理由)
+    const guard = await requireStaff();
+    if (!guard.ok) {
+      return { ok: false, message: guard.message };
+    }
     if (!isCalendarDate(input.date)) {
       return { ok: false, message: "日付を選択してください" };
     }
