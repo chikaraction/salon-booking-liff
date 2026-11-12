@@ -8,6 +8,7 @@
 
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
+import path from "node:path";
 
 // stdinからフック入力(JSON)を受け取る
 let raw = "";
@@ -29,9 +30,25 @@ if (!existsSync(filePath)) process.exit(0);
 
 const cwd = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 
-function run(args) {
+// プロジェクトの外のファイルには手を出さない
+const target = path.resolve(cwd, filePath);
+const relative = path.relative(cwd, target);
+if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+  process.exit(0);
+}
+
+// シェルを通さずに node で直接起動する。
+// ファイル名はフックの入力(= 信頼できない値)なので、シェルに渡すと
+// 「a&コマンド&.ts」のような名前でコマンドを実行されてしまう。
+// 「--」の後ろに置き、「-」で始まる名前がオプションとして読まれるのも防ぐ。
+function run(bin, args) {
+  const script = path.join(cwd, "node_modules", bin);
+  if (!existsSync(script)) return null; // npm ci 前などは何もしない
   try {
-    execFileSync("npx", args, { cwd, stdio: "pipe", shell: true });
+    execFileSync(process.execPath, [script, ...args, "--", target], {
+      cwd,
+      stdio: "pipe",
+    });
     return null;
   } catch (e) {
     return `${e.stdout?.toString() ?? ""}${e.stderr?.toString() ?? ""}`;
@@ -39,10 +56,10 @@ function run(args) {
 }
 
 // 整形(失敗しても続行)
-run(["prettier", "--write", filePath]);
+run("prettier/bin/prettier.cjs", ["--write"]);
 
 // lint自動修正。修正しきれないエラーが残ったらClaudeに差し戻す
-const eslintOut = run(["eslint", "--fix", filePath]);
+const eslintOut = run("eslint/bin/eslint.js", ["--fix"]);
 if (eslintOut && eslintOut.trim()) {
   console.error(
     `自動修正できないlintエラーが残っています。修正してください:\n${eslintOut.trim()}`,
