@@ -5,6 +5,8 @@
 // - スタッフに紐付いていないユーザー・無効にしたスタッフは、ログインはできるが案内だけが出る
 // - スタッフに紐付いていないユーザー・無効にしたスタッフは、予約まわりも設定も読めない(RLS)。
 //   anon キーも予約まわりのデータを読めない
+// - 代行登録の空き状況(service_role で読む Server Action)は、画面を通さずに呼んでも
+//   有効なスタッフにしか返らない
 // - 管理画面にだけ埋め込み禁止のヘッダーが付く
 
 import { createClient } from "@supabase/supabase-js";
@@ -322,6 +324,129 @@ test.describe("データベースの行レベルの制御(RLS)", () => {
       // 権限が無ければエラー、RLS で弾かれれば0件。どちらでも中身は見えない
       expect(error !== null || data?.length === 0, table).toBe(true);
     }
+  });
+});
+
+test.describe("代行登録の空き状況(Server Action を画面を通さずに呼ぶ)", () => {
+  // 空き状況は service_role で読むので RLS では止まらず、アプリ層のガード
+  // (src/server/admin-auth.ts の requireStaff)だけが守っている。管理画面を使えない
+  // ユーザーには代行登録の画面が出ないので、有効なスタッフの画面が送った要求を
+  // 控えておき、同じ要求を別のログインの cookie で送り直して確かめる
+
+  /** 控えておく Server Action の要求(送り直すのに要る分だけ) */
+  type CapturedAction = { url: string; actionId: string; body: string };
+
+  /** 空き時間の一覧(getProxyDaySlots)が返っているか */
+  const hasDaySlots = (body: string) => body.includes('"slots"');
+  /** 空き判定(checkProxySlot)が返っているか(断りの文言だけなら返っていない) */
+  const hasSlotCheck = (body: string) =>
+    body.includes('"canRegister"') && !body.includes(NOT_REGISTERED_HEADING);
+
+  test("有効なスタッフには返り、管理画面を使えないユーザー・未ログインには返らない", async ({
+    browser,
+    baseURL,
+  }) => {
+    // --- 有効なスタッフの画面で、2つの Server Action の要求を控える ---
+    const staffContext = await browser.newContext({
+      storageState: ADMIN_ACCOUNTS.staff.storageState,
+    });
+    const staffPage = await staffContext.newPage();
+    const captured: { daySlots?: CapturedAction; slotCheck?: CapturedAction } =
+      {};
+    staffPage.on("request", (request) => {
+      const actionId = request.headers()["next-action"];
+      const body = request.postData();
+      if (request.method() !== "POST" || !actionId || body === null) return;
+      let input: unknown;
+      try {
+        input = (JSON.parse(body) as unknown[])[0];
+      } catch {
+        return;
+      }
+      // 引数が staffId を持つオブジェクトなら空き状況の2つのどちらか。
+      // time があれば空き判定(checkProxySlot)、無ければ空き時間の一覧(getProxyDaySlots)
+      if (typeof input !== "object" || input === null) return;
+      if (!("staffId" in input)) return;
+      const action = { url: request.url(), actionId, body };
+      if ("time" in input) captured.slotCheck = action;
+      else captured.daySlots = action;
+    });
+
+    await staffPage.goto("/admin/reservations/new");
+    await waitForHydration(staffPage, "proxy-staff");
+    await staffPage.getByRole("checkbox").first().check();
+    await staffPage
+      .locator("#proxy-staff")
+      .selectOption(ADMIN_ACCOUNTS.staff.staffId);
+    await staffPage.locator("#proxy-time").fill("10:00");
+    await expect
+      .poll(
+        () =>
+          captured.daySlots !== undefined && captured.slotCheck !== undefined,
+      )
+      .toBe(true);
+    const daySlots = captured.daySlots!;
+    const slotCheck = captured.slotCheck!;
+
+    /** 控えた要求を、その context のログイン(cookie)で送り直して本文を返す */
+    const replay = async (
+      context: { request: typeof staffContext.request },
+      action: CapturedAction,
+      url = action.url,
+    ) => {
+      const response = await context.request.post(url, {
+        headers: {
+          "next-action": action.actionId,
+          accept: "text/x-component",
+          "content-type": "text/plain;charset=UTF-8",
+          origin: new URL(baseURL!).origin,
+        },
+        data: action.body,
+      });
+      return response.text();
+    };
+
+    // 送り直しても有効なスタッフには返る(下の「返らない」が、送り直し方の
+    // 誤りのせいではないことを確かめる)
+    expect(hasDaySlots(await replay(staffContext, daySlots))).toBe(true);
+    expect(hasSlotCheck(await replay(staffContext, slotCheck))).toBe(true);
+
+    // --- 管理画面を使えないユーザー(未紐付け・無効にしたスタッフ)には返らない ---
+    // どちらのアカウントもほかのテストと共有するので、ログアウトはしない
+    for (const account of [UNLINKED_ACCOUNT, INACTIVE_STAFF_ACCOUNT]) {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      await loginAsAdmin(page, account.email, account.password);
+      await expect(
+        page.getByRole("heading", { name: NOT_REGISTERED_HEADING }),
+        account.email,
+      ).toBeVisible();
+
+      const daySlotsBody = await replay(context, daySlots);
+      expect(hasDaySlots(daySlotsBody), account.email).toBe(false);
+      expect(daySlotsBody, account.email).toContain(NOT_REGISTERED_HEADING);
+
+      const slotCheckBody = await replay(context, slotCheck);
+      expect(hasSlotCheck(slotCheckBody), account.email).toBe(false);
+      expect(slotCheckBody, account.email).toContain(NOT_REGISTERED_HEADING);
+
+      await context.close();
+    }
+
+    // --- 未ログインには返らない ---
+    // /admin 配下はミドルウェアがログイン画面へ移す。ミドルウェアが見ない客側の
+    // 画面(/booking)に向けて送っても返らない
+    const anonymous = await browser.newContext();
+    for (const url of [daySlots.url, new URL("/booking", baseURL).href]) {
+      expect(hasDaySlots(await replay(anonymous, daySlots, url)), url).toBe(
+        false,
+      );
+      expect(hasSlotCheck(await replay(anonymous, slotCheck, url)), url).toBe(
+        false,
+      );
+    }
+
+    await Promise.all([staffContext.close(), anonymous.close()]);
   });
 });
 

@@ -14,6 +14,7 @@ import { cookies } from "next/headers";
 import { cache } from "react";
 
 import {
+  ADMIN_NOT_REGISTERED_MESSAGE,
   SETTINGS_PERMISSION_DENIED_MESSAGE,
   canManageSettings,
   canUseAdmin,
@@ -173,6 +174,40 @@ export const getCurrentStaffForRender = cache(getCurrentStaff);
 export async function canUseAdminInRender(): Promise<boolean> {
   const staff = await getCurrentStaffForRender();
   return canUseAdmin(staff?.role ?? null);
+}
+
+export type StaffGuardResult =
+  { ok: true; staff: CurrentStaff } | { ok: false; message: string };
+
+/**
+ * service_role で読む処理を呼ぶ店側のServer Actionの先頭で通すガード(ADR-005)。
+ * 有効なスタッフ(オーナー・スタッフのどちらでも可)だけを通す。未ログイン・
+ * staff.auth_user_id 未紐付け・無効にされたスタッフはいずれも拒否する
+ * (メッセージは同一。原因を断定しない文言にしてある)。
+ * 判断は canUseAdmin(src/lib/admin-permissions.ts)。
+ *
+ * なぜ要るか: 店側のServer Actionはふつう authenticated クライアント(RLS適用)で
+ * 読み書きするので、有効なスタッフ以外には 0件 / 42501 になり、ガードが無くても
+ * 中身は返らない。しかし service_role で読む関数(booking-data.ts の
+ * getDayAvailability など)は RLS を通らないので、呼ぶ前にアプリ層で確かめないと
+ * 誰にでも結果が返る。Server Action は画面を描かなくても直接呼べる
+ * (保護レイアウトの案内カードでは止まらない)。
+ *
+ * requireOwner と同じ理由で、"use server" のファイルではなくここに置く。
+ * 描画の外なので getCurrentStaff を直接使う(getCurrentStaffForRender のコメント)。
+ *
+ * 使い方:
+ * ```ts
+ * const guard = await requireStaff();
+ * if (!guard.ok) return { ok: false, message: guard.message };
+ * ```
+ */
+export async function requireStaff(): Promise<StaffGuardResult> {
+  const staff = await getCurrentStaff();
+  if (staff === null || !canUseAdmin(staff.role)) {
+    return { ok: false, message: ADMIN_NOT_REGISTERED_MESSAGE };
+  }
+  return { ok: true, staff };
 }
 
 export type OwnerGuardResult =
