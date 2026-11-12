@@ -264,12 +264,14 @@ LINE実機でしか確認できない。M6 ではテスト用の公式アカウ�
 - [ ] **セルフサインアップ無効**: Supabase の Authentication 設定で新規サインアップが
       無効になっている(招待制: ADR-005)。/admin/login からアカウント作成できない
 - [ ] **staff 未紐付けユーザーの拒否**: `staff.auth_user_id` に紐付いていない Auth
-      ユーザーでログインすると、`customers` / `reservations` / `reservation_menus` /
-      `push_messages` が0件に見え、`admin_create_reservation` /
+      ユーザーでログインすると、管理画面には「スタッフとして登録されていない」案内と
+      ログアウトのボタンだけが出る。REST では予約系(`customers` / `reservations` /
+      `reservation_menus` / `push_messages`)も設定系(`salon_settings` / `staff` /
+      `menus` など8テーブル)も0件に見え、`admin_create_reservation` /
       `admin_update_reservation` は 42501 で拒否される(SQL/REST で確認。
       確認後そのユーザーは削除する)
 - [ ] **無効スタッフの拒否**: 管理画面を使うスタッフをスタッフ設定で無効にすると、
-      その人のログインでは予約カレンダーが空になり、設定グループも出ない
+      その人のログインでは未紐付けと同じ案内だけが出る
       (上と同じ REST 確認でも 0件・42501)。有効に戻すとすぐ元どおり使える
 - [ ] **https の強制**(本番): `curl -I http://<本番ホスト>/admin/login` が
       `https://` への 301 になる。https の応答に `Strict-Transport-Security` が付く
@@ -461,7 +463,7 @@ M4bの主眼は「店側が自力で店舗固有値を変えられること」(A
 ### オーナー/スタッフの権限差(ADR-005)
 
 - [ ] **紐付けが必須**: `staff.auth_user_id` を紐付けていないユーザーでログインすると
-      設定画面が「この操作にはオーナー権限が必要です」になる(`current_staff_role()`
+      管理画面が「スタッフとして登録されていない」案内だけになる(`current_staff_role()`
       がNULLを返すため)。docs/setup.md の紐付け手順を実施すると解消する
 - [ ] スタッフロールでログイン → サイドバーに設定グループが出ない。
       `/admin/settings/business` などを**直URLで開いても弾かれる**

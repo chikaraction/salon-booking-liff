@@ -2,13 +2,16 @@
 // - 未ログインはログイン画面へ。ログイン済みでログイン画面を開くと /admin へ
 // - 開いたままの画面でログインが切れていたら、保存などを押したときにログイン画面へ
 // - 設定はオーナーのみ(スタッフは設定のリンクが出ず、直URLでも権限の案内になる)
-// - スタッフに紐付いていないユーザー・anon キーは予約まわりのデータを読めない(RLS)
+// - スタッフに紐付いていないユーザー・無効にしたスタッフは、ログインはできるが案内だけが出る
+// - スタッフに紐付いていないユーザー・無効にしたスタッフは、予約まわりも設定も読めない(RLS)。
+//   anon キーも予約まわりのデータを読めない
 // - 管理画面にだけ埋め込み禁止のヘッダーが付く
 
 import { createClient } from "@supabase/supabase-js";
 import { expect, test } from "@playwright/test";
 import {
   ADMIN_ACCOUNTS,
+  INACTIVE_STAFF_ACCOUNT,
   UNLINKED_ACCOUNT,
   logoutAccount,
 } from "../support/accounts";
@@ -30,6 +33,19 @@ const SETTINGS_PATHS = [
   "/admin/settings/display",
 ];
 
+/**
+ * 管理画面を使えないユーザー(未紐付け・無効にしたスタッフ)で開いてみる画面。
+ * 保護配下の全ページ。予約の変更は、存在しない予約のIDで開く(ページが実行されて
+ * いれば「見つかりません」の404になるので、ページが何も取得していないことも分かる)
+ */
+const ALL_PROTECTED_PATHS = [
+  "/admin",
+  "/admin/reservations/new",
+  "/admin/reservations/00000000-0000-4000-8000-000000000000/edit",
+  "/admin/dashboard",
+  ...SETTINGS_PATHS,
+];
+
 /** 予約まわりのテーブル(スタッフに紐付いた人だけが読める) */
 const BOOKING_TABLES = [
   "customers",
@@ -37,6 +53,48 @@ const BOOKING_TABLES = [
   "reservation_menus",
   "push_messages",
 ] as const;
+
+/** 設定のテーブル(有効なスタッフに紐付いた人だけが読める) */
+const SETTINGS_TABLES = [
+  "salon_settings",
+  "business_hours",
+  "staff",
+  "staff_working_hours",
+  "menus",
+  "menu_categories",
+  "nth_weekday_closures",
+  "date_overrides",
+] as const;
+
+/** 設定のテーブルのうち、seed.sql に必ず行があるもの(有効なスタッフには読めることの確認用) */
+const SEEDED_SETTINGS_TABLES = [
+  "salon_settings",
+  "business_hours",
+  "staff",
+  "staff_working_hours",
+  "menus",
+  "menu_categories",
+] as const;
+
+/** スタッフとして登録されていないときの案内(src/lib/admin-permissions.ts) */
+const NOT_REGISTERED_HEADING =
+  "このアカウントは管理画面を使えるスタッフとして登録されていません";
+
+/** 手元のSupabaseに、メールとパスワードでログインしたクライアント(RLS の確認用) */
+async function signedInClient(
+  local: { url: string; anonKey: string },
+  account: { email: string; password: string },
+) {
+  const client = createClient(local.url, local.anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { error } = await client.auth.signInWithPassword({
+    email: account.email,
+    password: account.password,
+  });
+  expect(error).toBeNull();
+  return client;
+}
 
 test.describe("未ログイン", () => {
   for (const path of PROTECTED_PATHS) {
@@ -162,22 +220,96 @@ test.describe("スタッフ", () => {
   }
 });
 
+test.describe("スタッフに紐付いていないユーザー", () => {
+  test("ログインすると、登録されていない旨の案内が出て、ログアウトできる", async ({
+    page,
+  }, testInfo) => {
+    // ログアウトするので、ブラウザごとのアカウントを使う(logoutAccount のコメント)
+    const account = logoutAccount(testInfo.project.name);
+    await loginAsAdmin(page, account.email, account.password);
+    await expect(page).toHaveURL(/\/admin$/);
+    await expect(
+      page.getByRole("heading", { name: NOT_REGISTERED_HEADING }),
+    ).toBeVisible();
+    // 画面の中身(ナビ・予約カレンダー)は出ない
+    await expect(page.getByRole("navigation")).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "代行登録" })).toHaveCount(0);
+
+    // どの画面を直接開いても同じ案内になる(配下のページは描かれず、エラー画面にならない)
+    for (const path of ALL_PROTECTED_PATHS) {
+      const response = await page.goto(path);
+      expect(response?.status(), path).toBe(200);
+      await expect(
+        page.getByRole("heading", { name: NOT_REGISTERED_HEADING }),
+        path,
+      ).toBeVisible();
+    }
+
+    await page.getByRole("button", { name: "ログアウト" }).click();
+    await expect(page).toHaveURL(/\/admin\/login$/);
+    await expect(
+      page.getByRole("heading", { name: "管理画面ログイン" }),
+    ).toBeVisible();
+  });
+});
+
+test.describe("無効にしたスタッフ", () => {
+  test("ログインすると、登録されていない旨の案内が出る", async ({ page }) => {
+    // このアカウントは3つのブラウザで共有するので、ログアウトはしない
+    // (ログアウトは同じアカウントの全セッションを無効にする)
+    await loginAsAdmin(
+      page,
+      INACTIVE_STAFF_ACCOUNT.email,
+      INACTIVE_STAFF_ACCOUNT.password,
+    );
+    await expect(page).toHaveURL(/\/admin$/);
+    await expect(
+      page.getByRole("heading", { name: NOT_REGISTERED_HEADING }),
+    ).toBeVisible();
+    await expect(page.getByRole("navigation")).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "ログアウト" }),
+    ).toBeVisible();
+
+    for (const path of ALL_PROTECTED_PATHS) {
+      const response = await page.goto(path);
+      expect(response?.status(), path).toBe(200);
+      await expect(
+        page.getByRole("heading", { name: NOT_REGISTERED_HEADING }),
+        path,
+      ).toBeVisible();
+    }
+  });
+});
+
 test.describe("データベースの行レベルの制御(RLS)", () => {
   const local = readLocalSupabase();
 
-  test("スタッフに紐付いていないユーザーには予約まわりのデータが0件に見える", async () => {
-    const client = createClient(local.url, local.anonKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { error: loginError } = await client.auth.signInWithPassword({
-      email: UNLINKED_ACCOUNT.email,
-      password: UNLINKED_ACCOUNT.password,
-    });
-    expect(loginError).toBeNull();
-    for (const table of BOOKING_TABLES) {
+  test("スタッフに紐付いていないユーザーには予約まわりのデータも設定も0件に見える", async () => {
+    const client = await signedInClient(local, UNLINKED_ACCOUNT);
+    for (const table of [...BOOKING_TABLES, ...SETTINGS_TABLES]) {
       const { data, error } = await client.from(table).select("*");
       expect(error, table).toBeNull();
       expect(data, table).toEqual([]);
+    }
+  });
+
+  test("無効にしたスタッフには予約まわりのデータも設定も0件に見える", async () => {
+    const client = await signedInClient(local, INACTIVE_STAFF_ACCOUNT);
+    for (const table of [...BOOKING_TABLES, ...SETTINGS_TABLES]) {
+      const { data, error } = await client.from(table).select("*");
+      expect(error, table).toBeNull();
+      expect(data, table).toEqual([]);
+    }
+  });
+
+  test("有効なスタッフは設定を読める", async () => {
+    // 上の2つの「0件」が、誰にも読めないせいではないことを確かめる
+    const client = await signedInClient(local, ADMIN_ACCOUNTS.staff);
+    for (const table of SEEDED_SETTINGS_TABLES) {
+      const { data, error } = await client.from(table).select("*");
+      expect(error, table).toBeNull();
+      expect(data?.length, table).toBeGreaterThan(0);
     }
   });
 

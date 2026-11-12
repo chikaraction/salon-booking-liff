@@ -26,7 +26,10 @@ import {
   isCalendarDate,
   jstCalendarDate,
 } from "@/lib/jst";
-import { createAdminAuthClient } from "@/server/admin-auth";
+import {
+  canUseAdminInRender,
+  createAdminAuthClient,
+} from "@/server/admin-auth";
 import {
   fetchActiveMenus,
   fetchAdminCalendarItems,
@@ -68,6 +71,10 @@ export default async function AdminCalendarPage({
     typeof params.date === "string" && isCalendarDate(params.date)
       ? params.date
       : todayDate;
+
+  // 管理画面を使えないユーザー(未紐付け・無効にされたスタッフ)には保護レイアウトが
+  // 案内だけを出す。そのときもページは実行されるので、何も取得せずに終える
+  if (!(await canUseAdminInRender())) return null;
 
   const supabase = await createAdminAuthClient();
   // 刻み・メニューは日表示の代行登録ダイアログ(空き枠クリック)に渡す。

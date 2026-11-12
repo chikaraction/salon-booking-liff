@@ -8,12 +8,19 @@ import {
   buildMenuAdminGroups,
   countMenusByCategory,
 } from "@/lib/menu-settings";
-import { createAdminAuthClient } from "@/server/admin-auth";
+import {
+  canUseAdminInRender,
+  createAdminAuthClient,
+} from "@/server/admin-auth";
 import { fetchMenuSettings } from "@/server/settings-data";
 
 import { MenuSettingsForm } from "./_components/menu-settings-form";
 
 export default async function MenuSettingsPage() {
+  // 管理画面を使えないユーザー(未紐付け・無効にされたスタッフ)には保護レイアウトが
+  // 案内だけを出す。そのときもページは実行されるので、何も取得せずに終える
+  if (!(await canUseAdminInRender())) return null;
+
   const supabase = await createAdminAuthClient();
   const settings = await fetchMenuSettings(supabase);
 
