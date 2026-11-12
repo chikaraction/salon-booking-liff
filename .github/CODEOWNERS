@@ -1,0 +1,31 @@
+# 変更がそのまま CI・開発機・本番の動きに効くファイルの持ち主。
+# ここに挙げたパスを変える PR には、持ち主へのレビュー依頼が自動で付く
+# (外部からの PR や Dependabot の PR に紛れた変更を見落としにくくする)。
+#
+# ルールセットで「コードオーナーのレビュー必須」にはしていない。1人で開発していて
+# 自分の PR は自分で承認できないので、必須にすると自分の PR をマージできなくなる。
+
+# CI とリポジトリの自動化
+/.github/ @chikaraction
+
+# Claude Code の設定とフック(開発機でコマンドが動く)
+/.claude/ @chikaraction
+
+# 依存とビルド・デプロイの設定
+/package.json @chikaraction
+/package-lock.json @chikaraction
+/next.config.ts @chikaraction
+/open-next.config.ts @chikaraction
+/wrangler.jsonc @chikaraction
+/worker.ts @chikaraction
+/scripts/ @chikaraction
+
+# データベースの定義と権限(RLS)
+/supabase/ @chikaraction
+
+# 認証と入口の制御
+/src/middleware.ts @chikaraction
+/src/server/ @chikaraction
+
+# 対外的なセキュリティの説明
+/SECURITY.md @chikaraction
