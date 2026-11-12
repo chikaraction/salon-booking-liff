@@ -11,10 +11,12 @@ import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import type { User } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { cache } from "react";
 
 import {
   SETTINGS_PERMISSION_DENIED_MESSAGE,
   canManageSettings,
+  canUseAdmin,
   isStaffRole,
   type StaffRole,
 } from "@/lib/admin-permissions";
@@ -84,17 +86,20 @@ export type CurrentStaff = {
 
 /**
  * ログイン中の Auth ユーザーに対応する staff 行を返す。
- * 未ログイン、または staff.auth_user_id が未紐付けなら null(ADR-005)。
+ * 未ログイン、staff.auth_user_id が未紐付け、または無効にされたスタッフ
+ * (is_active = false)なら null(ADR-005)。
  *
  * - 起点は getSession ではなく検証済みの getUser(getAdminUser と同じ方針)
  * - 取得は authenticated クライアント(RLS適用)。service_role は使わない。
- *   staff の SELECT は全スタッフに許可されているので普通に引ける
+ *   staff を読めるのは有効なスタッフだけ(閲覧ポリシーが current_staff_role() で
+ *   判定する)。有効なスタッフは自分の行を読める。無効・未紐付けのユーザーは
+ *   RLS で 0 件になり、null を返す
  * - null は「ロール不明」であり、DBの current_staff_role() が NULL を返す状態と
- *   一致する。設定変更はアプリ層でもRLSでも拒否される
+ *   一致する。予約系・設定系の閲覧も変更も、アプリ層でもRLSでも拒否される
  *   (紐付け手順は README の「店側スタッフ(管理画面ユーザー)の登録」を参照)
- * - 紐付け漏れ(Authユーザーはあるが staff 行が無い)は console.warn に
- *   auth ユーザーIDだけを残す。画面側は原因を出さないため、運用時の切り分けは
- *   このログで行う
+ * - 0 件のとき(紐付け漏れか、無効にされたスタッフ。RLS で行が見えないので
+ *   ここからは区別できない)は console.warn に auth ユーザーIDだけを残す。
+ *   画面側は原因を出さないため、運用時の切り分けはこのログで行う
  */
 export async function getCurrentStaff(): Promise<CurrentStaff | null> {
   const supabase = await createAdminAuthClient();
@@ -103,7 +108,7 @@ export async function getCurrentStaff(): Promise<CurrentStaff | null> {
     return null;
   }
 
-  // 未紐付けなら0件。maybeSingle は0件をエラーにせず null を返す
+  // 未紐付け・無効にされたスタッフなら0件(RLS)。maybeSingle は0件をエラーにせず null を返す
   const { data, error } = await supabase
     .from("staff")
     .select("id, name, role")
@@ -114,16 +119,19 @@ export async function getCurrentStaff(): Promise<CurrentStaff | null> {
     return null;
   }
   if (data === null) {
-    // Authユーザーはあるのに staff 行が無い = 紐付け漏れ。障害ではなく運用上の
-    // 設定漏れなので error ではなく warn にする(取得エラーは上の console.error、
-    // role の想定外値は下の console.error が担当。役割が重複しないようにしている)。
+    // Authユーザーはあるのに、読める staff 行が無い = 紐付け漏れか、無効にされた
+    // スタッフ(無効のスタッフは RLS で自分の行も読めないので、ここからは区別
+    // できない)。障害ではなく運用上の状態なので error ではなく warn にする
+    // (取得エラーは上の console.error、role の想定外値は下の console.error が担当。
+    // 役割が重複しないようにしている)。無効にしたスタッフがログインするたびに
+    // 出るが、意図どおり弾けている記録でもある。
     //
-    // 権限不足カード(settings/layout.tsx)は読み手が対処できないため原因を
-    // 出さない。そのぶんの診断性をこのログで補う。
+    // 案内カード(保護レイアウトと settings/layout.tsx)は読み手が対処できないため
+    // 原因を出さない。そのぶんの診断性をこのログで補う。
     // 出すのは auth ユーザーIDだけ(READMEの紐付けSQLに必要なのもこのIDで、
     // メールアドレスなどの個人情報はログに入れない)。
     console.warn(
-      "管理画面ユーザーに紐付く staff 行がありません(auth_user_id の紐付け漏れ)。auth user id:",
+      "管理画面ユーザーに紐付く有効な staff 行がありません(auth_user_id の紐付け漏れ、または無効にされたスタッフ)。auth user id:",
       userData.user.id,
     );
     return null;
@@ -136,6 +144,35 @@ export async function getCurrentStaff(): Promise<CurrentStaff | null> {
     return null;
   }
   return { id: staff.id, name: staff.name, role: staff.role };
+}
+
+/**
+ * 描画(レイアウト・ページ)用の getCurrentStaff。同じリクエストの描画の中では
+ * 1回だけ問い合わせ、レイアウトとページで結果を共有する(React の cache)。
+ *
+ * Server Action からは getCurrentStaff / requireOwner を使う。cache は描画の外では
+ * 効かず毎回問い合わせるので(react の cache 実装: dispatcher が無ければ素通し)、
+ * こちらを呼んでも害はないが、意図が伝わるよう使い分ける。
+ */
+export const getCurrentStaffForRender = cache(getCurrentStaff);
+
+/**
+ * 保護配下のページの先頭で通すガード。管理画面を使えないユーザー(未紐付け・
+ * 無効にされたスタッフ)なら false。ページは何も取得せず null を返すこと。
+ *
+ * 保護レイアウトはこのユーザーに案内カードだけを出して children を描かないが、
+ * Next はレイアウトが children を描かなくても配下のページを実行する(E2Eで確認:
+ * ページの店舗設定の取得が0件で例外になり、サーバーのログにエラーが残った)。
+ * そのためページ側でも先に止める。判断は canUseAdmin(src/lib/admin-permissions.ts)。
+ *
+ * 使い方:
+ * ```ts
+ * if (!(await canUseAdminInRender())) return null;
+ * ```
+ */
+export async function canUseAdminInRender(): Promise<boolean> {
+  const staff = await getCurrentStaffForRender();
+  return canUseAdmin(staff?.role ?? null);
 }
 
 export type OwnerGuardResult =

@@ -9,6 +9,28 @@
 export type StaffRole = "owner" | "staff";
 
 /**
+ * 管理画面(/admin 配下。ログイン画面を除く)を使えるか。
+ * 有効なスタッフに紐付いたログインユーザーだけが使える。
+ *
+ * null は「staff.auth_user_id が未紐付け」「無効にされたスタッフ(is_active = false)」
+ * 「ロールが想定外の値」のいずれか(admin-auth.ts の getCurrentStaff が null を返す)。
+ * このとき DB の current_staff_role() も NULL で、RLSにより予約系も設定系も
+ * 0件しか読めない。店名すら読めず画面を組み立てられないので、保護レイアウトは
+ * 画面を描かずに案内だけを出す。
+ */
+export function canUseAdmin(role: StaffRole | null): boolean {
+  return role !== null;
+}
+
+/**
+ * 管理画面を使えないとき(canUseAdmin が false)の見出し。
+ * 原因を断定しない文言にしてある(未紐付けの場合と、無効にされた場合の
+ * 両方で使うため。本人にはどちらなのか分からず、自分では解消もできない)。
+ */
+export const ADMIN_NOT_REGISTERED_MESSAGE =
+  "このアカウントは管理画面を使えるスタッフとして登録されていません";
+
+/**
  * 設定系(店舗設定・営業日・スタッフ・メニュー)を変更できるか。
  *
  * null は「未ログイン」または「staff.auth_user_id が未紐付け」を表す。

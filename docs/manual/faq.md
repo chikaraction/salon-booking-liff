@@ -40,6 +40,6 @@ permalink: /faq/
 
 設定を変えられるのはオーナーだけです。[権限の違い]({{ site.baseurl }}/admin/)を見てください。
 
-## ログインできるのに予約カレンダーが空で、設定も出ない
+## ログインできるのに「スタッフとして登録されていない」という案内だけが出る
 
-ログインのアカウントが、スタッフの登録と紐付いていません。システムの管理者に紐付けを頼んでください(手順は[セットアップとデプロイ](https://github.com/chikaraction/salon-booking-liff/blob/main/docs/setup.md)の「管理画面にログインさせる」)。
+ログインのアカウントが、スタッフの登録と紐付いていないか、そのスタッフが無効になっています。システムの管理者に紐付けを頼んでください(手順は[セットアップとデプロイ](https://github.com/chikaraction/salon-booking-liff/blob/main/docs/setup.md)の「管理画面にログインさせる」)。

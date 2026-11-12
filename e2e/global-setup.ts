@@ -1,7 +1,8 @@
 // テストの前に、手元のSupabaseを毎回同じ状態に作り直す(ADR-008)。
 // 1. マイグレーションと supabase/seed.sql を当て直す
 // 2. 管理画面のアカウント(オーナー・スタッフ)を作り、seed のスタッフに紐付ける。
-//    紐付けないアカウント(UNLINKED_ACCOUNT と、ブラウザごとのログアウト用)も作る
+//    紐付けないアカウント(UNLINKED_ACCOUNT と、ブラウザごとのログアウト用)と、
+//    無効にしたスタッフのアカウント(INACTIVE_STAFF_ACCOUNT。専用の staff 行つき)も作る
 // 3. 主な画面を一度開いて、開発サーバーのコンパイルを済ませておく
 
 import { execSync } from "node:child_process";
@@ -9,6 +10,7 @@ import type { FullConfig } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import {
   ADMIN_ACCOUNTS,
+  INACTIVE_STAFF_ACCOUNT,
   UNLINKED_ACCOUNT,
   logoutAccount,
 } from "./support/accounts";
@@ -64,6 +66,34 @@ export default async function globalSetup(config: FullConfig) {
     if (linkError) {
       throw new Error(
         `スタッフに紐付けられませんでした(${account.email}): ${linkError.message}`,
+      );
+    }
+  }
+
+  // 無効にしたスタッフ(やめたスタッフの再現)。専用の staff 行を足して紐付ける。
+  // 無効のスタッフは、予約が無ければカレンダー・客側の指名には出ない
+  // (スタッフ設定の一覧には「無効」として出る)
+  {
+    const { data, error } = await admin.auth.admin.createUser({
+      email: INACTIVE_STAFF_ACCOUNT.email,
+      password: INACTIVE_STAFF_ACCOUNT.password,
+      email_confirm: true,
+    });
+    if (error) {
+      throw new Error(
+        `テスト用アカウントを作れませんでした(${INACTIVE_STAFF_ACCOUNT.email}): ${error.message}`,
+      );
+    }
+    const { error: insertError } = await admin.from("staff").insert({
+      name: INACTIVE_STAFF_ACCOUNT.staffName,
+      role: "staff",
+      display_order: 99,
+      is_active: false,
+      auth_user_id: data.user.id,
+    });
+    if (insertError) {
+      throw new Error(
+        `無効のスタッフを作れませんでした(${INACTIVE_STAFF_ACCOUNT.email}): ${insertError.message}`,
       );
     }
   }

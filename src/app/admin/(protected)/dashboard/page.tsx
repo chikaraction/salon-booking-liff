@@ -12,7 +12,10 @@ import {
   summarizeTodayByStaff,
 } from "@/lib/dashboard";
 import { cn } from "@/lib/utils";
-import { createAdminAuthClient } from "@/server/admin-auth";
+import {
+  canUseAdminInRender,
+  createAdminAuthClient,
+} from "@/server/admin-auth";
 import { getDashboardSummary } from "@/server/admin-data";
 
 // 白いカードはページ背景(#f7f6f3)と明度が近いので、モックGどおり淡い枠を付ける
@@ -23,6 +26,10 @@ const unitClass = "ml-1.5 text-lg font-medium text-muted-foreground";
 const noteClass = "mt-4 text-sm text-muted-foreground";
 
 export default async function DashboardPage() {
+  // 管理画面を使えないユーザー(未紐付け・無効にされたスタッフ)には保護レイアウトが
+  // 案内だけを出す。そのときもページは実行されるので、何も取得せずに終える
+  if (!(await canUseAdminInRender())) return null;
+
   const supabase = await createAdminAuthClient();
   const summary = await getDashboardSummary(supabase, new Date());
 

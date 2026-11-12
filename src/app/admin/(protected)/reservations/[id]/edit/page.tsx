@@ -15,7 +15,10 @@ import {
 } from "@/lib/admin-reservation-form";
 import { isUuid } from "@/lib/booking";
 import { jstCalendarDate, jstClockTime } from "@/lib/jst";
-import { createAdminAuthClient } from "@/server/admin-auth";
+import {
+  canUseAdminInRender,
+  createAdminAuthClient,
+} from "@/server/admin-auth";
 import {
   fetchActiveMenus,
   fetchAdminStaff,
@@ -32,6 +35,10 @@ export default async function EditReservationPage({
   if (!isUuid(id)) {
     notFound();
   }
+
+  // 管理画面を使えないユーザー(未紐付け・無効にされたスタッフ)には保護レイアウトが
+  // 案内だけを出す。そのときもページは実行されるので、何も取得せずに終える
+  if (!(await canUseAdminInRender())) return null;
 
   const supabase = await createAdminAuthClient();
   const [detail, staff, menus] = await Promise.all([

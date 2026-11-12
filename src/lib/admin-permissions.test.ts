@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ADMIN_NOT_REGISTERED_MESSAGE,
   SETTINGS_PERMISSION_DENIED_MESSAGE,
   canManageSettings,
+  canUseAdmin,
   isStaffRole,
   toStaffRole,
   visibleAdminNavItems,
@@ -22,6 +24,33 @@ describe("canManageSettings(設定系を変更できるか)", () => {
     // current_staff_role() が NULL を返すケース。
     // 紐付け漏れで「オーナーのつもりが変更できない」が起きうるので必ず false
     expect(canManageSettings(null)).toBe(false);
+  });
+});
+
+describe("canUseAdmin(管理画面を使えるか)", () => {
+  it("オーナーは管理画面を使える", () => {
+    expect(canUseAdmin("owner")).toBe(true);
+  });
+
+  it("スタッフは管理画面を使える", () => {
+    expect(canUseAdmin("staff")).toBe(true);
+  });
+
+  it("スタッフに紐付いていない・無効にされた(null)ときは使えない", () => {
+    // current_staff_role() が NULL を返すケース。RLSで予約系も設定系も0件になるので、
+    // 画面を描かずに案内だけを出す
+    expect(canUseAdmin(null)).toBe(false);
+  });
+});
+
+describe("ADMIN_NOT_REGISTERED_MESSAGE(スタッフとして登録されていないときの見出し)", () => {
+  it("スタッフとして登録されていないと日本語で伝える", () => {
+    expect(ADMIN_NOT_REGISTERED_MESSAGE).toContain("登録されていません");
+  });
+
+  it("原因を断定しない(未紐付けにも、無効にされた場合にも当てはまる文言)", () => {
+    expect(ADMIN_NOT_REGISTERED_MESSAGE).not.toContain("無効");
+    expect(ADMIN_NOT_REGISTERED_MESSAGE).not.toContain("紐付");
   });
 });
 

@@ -6,7 +6,10 @@
 
 import { jstCalendarDate, jstClockTime } from "@/lib/jst";
 import { fillStaffWorkingHours } from "@/lib/staff-settings";
-import { createAdminAuthClient } from "@/server/admin-auth";
+import {
+  canUseAdminInRender,
+  createAdminAuthClient,
+} from "@/server/admin-auth";
 import {
   fetchStaffSettings,
   fetchUpcomingStaffBlocks,
@@ -22,6 +25,10 @@ import { StaffSettingsForm } from "./_components/staff-settings-form";
 const BLOCK_LIST_DAYS = 180;
 
 export default async function StaffSettingsPage() {
+  // 管理画面を使えないユーザー(未紐付け・無効にされたスタッフ)には保護レイアウトが
+  // 案内だけを出す。そのときもページは実行されるので、何も取得せずに終える
+  if (!(await canUseAdminInRender())) return null;
+
   const supabase = await createAdminAuthClient();
   const today = jstCalendarDate(new Date());
 

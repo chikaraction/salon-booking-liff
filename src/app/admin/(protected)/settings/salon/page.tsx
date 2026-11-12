@@ -7,12 +7,19 @@
 // 既定値は画面から埋めない。DBのdefault(マイグレーションで定義)が正で、
 // この画面は現在値を出して編集するだけにする(ADR-007)。
 
-import { createAdminAuthClient } from "@/server/admin-auth";
+import {
+  canUseAdminInRender,
+  createAdminAuthClient,
+} from "@/server/admin-auth";
 import { fetchSalonSettings } from "@/server/settings-data";
 
 import { SalonSettingsForm } from "./_components/salon-settings-form";
 
 export default async function SalonSettingsPage() {
+  // 管理画面を使えないユーザー(未紐付け・無効にされたスタッフ)には保護レイアウトが
+  // 案内だけを出す。そのときもページは実行されるので、何も取得せずに終える
+  if (!(await canUseAdminInRender())) return null;
+
   const supabase = await createAdminAuthClient();
   const settings = await fetchSalonSettings(supabase);
 

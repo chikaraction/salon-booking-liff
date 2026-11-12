@@ -4,12 +4,19 @@
 // 候補・検証・変更の有無の判定は純粋関数(display-settings.ts)。
 // オーナー限定の確認は settings/layout.tsx が担う(ADR-005)。
 
-import { createAdminAuthClient } from "@/server/admin-auth";
+import {
+  canUseAdminInRender,
+  createAdminAuthClient,
+} from "@/server/admin-auth";
 import { fetchDisplaySettings } from "@/server/settings-data";
 
 import { DisplaySettingsForm } from "./_components/display-settings-form";
 
 export default async function DisplaySettingsPage() {
+  // 管理画面を使えないユーザー(未紐付け・無効にされたスタッフ)には保護レイアウトが
+  // 案内だけを出す。そのときもページは実行されるので、何も取得せずに終える
+  if (!(await canUseAdminInRender())) return null;
+
   const supabase = await createAdminAuthClient();
   const settings = await fetchDisplaySettings(supabase);
 

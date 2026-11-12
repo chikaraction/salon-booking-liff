@@ -29,6 +29,18 @@ export const UNLINKED_ACCOUNT = {
 } as const;
 
 /**
+ * 無効にしたスタッフ(is_active = false)のアカウント(やめたスタッフの再現)。
+ * オーナー・スタッフの共有アカウントを無効にすると並行するテストが壊れるので、
+ * 専用の staff 行を e2e/global-setup.ts で作る(seed.sql には無い)。
+ * このアカウントではログアウトしない(3つのブラウザで共有するため)
+ */
+export const INACTIVE_STAFF_ACCOUNT = {
+  staffName: "E2E無効スタッフ",
+  email: "inactive@e2e.test",
+  password: "e2e-inactive-password",
+} as const;
+
+/**
  * ログアウトのテスト用のアカウント(スタッフに紐付けない)。ブラウザごとに分ける。
  * ログアウトは同じアカウントの全セッションを無効にするので、3つのブラウザで1つを
  * 共有すると、並行するテストどうしでログイン状態を消し合う

@@ -4,10 +4,17 @@
 
 import { ProxyRegistrationForm } from "@/app/admin/(protected)/_components/proxy-registration-form";
 import { jstCalendarDate } from "@/lib/jst";
-import { createAdminAuthClient } from "@/server/admin-auth";
+import {
+  canUseAdminInRender,
+  createAdminAuthClient,
+} from "@/server/admin-auth";
 import { fetchActiveMenus, fetchAdminStaff } from "@/server/admin-data";
 
 export default async function ProxyRegistrationPage() {
+  // 管理画面を使えないユーザー(未紐付け・無効にされたスタッフ)には保護レイアウトが
+  // 案内だけを出す。そのときもページは実行されるので、何も取得せずに終える
+  if (!(await canUseAdminInRender())) return null;
+
   const supabase = await createAdminAuthClient();
   const [staff, menus] = await Promise.all([
     fetchAdminStaff(supabase),
