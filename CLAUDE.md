@@ -28,14 +28,14 @@ npx playwright show-report # E2Eの結果。全テストの最後の画面とト
 npm run lint     # Lint(ESLint)
 npm run format   # Prettierで全体整形
 npm run format:check # 整形のチェックだけ(CI でも回る)
-npm run db:types # DBの型を再生成(リンク済みのリモートDBを読み取る)
+npm run db:types # DBの型を再生成(手元のSupabaseのスキーマを読む。先に npx supabase start)
 ```
 
-スキーマ変更: `supabase/migrations/` にマイグレーションを追加し
-`npx supabase db push` で適用(事前の検証は手元のSupabase(WSL2+Docker Desktop。
-`npx supabase start`)で `npx supabase db reset --local` して行う。リモートには触れない)。適用したら
-`npm run db:types` で `src/types/database.types.ts` を再生成してコミットする
-(生成ファイルは手で直さない)。null を受け付ける引数を持つRPCを足したら
+スキーマ変更: `supabase/migrations/` にマイグレーションを追加し、手元のSupabase
+(WSL2+Docker Desktop。`npx supabase start`)で `npx supabase db reset --local` して
+適用・検証する。続けて `npm run db:types` で `src/types/database.types.ts` を再生成して
+コミットする(生成ファイルは手で直さない)。リモートのDBは無い(店では運用しないため
+2026-11-16 に削除)。自分の環境のリモートに適用する手順は `docs/setup.md`。null を受け付ける引数を持つRPCを足したら
 `src/types/database.ts` の上書きにも足す。コードは `@/types/database` の
 `Database` / `DbClient` を使う。
 

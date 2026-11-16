@@ -14,18 +14,45 @@ cp .env.example .env.local   # 値はSupabase/LINE Developersから取得して�
 スキーマ変更はすべて `supabase/migrations/` のマイグレーションファイルで行う
 (ダッシュボード直編集は禁止)。
 
+リモートのDB(Supabase のプロジェクト)に適用するとき:
+
 ```sh
 npx supabase link --project-ref <project-ref>
-npx supabase db push
-npm run db:types   # DBの型(src/types/database.types.ts)を再生成する
+npx supabase db push --remote
 ```
 
-`npm run db:types` はリンク済みのDBのスキーマを読み取るだけで、Dockerは要らない
-(`npx supabase login` 済みであること)。生成ファイルは手で直さずにコミットする。
+DBの型(`src/types/database.types.ts`)は、スキーマを変えたときに `npm run db:types` で
+作り直す。手元のSupabase(Docker)のスキーマを読むので、先に `npx supabase start` と
+`npx supabase db reset --local` を済ませておく。生成ファイルは手で直さずにコミットする。
+手元のSupabaseが動いていないなどで生成に失敗したときは、ファイルを書き換えずに終わる。
 
 マイグレーションの事前の検証は、手元のSupabase(Docker。準備は「テスト」の節)で
 `npx supabase db reset --local` して行う。マイグレーション+seed(開発用ダミーデータ)が
 入り直る。`--local` を付けて、リンク済みのリモートのDBには触れないこと。
+
+### 手元とリモートの切り替え
+
+つなぎ先は、アプリと Supabase CLI で別々に決まる。
+
+**アプリ(`npm run dev`)**: `.env.local` の 3 つの値で決まる。
+
+| 変数                            | 手元の Supabase                           | リモートの Supabase                    |
+| ------------------------------- | ----------------------------------------- | -------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`      | `npx supabase status -o env` の `API_URL` | Supabase のダッシュボードで確認した値  |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | 同じく `ANON_KEY`                         | 同上                                   |
+| `SUPABASE_SERVICE_ROLE_KEY`     | 同じく `SERVICE_ROLE_KEY`                 | 同上(管理者の鍵。共有・コミットしない) |
+
+書き換えたら、開発サーバーを起動し直す。手元の値は `npx supabase start` で起動したあとに確かめる。
+リモートにつなぐと、開発中の操作がそのまま本物のデータに入る。ふだんの開発は手元につなぐ。
+
+**Supabase CLI**: 3.x では、`db reset`・`db push`・`gen types`・`migration list` などは
+**何も付けなければ手元の Supabase が対象**になる。リモートに対して操作するのは、`link` したうえで
+`--remote` を付けたときだけ(例: `npx supabase db push --remote`)。手元の検証では、
+取り違えないよう `--local` を付けてもよい。`npm run db:types` はいつも手元から作る。
+
+**E2E と本番は、この切り替えと関係しない**: E2E はいつも手元の Supabase を使う
+(接続先は `playwright.config.ts` が渡し、`.env.local` は読まない)。本番の値は `.env.local` ではなく
+Cloudflare のビルド変数とシークレットに入れる(「環境変数の置き場所」)。
 
 ### スタッフの追加
 
@@ -160,7 +187,7 @@ npx playwright show-report   # 結果を見る
 ```
 
 - テストのたびに手元のDBを作り直してから流す(`supabase db reset --local`)。
-  つなぐのは手元のSupabaseだけで、`.env.local` のリモートのDB・本物のLINEの値は使わない
+  つなぐのは手元のSupabaseだけで、`.env.local` の値(リモートのDBや本物のLINEの値が入っていても)は使わない
 - 開発サーバーはテスト用に別のポート(3100)で自動で起動する。`npm run dev` と同時に動かしてよい
 - `show-report` では、通ったテストも含めて、テストごとに最後の画面とトレース
   (操作ごとの画面・通信・コンソールのログ)が見られる。トレースは「View Trace」で開く
@@ -268,7 +295,7 @@ Messaging API チャネル(公式アカウント)は**必ず同じプロバイ�
 
 **4. データベースと店舗の設定**
 
-- `npx supabase link --project-ref <project-ref>` → `npx supabase db push`
+- `npx supabase link --project-ref <project-ref>` → `npx supabase db push --remote`
 - 管理画面のログインアカウントは「管理画面にログインさせる」の手順で作る
 - 管理画面から店名・営業時間・定休日・スタッフ・メニュー・予約ポリシー・表示設定を入れる
 
@@ -297,7 +324,7 @@ Messaging API チャネル(公式アカウント)は**必ず同じプロバイ�
 
 | 店舗ごとに用意するもの | 備考                                                                         |
 | ---------------------- | ---------------------------------------------------------------------------- |
-| Supabase プロジェクト  | 新規作成 → `npx supabase link` → `npx supabase db push`                      |
+| Supabase プロジェクト  | 新規作成 → `npx supabase link` → `npx supabase db push --remote`             |
 | Cloudflare アカウント  | 店舗ごとに別アカウント(無料枠の 10万リクエスト/日・Cron 5個はアカウント単位) |
 | LINE プロバイダー      | ログインチャネル+LIFF+Messaging API(公式アカウント)を同じプロバイダーに      |
 | LINE 公式アカウント    | 店の既存アカウントを使う                                                     |
