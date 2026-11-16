@@ -84,15 +84,19 @@ allowed_cidrs_v6 = ["::/0"]
 # [db.ssl_enforcement]
 # enabled = true
 
+# このアプリが使うのは db・API(PostgREST)・auth だけ。使わないサービスは起動しない
+# (起動を速く、メモリを軽くするため。2026-11-16)。使うようになったら true に戻す。
+# 画面は開くときや操作したときに取り直す作りで、変更の即時通知は使わない
 [realtime]
-enabled = true
+enabled = false
 # Bind realtime via either IPv4 or IPv6. (default: IPv4)
 # ip_version = "IPv6"
 # The maximum length in bytes of HTTP request headers. (default: 4096)
 # max_header_length = 4096
 
+# DBの中身を見る管理画面。アプリは使わない。見たいときだけ true にして起動し直す
 [studio]
-enabled = true
+enabled = false
 # Port to use for Supabase Studio.
 port = 54323
 # External URL of the API server that frontend connects to.
@@ -102,8 +106,9 @@ openai_api_key = "env(OPENAI_API_KEY)"
 
 # Email testing server. Emails sent with the local dev setup are not actually sent - rather, they
 # are monitored, and you can view the emails that would have been sent from the web interface.
+# このアプリはメールを送らない(E2E のアカウントも email_confirm で確認済みとして作る)
 [local_smtp]
-enabled = true
+enabled = false
 # Port to use for the email testing server web interface.
 port = 54324
 # Uncomment to expose additional ports for testing user applications that send emails.
@@ -112,8 +117,9 @@ port = 54324
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
+# スタッフの写真は URL の文字列(staff.photo_url)で持ち、ファイルは置かない
 [storage]
-enabled = true
+enabled = false
 # The maximum file size allowed (e.g. "5MB", "500KB").
 file_size_limit = "50MiB"
 
@@ -371,8 +377,9 @@ authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
 allow_dynamic_registration = false
 
+# Edge Functions は無い(サーバーの処理は Next.js と Cloudflare の Cron が持つ)
 [edge_runtime]
-enabled = true
+enabled = false
 # Supported request policies: `oneshot`, `per_worker`.
 # `per_worker` (default) — enables hot reload during local development.
 # `oneshot` — fallback mode if hot reload causes issues (e.g. in large repos or with symlinks).
@@ -385,8 +392,9 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+# 手元のログ集め(vector など)。アプリは使わない
 [analytics]
-enabled = true
+enabled = false
 port = 54327
 # Configure one of the supported backends: `postgres`, `bigquery`.
 backend = "postgres"
