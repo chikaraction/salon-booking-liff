@@ -50,4 +50,5 @@ exclude:
   - mockup-brief.md
   - ui-guidelines.md
   - ui-polish-plan.md
+  - outage-reservation-copy-plan.md
   - milestone-*.md
