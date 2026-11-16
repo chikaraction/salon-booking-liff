@@ -116,7 +116,7 @@ AI の出力がぶれないよう、次の仕組みをリポジトリに置い�
 
 - [`CLAUDE.md`](CLAUDE.md): 設計規約と、ADR に矛盾する実装は相談するというルール
 - [`.claude/skills/`](.claude/skills/): 機能を実装するときの手順と、マージ前の確認項目
-- [`.claude/hooks/`](.claude/hooks/): 変更したファイルの Lint と、実装をサブエージェントに任せるための制限
+- [`.claude/hooks/`](.claude/hooks/): 変更したファイルの整形と Lint
 
 ## スタック
 
